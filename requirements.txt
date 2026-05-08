@@ -1,0 +1,10 @@
+Django==5.1.4
+gunicorn==23.0.0
+whitenoise==6.8.2
+psycopg[binary]==3.2.3
+dj-database-url==2.3.0
+django-environ==0.11.2
+django-htmx==1.21.0
+django-tailwind[reload]==3.8.0
+Pillow==11.0.0
+requests==2.32.3
