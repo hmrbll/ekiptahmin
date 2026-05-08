@@ -48,3 +48,7 @@ desktop.ini
 # Claude Code (local-only)
 memory/
 .claude/settings.local.json
+
+# Dev artifacts
+_dev_emails/
+_debug_*.py

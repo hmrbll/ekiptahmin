@@ -1,0 +1,11 @@
+Merhaba {{ nickname }},
+
+ekiptahmin.com için giriş linkin:
+
+{{ confirm_url }}
+
+Bu link 15 dakika boyunca geçerli ve sadece bir kez kullanılabilir.
+
+Eğer bu girişi sen talep etmediysen, bu maili görmezden gelebilirsin.
+
+— ekiptahmin.com

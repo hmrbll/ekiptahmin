@@ -1,0 +1,26 @@
+{% extends "accounts/_card_layout.html" %}
+
+{% block title %}Mailini kontrol et — ekiptahmin.com{% endblock %}
+
+{% block card_title %}
+<div class="text-5xl mb-4">📬</div>
+<h1 class="text-2xl font-bold mb-1">Mailini kontrol et</h1>
+<p class="text-sm text-slate-400 mb-6">
+    <span class="text-slate-200 font-medium">{{ email }}</span> adresine bir link gönderdik.
+    Tıklayınca giriş yapacaksın.
+</p>
+{% endblock %}
+
+{% block card_content %}
+<div class="space-y-3 text-sm text-slate-400">
+    <p>📨 Link 15 dakika boyunca geçerli.</p>
+    <p>🔍 Spam/junk klasörünü de kontrol et.</p>
+    <p>🚫 Gelmediyse: muhtemelen bu email adresi kayıtlı değil. Hemre'den davet linki iste.</p>
+</div>
+{% endblock %}
+
+{% block card_footer %}
+<p class="mt-4 text-center text-sm text-slate-400">
+    Yanlış mı yazdın? <a href="{% url 'login' %}" class="text-emerald-400 hover:text-emerald-300">Tekrar dene</a>
+</p>
+{% endblock %}

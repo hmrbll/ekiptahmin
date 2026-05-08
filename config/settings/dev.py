@@ -13,8 +13,13 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
-# Console email backend for dev (prints emails to terminal)
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# File-based email backend for dev — writes to _dev_emails/ as .log files.
+# Console backend would crash on Windows with Turkish chars (cp1252 stdout).
+from .base import BASE_DIR  # noqa: E402
+
+EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_FILE_PATH = BASE_DIR / "_dev_emails"
+EMAIL_FILE_PATH.mkdir(exist_ok=True)
 
 # Django Debug Toolbar
 INSTALLED_APPS = [*INSTALLED_APPS, "debug_toolbar", "django_browser_reload"]

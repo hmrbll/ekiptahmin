@@ -8,3 +8,5 @@ django-htmx==1.21.0
 django-tailwind[reload]==3.8.0
 Pillow==11.0.0
 requests==2.32.3
+django-sesame==3.2.2
+django-ratelimit==4.1.0

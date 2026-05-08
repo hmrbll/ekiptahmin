@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "django_htmx",
     "tailwind",
     "theme",
+    "sesame",
     # Local
     "apps.accounts",
     "apps.tournament",
@@ -39,6 +40,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "config.middleware.AdminLanguageMiddleware",  # /admin/ → English
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -94,6 +96,21 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Authentication
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "sesame.backends.ModelBackend",
+]
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "dashboard"
+LOGOUT_REDIRECT_URL = "home"
+
+# django-sesame: magic links
+SESAME_MAX_AGE = 60 * 15           # 15 minutes
+SESAME_ONE_TIME = True              # token can only be used once
+SESAME_TOKEN_NAME = "t"             # short URL param: ?t=<token>
+SESAME_SIGNATURE_SIZE = 16          # bytes (128 bit) — solid security
 
 # Email
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@ekiptahmin.com")

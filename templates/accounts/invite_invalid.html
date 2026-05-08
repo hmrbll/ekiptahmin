@@ -1,0 +1,24 @@
+{% extends "accounts/_card_layout.html" %}
+
+{% block title %}Davet geçersiz — ekiptahmin.com{% endblock %}
+
+{% block card_title %}
+<div class="text-5xl mb-4">🚫</div>
+<h1 class="text-2xl font-bold mb-1">Davet geçersiz</h1>
+<p class="text-sm text-slate-400 mb-6">
+    {% if invite.used_at %}Bu davet zaten kullanılmış.{% else %}Bu davetin süresi dolmuş.{% endif %}
+</p>
+{% endblock %}
+
+{% block card_content %}
+<p class="text-sm text-slate-400">
+    Yeni bir davet için seni davet eden kişiyle iletişime geç.
+    Eğer hesabın zaten varsa, doğrudan giriş yapabilirsin.
+</p>
+{% endblock %}
+
+{% block card_footer %}
+<p class="mt-4 text-center text-sm text-slate-400">
+    <a href="{% url 'login' %}" class="text-emerald-400 hover:text-emerald-300">Giriş yap</a>
+</p>
+{% endblock %}

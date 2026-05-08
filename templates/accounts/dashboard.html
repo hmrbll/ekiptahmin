@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    <header class="border-b border-white/5 px-6 py-4 flex items-center justify-between">
+        <a href="{% url 'home' %}" class="text-sm font-semibold text-slate-300 hover:text-white transition">
+            ekiptahmin<span class="text-emerald-400">.com</span>
+        </a>
+        <div class="flex items-center gap-3">
+            <span class="text-sm text-slate-400 hidden sm:inline">{{ user.nickname|default:user.email }}</span>
+            <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-sm text-slate-400 hover:text-white transition">Çıkış</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="px-6 py-12 max-w-3xl mx-auto">
+        <h1 class="text-3xl font-bold mb-2">Hoş geldin{% if user.nickname %}, {{ user.nickname }}{% endif %} 👋</h1>
+        <p class="text-slate-400 mb-8">Turnuva henüz başlamadı. Tahminler, leaderboard, maç ekranları yakında burada olacak.</p>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div class="text-sm font-medium text-slate-300 mb-2">Sıradaki adım</div>
+            <p class="text-sm text-slate-400">
+                Turnuva fikstürü ve tahmin formu Faz 2-4'te eklenecek.
+                O zamana kadar burada bir şey yapacak yok.
+            </p>
+        </div>
+    </main>
+</div>
+{% endblock %}

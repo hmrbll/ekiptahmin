@@ -1,0 +1,54 @@
+{% extends "accounts/_card_layout.html" %}
+
+{% block title %}Kayıt ol — ekiptahmin.com{% endblock %}
+
+{% block card_title %}
+<h1 class="text-2xl font-bold mb-1">Kayıt ol</h1>
+<p class="text-sm text-slate-400 mb-6">Davet edildiğin için hoş geldin{% if invite.note %} {{ invite.note }}{% endif %}!</p>
+{% endblock %}
+
+{% block card_content %}
+<form method="post" novalidate class="space-y-4">
+    {% csrf_token %}
+
+    <div>
+        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
+        <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
+               value="{{ form.email.value|default:'' }}"
+               placeholder="ornek@mail.com"
+               autocomplete="email" autofocus required
+               class="w-full rounded-lg bg-slate-900/50 border border-white/10 px-3 py-2.5 text-sm placeholder:text-slate-500 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition">
+        {% for error in form.email.errors %}
+            <p class="mt-1.5 text-xs text-rose-400">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div>
+        <label for="{{ form.nickname.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">Nickname</label>
+        <input type="text" name="{{ form.nickname.html_name }}" id="{{ form.nickname.id_for_label }}"
+               value="{{ form.nickname.value|default:'' }}"
+               placeholder="Ekipte nasıl görünmek istersin?"
+               autocomplete="nickname" required maxlength="40"
+               class="w-full rounded-lg bg-slate-900/50 border border-white/10 px-3 py-2.5 text-sm placeholder:text-slate-500 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition">
+        {% for error in form.nickname.errors %}
+            <p class="mt-1.5 text-xs text-rose-400">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <button type="submit"
+            class="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold py-2.5 text-sm transition">
+        Kayıt ol
+    </button>
+</form>
+
+<p class="mt-6 text-xs text-slate-500 leading-relaxed">
+    Hesabını aktif etmek için emailine bir doğrulama linki göndereceğiz.
+    Şifre yok — her girişte mailine bir link gelecek.
+</p>
+{% endblock %}
+
+{% block card_footer %}
+<p class="mt-4 text-center text-sm text-slate-400">
+    Zaten hesabın var mı? <a href="{% url 'login' %}" class="text-emerald-400 hover:text-emerald-300">Giriş yap</a>
+</p>
+{% endblock %}

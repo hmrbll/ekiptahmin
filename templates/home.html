@@ -3,55 +3,94 @@
 {% block title %}ekiptahmin.com — 2026 Dünya Kupası Tahmin Oyunu{% endblock %}
 
 {% block content %}
-<main class="relative isolate min-h-full flex flex-col">
-    <div class="absolute inset-0 -z-10 overflow-hidden">
-        <div class="absolute -top-40 -right-32 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl"></div>
-        <div class="absolute top-1/3 -left-32 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl"></div>
-        <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-rose-500/10 blur-3xl"></div>
-    </div>
+<div class="min-h-full flex flex-col">
+    <header class="relative z-10 px-6 py-5 flex items-center justify-between">
+        <a href="{% url 'home' %}" class="text-sm font-semibold text-slate-300 hover:text-white transition">
+            ekiptahmin<span class="text-emerald-400">.com</span>
+        </a>
+        {% if user.is_authenticated %}
+            <a href="{% url 'dashboard' %}"
+               class="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-400/20 transition">
+                Dashboard →
+            </a>
+        {% else %}
+            <a href="{% url 'login' %}"
+               class="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition">
+                Giriş yap
+            </a>
+        {% endif %}
+    </header>
 
-    <div class="flex-1 flex items-center justify-center px-6 py-16 sm:py-24">
-        <div class="max-w-2xl w-full">
-            <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur">
-                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Yakında — Haziran 2026
-            </div>
-
-            <h1 class="text-4xl sm:text-6xl font-bold tracking-tight">
-                <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">ekiptahmin</span><span class="text-emerald-400">.com</span>
-            </h1>
-
-            <p class="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed">
-                2026 FIFA Dünya Kupası için arkadaş grubumuzun tahmin oyunu. 104 maç, 7 tahmin turu, 1 şampiyon — bracket'i en iyi okuyan kazanır.
-            </p>
-
-            <div class="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                    <div class="text-2xl sm:text-3xl font-bold text-emerald-400">48</div>
-                    <div class="text-xs text-slate-400 mt-1">Takım</div>
-                </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                    <div class="text-2xl sm:text-3xl font-bold text-indigo-400">104</div>
-                    <div class="text-xs text-slate-400 mt-1">Maç</div>
-                </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                    <div class="text-2xl sm:text-3xl font-bold text-rose-400">7</div>
-                    <div class="text-xs text-slate-400 mt-1">Tahmin Turu</div>
-                </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                    <div class="text-2xl sm:text-3xl font-bold text-amber-400">1</div>
-                    <div class="text-xs text-slate-400 mt-1">Şampiyon</div>
-                </div>
-            </div>
-
-            <div class="mt-10 text-sm text-slate-400">
-                Şu an inşa halinde. Kayıt davet ile açılacak.
-            </div>
+    <main class="relative isolate flex-1 flex flex-col">
+        <div class="absolute inset-0 -z-10 overflow-hidden">
+            <div class="absolute -top-40 -right-32 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl"></div>
+            <div class="absolute top-1/3 -left-32 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl"></div>
+            <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-rose-500/10 blur-3xl"></div>
         </div>
-    </div>
 
-    <footer class="mt-auto py-6 px-6 text-center text-xs text-slate-500 border-t border-white/5">
-        ekiptahmin.com — Türkiye'den, Dünya Kupası için.
-    </footer>
-</main>
+        <section class="px-6 py-12 sm:py-20">
+            <div class="max-w-2xl mx-auto">
+                <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Yakında — Haziran 2026
+                </div>
+
+                <h1 class="text-4xl sm:text-6xl font-bold tracking-tight">
+                    <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">ekiptahmin</span><span class="text-emerald-400">.com</span>
+                </h1>
+
+                <p class="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed">
+                    2026 FIFA Dünya Kupası için arkadaş grubumuzun tahmin oyunu. 104 maç, 7 tahmin turu, 1 şampiyon — bracket'i en iyi okuyan kazanır.
+                </p>
+
+                <div class="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+                        <div class="text-2xl sm:text-3xl font-bold text-emerald-400">48</div>
+                        <div class="text-xs text-slate-400 mt-1">Takım</div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+                        <div class="text-2xl sm:text-3xl font-bold text-indigo-400">104</div>
+                        <div class="text-xs text-slate-400 mt-1">Maç</div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+                        <div class="text-2xl sm:text-3xl font-bold text-rose-400">7</div>
+                        <div class="text-xs text-slate-400 mt-1">Tahmin Turu</div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+                        <div class="text-2xl sm:text-3xl font-bold text-amber-400">1</div>
+                        <div class="text-xs text-slate-400 mt-1">Şampiyon</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="px-6 pb-12 sm:pb-20">
+            <div class="max-w-3xl mx-auto grid sm:grid-cols-2 gap-4">
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-slate-300">🏆 Liderlik tablosu</h2>
+                        <span class="text-xs text-slate-500">Yakında</span>
+                    </div>
+                    <p class="text-sm text-slate-400 leading-relaxed">
+                        Turnuva başladıktan sonra en çok puan toplayan ekip arkadaşları burada görünecek.
+                    </p>
+                </div>
+
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-slate-300">⚽ Sıradaki maç</h2>
+                        <span class="text-xs text-slate-500">Yakında</span>
+                    </div>
+                    <p class="text-sm text-slate-400 leading-relaxed">
+                        Lock olmuş tahminler ve gerçek skor karşılaştırması maç başladıktan sonra burada.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="mt-auto py-6 px-6 text-center text-xs text-slate-500 border-t border-white/5">
+            ekiptahmin.com — Türkiye'den, Dünya Kupası için.
+        </footer>
+    </main>
+</div>
 {% endblock %}

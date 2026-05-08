@@ -1,0 +1,13 @@
+Merhaba {{ nickname }},
+
+ekiptahmin.com'a hoş geldin!
+
+Hesabını aktif etmek için aşağıdaki linke tıkla:
+
+{{ confirm_url }}
+
+Bu link 15 dakika boyunca geçerli ve sadece bir kez kullanılabilir.
+
+Eğer bu kaydı sen yapmadıysan, bu maili görmezden gelebilirsin.
+
+— ekiptahmin.com

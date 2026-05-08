@@ -25,13 +25,20 @@ CSRF_TRUSTED_ORIGINS = [
     if host
 ]
 
-# Email backend (Resend via SMTP - we'll switch to API later if needed)
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.resend.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "resend"
-EMAIL_HOST_PASSWORD = env("RESEND_API_KEY", default="")
+# Email backend — Resend via SMTP if key is set, otherwise dummy (drops emails).
+# Sign-up flow needs this; set RESEND_API_KEY in Render dashboard to enable.
+_resend_key = env("RESEND_API_KEY", default="")
+if _resend_key and _resend_key != "placeholder_will_set_later":
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = "smtp.resend.com"
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = "resend"
+    EMAIL_HOST_PASSWORD = _resend_key
+else:
+    # No real key — silently drop emails. Avoids 500 on prod sign-up forms.
+    # Magic links won't be delivered until you sign up at resend.com and set the key.
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 
 # Logging
 LOGGING = {
