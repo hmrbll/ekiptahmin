@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     # Third-party
     "django_htmx",
     "tailwind",
+    "theme",
     # Local
     "apps.accounts",
     "apps.tournament",

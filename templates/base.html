@@ -1,0 +1,17 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="tr" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <title>{% block title %}ekiptahmin.com{% endblock %}</title>
+    {% tailwind_css %}
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-slate-950 text-slate-100 antialiased font-sans">
+    {% block body %}
+    {% block content %}{% endblock %}
+    {% endblock %}
+</body>
+</html>

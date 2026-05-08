@@ -1,7 +1,13 @@
 """Development settings — local machine only."""
 
+import platform
+
 from .base import *  # noqa: F401, F403
 from .base import INSTALLED_APPS, MIDDLEWARE, env
+
+# django-tailwind needs an explicit npm path on Windows (looks for `npm`, not `npm.cmd`)
+if platform.system() == "Windows":
+    NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
 
 DEBUG = True
 

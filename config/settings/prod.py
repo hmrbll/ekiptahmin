@@ -19,7 +19,11 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 X_FRAME_OPTIONS = "DENY"
 
-CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS if host]
+CSRF_TRUSTED_ORIGINS = [
+    f"https://*{host}" if host.startswith(".") else f"https://{host}"
+    for host in ALLOWED_HOSTS
+    if host
+]
 
 # Email backend (Resend via SMTP - we'll switch to API later if needed)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
