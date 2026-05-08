@@ -1,6 +1,6 @@
 databases:
   - name: ekiptahmin-db
-    plan: starter
+    plan: basic-256mb
     databaseName: ekiptahmin
     user: ekiptahmin
     region: frankfurt
