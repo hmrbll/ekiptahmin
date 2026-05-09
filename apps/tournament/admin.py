@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.templatetags.static import static
+from django.utils.html import format_html
 
 from .models import ActualResult, BracketSlot, PredictionRound, Stage, Team, Tournament
 
@@ -36,11 +38,22 @@ class StageAdmin(admin.ModelAdmin):
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ("flag_emoji", "name_tr", "code", "group_letter", "tournament")
+    list_display = ("flag_display", "name_tr", "code", "group_letter", "tournament")
     list_filter = ("tournament", "group_letter")
     search_fields = ("name_tr", "code")
     list_display_links = ("name_tr",)
     ordering = ("group_letter", "name_tr")
+
+    @admin.display(description="Flag")
+    def flag_display(self, obj):
+        if obj.flag_svg_path:
+            url = static(obj.flag_svg_path)
+            return format_html(
+                '<img src="{}" alt="{}" style="width:32px;height:24px;'
+                'border-radius:3px;object-fit:cover;display:block">',
+                url, obj.code,
+            )
+        return obj.flag_emoji or "—"
 
 
 @admin.register(PredictionRound)

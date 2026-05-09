@@ -94,13 +94,26 @@ class Team(models.Model):
     rosters change between tournaments.
     """
 
+    # FIFA 3-letter code -> ISO alpha-2 (or flag-icons subdivision code).
+    # Drives the SVG flag lookup at static/flags/<iso>.svg.
+    FIFA_TO_ISO = {
+        "TUR": "tr", "USA": "us", "MEX": "mx", "KOR": "kr", "RSA": "za", "CZE": "cz",
+        "BIH": "ba", "CAN": "ca", "QAT": "qa", "SUI": "ch", "BRA": "br", "HAI": "ht",
+        "MAR": "ma", "SCO": "gb-sct", "AUS": "au", "PAR": "py", "CUW": "cw", "ECU": "ec",
+        "GER": "de", "CIV": "ci", "JPN": "jp", "NED": "nl", "SWE": "se", "TUN": "tn",
+        "BEL": "be", "EGY": "eg", "IRN": "ir", "NZL": "nz", "CPV": "cv", "KSA": "sa",
+        "ESP": "es", "URU": "uy", "FRA": "fr", "IRQ": "iq", "NOR": "no", "SEN": "sn",
+        "ALG": "dz", "ARG": "ar", "AUT": "at", "JOR": "jo", "COL": "co", "COD": "cd",
+        "POR": "pt", "UZB": "uz", "CRO": "hr", "ENG": "gb-eng", "GHA": "gh", "PAN": "pa",
+    }
+
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="teams")
     code = models.CharField(max_length=3, help_text="3-letter code (TUR, BRA, ESP).")
     name_tr = models.CharField(max_length=100, help_text="Country name in Turkish (user-facing).")
     flag_emoji = models.CharField(
         max_length=16,
         blank=True,
-        help_text="Flag emoji (16 chars to fit subdivision flags like England/Scotland tag sequences).",
+        help_text="Flag emoji (fallback when SVG fails or in plain-text contexts).",
     )
     group_letter = models.CharField(
         max_length=1,
@@ -111,6 +124,17 @@ class Team(models.Model):
     class Meta:
         ordering = ("group_letter", "name_tr")
         unique_together = (("tournament", "code"),)
+
+    @property
+    def flag_iso(self) -> str:
+        """ISO/flag-icons code for the SVG flag (e.g., 'tr', 'gb-eng')."""
+        return self.FIFA_TO_ISO.get(self.code.upper(), "")
+
+    @property
+    def flag_svg_path(self) -> str:
+        """Static-file path for the SVG flag, suitable for `{% static %}` tags."""
+        iso = self.flag_iso
+        return f"flags/{iso}.svg" if iso else ""
 
     def __str__(self) -> str:
         return f"{self.flag_emoji} {self.name_tr}".strip()

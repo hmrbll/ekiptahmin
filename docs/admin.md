@@ -98,12 +98,14 @@ Tournament participants. Tournament-scoped (the same country in two tournaments 
 
 | Field | What it does |
 |-------|--------------|
-| `code` | FIFA 3-letter code (TUR, BRA, ESP, ...). Used by seed CSVs and forms. |
+| `code` | FIFA 3-letter code (TUR, BRA, ESP, ...). Used by seed CSVs and forms. Drives the SVG flag lookup via the `FIFA_TO_ISO` mapping on the model. |
 | `name_tr` | Country name in Turkish — appears in dropdowns, leaderboard, predictions. |
-| `flag_emoji` | Flag emoji 🇹🇷 (English/Scotland use 7-codepoint subdivision sequences). |
+| `flag_emoji` | Fallback flag emoji (Linux servers usually lack emoji fonts, so SVG is the primary display). |
 | `group_letter` | A–L for the 12 groups. Empty for any non-group-stage team. |
 
 Filter by `tournament` and `group_letter` in the list view; search by `name_tr` or `code`.
+
+**Flags:** The team list shows SVG flags from [lipis/flag-icons](https://github.com/lipis/flag-icons) (MIT, in `static/flags/`). To add a new team's flag, add the FIFA→ISO entry to `Team.FIFA_TO_ISO` and drop the SVG into `static/flags/<iso>.svg`.
 
 ### Prediction rounds
 
