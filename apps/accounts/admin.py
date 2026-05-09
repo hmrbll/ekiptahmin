@@ -13,9 +13,9 @@ class UserAdmin(DjangoUserAdmin):
     ordering = ("-date_joined",)
     fieldsets = (
         (None, {"fields": ("username", "password")}),
-        ("Profil", {"fields": ("email", "nickname", "first_name", "last_name", "timezone")}),
-        ("İzinler", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
-        ("Tarihler", {"fields": ("last_login", "date_joined")}),
+        ("Profile", {"fields": ("email", "nickname", "first_name", "last_name", "timezone")}),
+        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Dates", {"fields": ("last_login", "date_joined")}),
     )
     add_fieldsets = (
         (None, {"classes": ("wide",), "fields": ("username", "email", "nickname", "password1", "password2")}),
@@ -30,20 +30,20 @@ class InviteAdmin(admin.ModelAdmin):
     readonly_fields = ("code", "created_at", "used_at", "used_by", "invite_link")
     fieldsets = (
         (None, {"fields": ("email", "note")}),
-        ("Geçerlilik", {"fields": ("expires_at",)}),
-        ("Otomatik", {"fields": ("code", "invite_link", "created_by", "created_at")}),
-        ("Kullanım", {"fields": ("used_at", "used_by")}),
+        ("Validity", {"fields": ("expires_at",)}),
+        ("Auto-generated", {"fields": ("code", "invite_link", "created_by", "created_at")}),
+        ("Usage", {"fields": ("used_at", "used_by")}),
     )
 
     def status_badge(self, obj):
         colors = {"active": "#10b981", "used": "#6b7280", "expired": "#ef4444"}
-        labels = {"active": "Aktif", "used": "Kullanıldı", "expired": "Süresi geçti"}
+        labels = {"active": "Active", "used": "Used", "expired": "Expired"}
         s = obj.status
         return format_html(
             '<span style="background:{};color:white;padding:2px 8px;border-radius:8px;font-size:11px">{}</span>',
             colors[s], labels[s],
         )
-    status_badge.short_description = "Durum"
+    status_badge.short_description = "Status"
 
     def invite_link(self, obj):
         from django.conf import settings
@@ -51,7 +51,7 @@ class InviteAdmin(admin.ModelAdmin):
             return "—"
         url = f"{settings.SITE_URL}/invite/{obj.code}/"
         return format_html('<a href="{}" target="_blank">{}</a>', url, url)
-    invite_link.short_description = "Davet linki"
+    invite_link.short_description = "Invite link"
 
     def save_model(self, request, obj, form, change):
         if not change and not obj.created_by:

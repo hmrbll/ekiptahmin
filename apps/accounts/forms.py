@@ -48,11 +48,11 @@ class SignupForm(forms.Form):
         nickname = self.cleaned_data["nickname"]
         user = User.objects.create(
             email=email,
-            username=email,           # username'i email'e set et (Django uniqueness için)
+            username=email,           # mirror email into username (Django uniqueness)
             nickname=nickname,
-            is_active=False,          # magic link onayına kadar aktif değil
+            is_active=False,          # activated only after magic-link confirmation
         )
-        user.set_unusable_password()  # şifre kullanmıyoruz
+        user.set_unusable_password()  # passwordless flow — magic links only
         user.save()
         return user
 

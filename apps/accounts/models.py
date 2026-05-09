@@ -34,8 +34,8 @@ def _default_invite_expiry():
 
 class Invite(models.Model):
     code = models.CharField(max_length=32, unique=True, default=_gen_invite_code)
-    email = models.EmailField(blank=True, help_text="Opsiyonel — sign-up'ta pre-fill için")
-    note = models.CharField(max_length=200, blank=True, help_text="Bu davet kim için (admin notu)")
+    email = models.EmailField(blank=True, help_text="Optional — pre-fills the sign-up form for this address.")
+    note = models.CharField(max_length=200, blank=True, help_text="Internal note: who this invite is for.")
 
     created_by = models.ForeignKey(
         "accounts.User",

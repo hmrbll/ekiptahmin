@@ -15,7 +15,7 @@ User = get_user_model()
 def _get_user_for_token(user_id):
     """parse_token callback that does NOT filter inactive users.
 
-    Default sesame backend filters with `is_active=True`, but for sign-up
+    The default sesame backend filters with `is_active=True`, but for sign-up
     confirmation we need to allow inactive users (they become active here).
     """
     from sesame import settings as sesame_settings
@@ -26,10 +26,10 @@ def _get_user_for_token(user_id):
 
 
 def invite_signup(request: HttpRequest, code: str) -> HttpResponse:
-    """GET: sign-up formu göster, POST: kullanıcı yarat + magic link yolla.
+    """GET: render sign-up form. POST: create inactive user, send magic link.
 
-    Invite consume timing: form submit'te DEĞİL, magic link confirm'de işaretlenir.
-    Yoksa yanlış email yazan kullanıcı invite'ı yakar.
+    Invite is consumed only when the magic link is confirmed (NOT on form submit),
+    so a typo in the email doesn't burn the invite.
     """
     invite = get_object_or_404(Invite, code=code)
     if not invite.is_valid:
@@ -50,9 +50,10 @@ def invite_signup(request: HttpRequest, code: str) -> HttpResponse:
 @ratelimit(key="post:email", rate="3/h", method="POST", block=False)
 @ratelimit(key="ip", rate="10/h", method="POST", block=False)
 def login_request(request: HttpRequest) -> HttpResponse:
-    """GET: email formu, POST: magic link gönder.
+    """GET: render email form. POST: send magic link.
 
-    Email enumeration koruması: kayıtlı olsun olmasın aynı sayfa gösterilir.
+    Email-enumeration protection: the same "check your email" page is rendered
+    whether the address is registered or not — no information leak.
     """
     if getattr(request, "limited", False):
         return render(request, "accounts/rate_limited.html", status=429)
@@ -71,12 +72,12 @@ def login_request(request: HttpRequest) -> HttpResponse:
 
 
 def confirm_token(request: HttpRequest) -> HttpResponse:
-    """Magic link callback — token doğrula, login et.
+    """Magic link callback — validate the token and log the user in.
 
-    Sign-up confirmation: is_active=True yapar + invite'i used işaretler.
-    Login: doğrudan auth_login.
+    Sign-up confirmation: activates the user + marks the matching invite as used.
+    Login confirmation: simply logs in.
 
-    Inactive user'ları da kabul eder (sign-up confirmation için gerekli).
+    Accepts inactive users too (required for the sign-up activation step).
     """
     token = request.GET.get("t", "")
     user = parse_token(token, _get_user_for_token)
@@ -88,7 +89,7 @@ def confirm_token(request: HttpRequest) -> HttpResponse:
     if is_signup:
         user.is_active = True
         user.save(update_fields=["is_active"])
-        # Bu kullanıcının email'iyle eşleşen aktif invite'i used işaretle
+        # Mark the most recent active invite addressed to this user's email as used.
         invite = (
             Invite.objects.filter(email__iexact=user.email, used_at__isnull=True)
             .order_by("-created_at")
