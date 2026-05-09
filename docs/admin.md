@@ -59,16 +59,6 @@ The invite list view shows a colored **status badge**:
 
 ---
 
-## AUTHENTICATION AND AUTHORIZATION
-
-### Groups
-
-Django's built-in permission grouping. Currently **unused**.
-
-Reserved for future roles like "Moderator" or "Group Captain" if we ever need permissions more granular than the superuser flag. Leave empty for now.
-
----
-
 ## TOURNAMENT
 
 ### Tournaments

@@ -1,8 +1,15 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.models import Group
 from django.utils.html import format_html
 
 from .models import Invite, User
+
+# Hide the AUTHENTICATION AND AUTHORIZATION → Groups section from the admin
+# sidebar. Permission groups aren't used in this project — Hemre is the sole
+# admin, everyone else is a standard user. The Group model still exists in the
+# DB (Django needs it), only the admin UI entry is removed.
+admin.site.unregister(Group)
 
 
 @admin.register(User)
