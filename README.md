@@ -3,86 +3,126 @@
 2026 FIFA Dünya Kupası tahmin oyunu — private league for a friend group.
 
 ## Stack
+
 - **Backend:** Django 5 + PostgreSQL
 - **Frontend:** Django templates + Tailwind CSS + HTMX
-- **Hosting:** Render (Frankfurt region)
-- **Email:** Resend
-- **Auth:** Magic link (passwordless)
+- **Hosting:** Render (Starter plan, Frankfurt)
+- **Email:** Resend (SMTP)
+- **Auth:** Magic link (passwordless), invite-gated signup
 
 ## Project Structure
 
 ```
 ekiptahmin.com/
-├── apps/
-│   ├── accounts/       # Custom User, magic link auth
-│   ├── tournament/     # Tournament, Stage, Team, BracketSlot
-│   ├── predictions/    # PredictionRound, SlotPrediction
-│   ├── scoring/        # Scoring engine (pure-Python service)
-│   └── leaderboard/    # Leaderboard view + caching
+├── apps/                       Django apps
+│   ├── accounts/               Custom User, Invite, magic-link auth
+│   ├── tournament/             Tournament, Stage, Team, PredictionRound,
+│   │                           BracketSlot, ActualResult + seed command
+│   ├── predictions/            (Phase 4 — empty)
+│   ├── scoring/                (Phase 3 — empty)
+│   └── leaderboard/            (Phase 6 — empty)
 ├── config/
-│   └── settings/{base,dev,prod}.py
-├── templates/
-├── static/
-└── tests/
+│   ├── settings/{base,dev,prod}.py
+│   ├── middleware.py           AdminLanguageMiddleware
+│   └── urls.py
+├── data/wc2026/                Seed data (CSV/JSON, idempotent)
+├── docs/                       Internal documentation
+├── templates/                  Django templates
+│   ├── accounts/               Auth pages (signup, login, dashboard, ...)
+│   ├── emails/                 Magic-link email templates
+│   ├── base.html
+│   └── home.html
+├── theme/                      django-tailwind theme app
+│   └── static_src/             Tailwind source + npm config
+├── static/                     Project static assets
+├── build.sh                    Render build script
+├── render.yaml                 Render Blueprint
+└── manage.py                   (sets UTF-8 stdout for Windows)
 ```
+
+Tests live next to the apps they cover, e.g., [apps/accounts/tests/](apps/accounts/tests/).
 
 ## Local Development
 
 ### Prerequisites
+
 - Python 3.12+
 - PostgreSQL 17+
 - Node.js 22+ (for Tailwind builds)
 
-### Setup
-```powershell
-# 1. Clone the repo & enter
-git clone <repo-url> ekiptahmin.com
-cd ekiptahmin.com
+### Setup (Windows / PowerShell)
 
-# 2. Virtualenv
+```powershell
+# Clone & enter
+git clone https://github.com/hmrbll/ekiptahmin.git
+cd ekiptahmin
+
+# Python virtualenv
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# 3. Install dependencies
 pip install -r requirements-dev.txt
 
-# 4. Configure environment
-Copy-Item .env.example .env
-# Edit .env: set SECRET_KEY (quote if it contains #) and DATABASE_URL with your Postgres password (URL-encode special chars)
+# Tailwind / npm dependencies
+python manage.py tailwind install
 
-# 5. Create local database
+# Configure environment
+Copy-Item .env.example .env
+# Edit .env: set SECRET_KEY (quote with double-quotes if it contains '#')
+# and DATABASE_URL (URL-encode special chars in your Postgres password)
+
+# Create local database
 $env:PGPASSWORD = '<your_postgres_password>'
 & "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -h localhost -d postgres -c "CREATE DATABASE ekiptahmin_dev;"
 
-# 6. Run migrations & create superuser
+# Migrate, seed, create local superuser
 python manage.py migrate
+python manage.py seed_wc2026
 python manage.py createsuperuser
 
-# 7. Start dev server
+# Start dev server (in one terminal)
 python manage.py runserver
-# → http://127.0.0.1:8000/admin/
+
+# Tailwind watcher (in a second terminal — auto-rebuilds CSS on template changes)
+python manage.py tailwind start
 ```
 
+Open `http://127.0.0.1:8000/`. Admin lives at `/admin/`.
+
 ### Common commands
+
 ```powershell
-python manage.py makemigrations
-python manage.py migrate
-python manage.py shell
-pytest
-ruff check .
-ruff format .
+python manage.py makemigrations          # generate migrations
+python manage.py migrate                 # apply migrations
+python manage.py shell                   # Django shell
+python manage.py seed_wc2026             # (re)load WC 2026 fixture data
+python manage.py tailwind build          # one-shot Tailwind production build
+pytest                                   # run all tests
+ruff check . && ruff format .            # lint + format
 ```
+
+### Where do dev emails go?
+
+In dev, `EMAIL_BACKEND` is `filebased` — magic-link mails are written as `.log` files to `_dev_emails/`. Open the latest one to find the click link.
 
 ## Deployment
 
-Pushes to `main` auto-deploy to Render via `render.yaml` Blueprint.
+`git push origin main` triggers an auto-deploy on Render via [render.yaml](render.yaml). The build script ([build.sh](build.sh)):
 
-- **Web service:** Starter plan ($7/mo)
-- **PostgreSQL:** Starter plan ($7/mo, daily backups)
-- **Region:** Frankfurt (closest to TR)
+1. Downloads Node 22 LTS (cached between deploys)
+2. `pip install -r requirements.txt`
+3. `npm ci` + Tailwind production build
+4. `collectstatic` + `migrate`
 
-`RESEND_API_KEY` must be set manually in Render dashboard (not auto-synced for security).
+**First production deploy** also requires (run once via Render Shell):
 
-## Scoring Mechanic
+```bash
+python manage.py createsuperuser
+python manage.py seed_wc2026
+```
 
-Bracket-based, multi-round predictions. Each user predicts the entire tournament bracket. As actual results come in, the scoring engine evaluates each user's earliest correct matchup prediction against the result, multiplied by that round's weight. See [project memory](memory/project_scoring_mechanic.md) for full details.
+`RESEND_API_KEY` must be set manually in Render dashboard → Environment. Without it, the prod email backend is `dummy` (sign-up forms succeed but no mail is delivered).
+
+## Documentation
+
+- [docs/admin.md](docs/admin.md) — Django admin module reference
+- Scoring mechanic and project decisions live in private `memory/` (gitignored). High level: bracket-based multi-round predictions with earliest-correct-matchup scoring.
