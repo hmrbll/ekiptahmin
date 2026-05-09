@@ -98,9 +98,9 @@ class Team(models.Model):
     code = models.CharField(max_length=3, help_text="3-letter code (TUR, BRA, ESP).")
     name_tr = models.CharField(max_length=100, help_text="Country name in Turkish (user-facing).")
     flag_emoji = models.CharField(
-        max_length=8,
+        max_length=16,
         blank=True,
-        help_text="Flag emoji 🇹🇷 (fallback display until SVG flags are added).",
+        help_text="Flag emoji (16 chars to fit subdivision flags like England/Scotland tag sequences).",
     )
     group_letter = models.CharField(
         max_length=1,

@@ -3,6 +3,12 @@
 import os
 import sys
 
+# Force UTF-8 on Windows console — default is cp1252, which can't encode Turkish chars.
+# No-op on Linux/macOS where stdout already defaults to UTF-8 (incl. Render production).
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def main():
     """Run administrative tasks."""
