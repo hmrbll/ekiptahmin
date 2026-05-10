@@ -17,12 +17,12 @@
     {"kind": "FINAL",  "order": 6, "points_exact": 20, "points_diff": 14, "points_result": 7, "penalty_loser_pct": "0.60"}
   ],
   "prediction_rounds": [
-    {"order": 0, "name": "Pre-turnuva",   "deadline_iso": "2026-06-11T15:00:00+00:00", "weight": "1.00", "editable_stages": ["GROUP", "R32", "R16", "QF", "SF", "THIRD", "FINAL"]},
-    {"order": 1, "name": "Grup sonrası",  "deadline_iso": "2026-06-27T15:00:00+00:00", "weight": "0.85", "editable_stages": ["R32", "R16", "QF", "SF", "THIRD", "FINAL"]},
-    {"order": 2, "name": "R32 sonrası",   "deadline_iso": "2026-07-03T15:00:00+00:00", "weight": "0.75", "editable_stages": ["R16", "QF", "SF", "THIRD", "FINAL"]},
-    {"order": 3, "name": "R16 sonrası",   "deadline_iso": "2026-07-10T15:00:00+00:00", "weight": "0.65", "editable_stages": ["QF", "SF", "THIRD", "FINAL"]},
-    {"order": 4, "name": "QF sonrası",    "deadline_iso": "2026-07-14T15:00:00+00:00", "weight": "0.55", "editable_stages": ["SF", "THIRD", "FINAL"]},
-    {"order": 5, "name": "SF sonrası",    "deadline_iso": "2026-07-18T15:00:00+00:00", "weight": "0.45", "editable_stages": ["THIRD", "FINAL"]},
-    {"order": 6, "name": "3.lük sonrası", "deadline_iso": "2026-07-19T15:00:00+00:00", "weight": "0.35", "editable_stages": ["FINAL"]}
+    {"order": 0, "name": "Pre-turnuva",   "weight": "1.00", "editable_stages": ["GROUP", "R32", "R16", "QF", "SF", "THIRD", "FINAL"], "depends_on_stage": null},
+    {"order": 1, "name": "Grup sonrası",  "weight": "0.85", "editable_stages": ["R32", "R16", "QF", "SF", "THIRD", "FINAL"],          "depends_on_stage": "GROUP"},
+    {"order": 2, "name": "R32 sonrası",   "weight": "0.75", "editable_stages": ["R16", "QF", "SF", "THIRD", "FINAL"],                 "depends_on_stage": "R32"},
+    {"order": 3, "name": "R16 sonrası",   "weight": "0.65", "editable_stages": ["QF", "SF", "THIRD", "FINAL"],                        "depends_on_stage": "R16"},
+    {"order": 4, "name": "QF sonrası",    "weight": "0.55", "editable_stages": ["SF", "THIRD", "FINAL"],                              "depends_on_stage": "QF"},
+    {"order": 5, "name": "SF sonrası",    "weight": "0.45", "editable_stages": ["THIRD", "FINAL"],                                    "depends_on_stage": "SF"},
+    {"order": 6, "name": "3.lük sonrası", "weight": "0.35", "editable_stages": ["FINAL"],                                             "depends_on_stage": "THIRD"}
   ]
 }

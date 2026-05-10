@@ -145,12 +145,30 @@ class PredictionRound(models.Model):
 
     The `weight` field is the multiplier applied to scores from predictions made
     in this round. Earlier rounds carry higher weight to reward bold/early calls.
+
+    Open conditions (all must hold for `is_open` to return True):
+    1. now < deadline
+    2. opens_at is null OR now >= opens_at
+    3. depends_on_stage is null OR every slot in that stage has an actual result
     """
 
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="prediction_rounds")
     name = models.CharField(max_length=100, help_text="e.g., 'Pre-tournament', 'After Group Stage'.")
     order = models.PositiveSmallIntegerField()
     deadline = models.DateTimeField(help_text="UTC; predictions for this round can no longer be edited after this.")
+    opens_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="UTC; round stays closed until this moment. Typically auto-set by seed "
+                  "to (last source-stage match kickoff + buffer for ET/penalties).",
+    )
+    depends_on_stage = models.ForeignKey(
+        Stage,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="opens_rounds",
+        help_text="Round opens only after EVERY slot in this stage has an actual result. "
+                  "Pre-tournament rounds leave this null.",
+    )
     weight = models.DecimalField(
         max_digits=4,
         decimal_places=2,
@@ -171,7 +189,34 @@ class PredictionRound(models.Model):
 
     @property
     def is_open(self) -> bool:
-        return timezone.now() < self.deadline
+        now = timezone.now()
+        if now >= self.deadline:
+            return False
+        if self.opens_at and now < self.opens_at:
+            return False
+        if self.depends_on_stage_id and self._unresolved_dependency_count() > 0:
+            return False
+        return True
+
+    @property
+    def is_pending_results(self) -> bool:
+        """Round has all time conditions met but is waiting on actual results."""
+        now = timezone.now()
+        if now >= self.deadline:
+            return False
+        if self.opens_at and now < self.opens_at:
+            return False
+        return self.depends_on_stage_id is not None and self._unresolved_dependency_count() > 0
+
+    def _unresolved_dependency_count(self) -> int:
+        if not self.depends_on_stage_id:
+            return 0
+        return (
+            BracketSlot.objects
+            .filter(tournament_id=self.tournament_id, stage_id=self.depends_on_stage_id)
+            .filter(result__isnull=True)
+            .count()
+        )
 
 
 class BracketSlot(models.Model):
@@ -245,6 +290,20 @@ class BracketSlot(models.Model):
     away_source_kind = models.CharField(
         max_length=8, choices=SOURCE_KIND_CHOICES, default=SOURCE_KIND_WINNER,
     )
+
+    # Group-derived sources (R32 only). Either *_group_letter+*_group_position is set
+    # for "A Grubu 2.si" style sources, or *_thirds_groups holds a comma-separated
+    # list of letters for "3.lerden biri (A/B/C)" sources. The two are mutually
+    # exclusive per side.
+    home_source_group_letter = models.CharField(max_length=1, blank=True, default="")
+    home_source_group_position = models.PositiveSmallIntegerField(null=True, blank=True)
+    home_source_thirds_groups = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text="Comma-separated group letters for best-third sources (e.g., 'A,B,C,D,F').",
+    )
+    away_source_group_letter = models.CharField(max_length=1, blank=True, default="")
+    away_source_group_position = models.PositiveSmallIntegerField(null=True, blank=True)
+    away_source_thirds_groups = models.CharField(max_length=20, blank=True, default="")
 
     class Meta:
         ordering = ("scheduled_kickoff",)

@@ -58,10 +58,22 @@ class TeamAdmin(admin.ModelAdmin):
 
 @admin.register(PredictionRound)
 class PredictionRoundAdmin(admin.ModelAdmin):
-    list_display = ("name", "tournament", "order", "deadline", "weight", "is_open")
+    list_display = (
+        "name", "tournament", "order", "opens_at", "deadline", "weight",
+        "depends_on_stage", "is_open",
+    )
     list_filter = ("tournament",)
     filter_horizontal = ("editable_stages",)
     ordering = ("tournament", "order")
+    fieldsets = (
+        (None, {"fields": ("tournament", "order", "name", "weight")}),
+        ("Time window", {"fields": ("opens_at", "deadline")}),
+        ("Open conditions", {
+            "fields": ("depends_on_stage",),
+            "description": "Round stays closed until every slot in the stage above has an actual result.",
+        }),
+        ("Editable stages", {"fields": ("editable_stages",)}),
+    )
 
     @admin.display(boolean=True, description="Open?")
     def is_open(self, obj):
