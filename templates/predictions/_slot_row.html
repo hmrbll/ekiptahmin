@@ -151,5 +151,14 @@
     const el = document.getElementById("slot-row-{{ slot.id }}");
     if (el) el.classList.remove("border-emerald-400/40");
   }, 1500);
+  {% if is_production %}
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "tahmin_kaydedildi",
+    slot_position: "{{ slot.position }}",
+    stage_kind: "{{ slot.stage.kind }}",
+    round_id: {{ round.id }}
+  });
+  {% endif %}
 </script>
 {% endif %}

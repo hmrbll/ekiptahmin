@@ -29,7 +29,8 @@ class TestTokenConfirm:
         )
         r = client.get(_confirm_url_for(user))
         assert r.status_code == 302
-        assert r.url == reverse("dashboard")
+        assert r.url.startswith(reverse("dashboard"))
+        assert "event=login" in r.url
         # Session should now have the user
         assert int(client.session["_auth_user_id"]) == user.pk
 
@@ -41,6 +42,7 @@ class TestTokenConfirm:
         )
         r = client.get(_confirm_url_for(user))
         assert r.status_code == 302
+        assert "event=sign_up" in r.url
         user.refresh_from_db()
         assert user.is_active is True
 

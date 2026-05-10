@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model, login as auth_login, logout as a
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 from sesame.tokens import parse_token
 
@@ -99,7 +100,10 @@ def confirm_token(request: HttpRequest) -> HttpResponse:
             invite.mark_used(user)
 
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    return redirect("dashboard")
+    # Tag the redirect with a one-shot event marker so dashboard.html can fire
+    # the matching dataLayer push (sign_up vs. login) and then strip the param.
+    event = "sign_up" if is_signup else "login"
+    return redirect(f"{reverse('dashboard')}?event={event}")
 
 
 def logout_view(request: HttpRequest) -> HttpResponse:

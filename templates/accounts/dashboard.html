@@ -28,4 +28,23 @@
         </a>
     </main>
 </div>
+
+{% if is_production %}
+<script>
+// One-shot dataLayer push for sign_up / login events arriving from
+// confirm_token's redirect (?event=sign_up|login). Strip the param so a
+// page refresh doesn't re-fire the event.
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    const ev = params.get("event");
+    if (ev === "sign_up" || ev === "login") {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({event: ev});
+        params.delete("event");
+        const clean = window.location.pathname + (params.toString() ? "?" + params : "");
+        window.history.replaceState({}, "", clean);
+    }
+})();
+</script>
+{% endif %}
 {% endblock %}
