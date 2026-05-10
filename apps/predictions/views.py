@@ -17,6 +17,7 @@ from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 
 from .forms import SlotPredictionForm
 from .models import SlotPrediction
+from .standings import standings_for_group
 
 
 @login_required
@@ -139,11 +140,43 @@ def prediction_round_detail(request: HttpRequest, round_id: int) -> HttpResponse
             all_user_latest, this_round_preds.get(slot.id),
         )
         grouped.setdefault(slot.stage, []).append(ctx)
-    stage_groups = [(stage, items) for stage, items in grouped.items()]
+
+    # Split GROUP stage into per-letter blocks with live standings; keep
+    # knockout stages as single sections.
+    group_blocks: list[dict] = []
+    knockout_sections: list[tuple] = []
+    teams_by_code = {
+        t.code: t
+        for t in pr.tournament.teams.all()
+    }
+    for stage, items in grouped.items():
+        if stage.kind == "GROUP":
+            by_letter: dict[str, list] = {}
+            for item in items:
+                letter = item["slot"].position.split("-")[0].replace("Group", "")
+                by_letter.setdefault(letter, []).append(item)
+            for letter in sorted(by_letter.keys()):
+                standings = standings_for_group(request.user, pr.tournament, letter)
+                # Hydrate Team objects for display
+                rows = []
+                for s in standings:
+                    team = teams_by_code.get(s.team_code)
+                    rows.append({"team": team, "stat": s})
+                group_blocks.append({
+                    "letter": letter, "stage": stage,
+                    "items": by_letter[letter], "standings": rows,
+                })
+        else:
+            knockout_sections.append((stage, items))
+
     return render(
         request,
         "predictions/round_detail.html",
-        {"round": pr, "stage_groups": stage_groups},
+        {
+            "round": pr,
+            "group_blocks": group_blocks,
+            "knockout_sections": knockout_sections,
+        },
     )
 
 

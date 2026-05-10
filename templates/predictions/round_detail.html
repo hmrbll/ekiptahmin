@@ -33,7 +33,7 @@
 <div class="min-h-full">
     {% include "predictions/_header.html" %}
 
-    <main class="px-6 py-12 max-w-5xl mx-auto">
+    <main class="px-6 py-12 max-w-6xl mx-auto">
         <a href="{% url 'prediction_rounds' %}" class="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1">
             ← Round listesi
         </a>
@@ -63,26 +63,103 @@
             {% endif %}
         </div>
 
-        {% for stage, items in stage_groups %}
-        <section class="mb-10">
-            <div class="flex items-baseline gap-3 mb-3">
-                <h2 class="text-sm uppercase tracking-wider text-slate-500">{{ stage.get_kind_display }}</h2>
-                <span class="text-xs text-slate-600">{{ items|length }} maç</span>
-                {% if stage.kind == "GROUP" %}
-                    <span class="text-xs text-slate-600">· Skor: 90 dk</span>
-                {% else %}
-                    <span class="text-xs text-slate-600">· Skor: 90 / 120 dk (uzatma sonu)</span>
-                {% endif %}
+        {# Group stage: per-letter blocks with live standings #}
+        {% if group_blocks %}
+        <section class="mb-12">
+            <div class="flex items-baseline gap-3 mb-4">
+                <h2 class="text-sm uppercase tracking-wider text-slate-500">Grup Aşaması</h2>
+                <span class="text-xs text-slate-600">· Skor: 90 dk</span>
             </div>
-            <ul class="space-y-2">
+
+            <div class="grid lg:grid-cols-2 gap-6">
+                {% for block in group_blocks %}
+                <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                    <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 text-sm">{{ block.letter }}</span>
+                        Grup {{ block.letter }}
+                    </h3>
+
+                    <ul class="space-y-2 mb-4">
+                        {% for item in block.items %}
+                            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on round=round %}
+                        {% endfor %}
+                    </ul>
+
+                    {% if block.standings %}
+                    <div class="rounded-xl border border-white/5 bg-slate-950/40 overflow-hidden">
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr class="text-slate-500 uppercase">
+                                    <th class="text-left px-3 py-2 font-medium">#</th>
+                                    <th class="text-left px-3 py-2 font-medium">Takım</th>
+                                    <th class="text-center px-2 py-2 font-medium" title="Oynanan">O</th>
+                                    <th class="text-center px-2 py-2 font-medium" title="Galibiyet/Beraberlik/Mağlubiyet">G-B-M</th>
+                                    <th class="text-center px-2 py-2 font-medium" title="Averaj">A</th>
+                                    <th class="text-center px-2 py-2 font-medium" title="Atılan-Yenilen">A-Y</th>
+                                    <th class="text-right px-3 py-2 font-medium">P</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5">
+                                {% for row in block.standings %}
+                                <tr class="{% if forloop.counter <= 2 %}bg-emerald-500/5{% endif %}">
+                                    <td class="px-3 py-2 text-slate-400">{{ forloop.counter }}</td>
+                                    <td class="px-3 py-2">
+                                        {% if row.team and row.team.flag_svg_path %}
+                                        <span class="inline-flex items-center gap-2">
+                                            <img src="{% static row.team.flag_svg_path %}" alt="{{ row.team.code }}" class="w-4 h-3 rounded-sm object-cover">
+                                            <span>{{ row.team.name_tr }}</span>
+                                        </span>
+                                        {% elif row.team %}
+                                        {{ row.team.name_tr }}
+                                        {% else %}
+                                        <span class="font-mono text-slate-500">{{ row.stat.team_code }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-2 py-2 text-center text-slate-300">{{ row.stat.played }}</td>
+                                    <td class="px-2 py-2 text-center text-slate-400 font-mono">{{ row.stat.wins }}-{{ row.stat.draws }}-{{ row.stat.losses }}</td>
+                                    <td class="px-2 py-2 text-center text-slate-300 font-mono">{% if row.stat.gd >= 0 %}+{% endif %}{{ row.stat.gd }}</td>
+                                    <td class="px-2 py-2 text-center text-slate-400 font-mono">{{ row.stat.gf }}-{{ row.stat.ga }}</td>
+                                    <td class="px-3 py-2 text-right text-emerald-300 font-bold">{{ row.stat.points }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-slate-500 italic px-2">Tahminlerini girince sıralama burada görünür.</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {# Knockout stages: bracket-flavored layout (cards in a grid that narrows by round) #}
+        {% for stage, items in knockout_sections %}
+        <section class="mb-10">
+            <div class="flex items-baseline gap-3 mb-4">
+                <h2 class="text-sm uppercase tracking-wider text-slate-500">{{ stage.get_kind_display }}</h2>
+                <span class="text-xs text-slate-600">{{ items|length }} maç · Skor: 90 / 120 dk (uzatma sonu)</span>
+            </div>
+
+            {# Grid columns shrink as you climb the bracket — visual narrowing toward the final. #}
+            <ul class="grid gap-2
+                {% if stage.kind == 'R32' %}md:grid-cols-2 xl:grid-cols-2{% endif %}
+                {% if stage.kind == 'R16' %}md:grid-cols-2{% endif %}
+                {% if stage.kind == 'QF' %}md:grid-cols-2{% endif %}
+                {% if stage.kind == 'SF' %}md:grid-cols-2{% endif %}
+                {% if stage.kind == 'THIRD' or stage.kind == 'FINAL' %}md:grid-cols-1 max-w-2xl{% endif %}
+                ">
                 {% for item in items %}
                     {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on round=round %}
                 {% endfor %}
             </ul>
         </section>
-        {% empty %}
-        <p class="text-slate-500">Bu round'da düzenlenebilir slot yok.</p>
         {% endfor %}
+
+        {% if not group_blocks and not knockout_sections %}
+        <p class="text-slate-500">Bu round'da düzenlenebilir slot yok.</p>
+        {% endif %}
     </main>
 </div>
 
