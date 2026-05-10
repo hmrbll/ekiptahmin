@@ -22,7 +22,6 @@
     {"order": 2, "name": "R32 sonrası",   "weight": "0.75", "editable_stages": ["R16", "QF", "SF", "THIRD", "FINAL"],                 "depends_on_stage": "R32"},
     {"order": 3, "name": "R16 sonrası",   "weight": "0.65", "editable_stages": ["QF", "SF", "THIRD", "FINAL"],                        "depends_on_stage": "R16"},
     {"order": 4, "name": "QF sonrası",    "weight": "0.55", "editable_stages": ["SF", "THIRD", "FINAL"],                              "depends_on_stage": "QF"},
-    {"order": 5, "name": "SF sonrası",    "weight": "0.45", "editable_stages": ["THIRD", "FINAL"],                                    "depends_on_stage": "SF"},
-    {"order": 6, "name": "3.lük sonrası", "weight": "0.35", "editable_stages": ["FINAL"],                                             "depends_on_stage": "THIRD"}
+    {"order": 5, "name": "SF sonrası",    "weight": "0.45", "editable_stages": ["THIRD", "FINAL"],                                    "depends_on_stage": "SF"}
   ]
 }

@@ -146,6 +146,18 @@ class Command(BaseCommand):
     def _seed_prediction_rounds(self, tournament: Tournament, config: dict) -> None:
         stage_by_kind = {s.kind: s for s in tournament.stages.all()}
 
+        # Drop rounds removed from the JSON since the last seed (cleans up
+        # orders that no longer appear in config).
+        listed_orders = {rd["order"] for rd in config["prediction_rounds"]}
+        deleted = (
+            PredictionRound.objects
+            .filter(tournament=tournament)
+            .exclude(order__in=listed_orders)
+            .delete()
+        )
+        if deleted[0]:
+            self.stdout.write(self.style.WARNING(f"  Removed {deleted[0]} obsolete prediction round(s)"))
+
         for rd in config["prediction_rounds"]:
             depends_kind = rd.get("depends_on_stage")
             depends_stage = stage_by_kind.get(depends_kind) if depends_kind else None

@@ -208,6 +208,23 @@ class PredictionRound(models.Model):
             return False
         return self.depends_on_stage_id is not None and self._unresolved_dependency_count() > 0
 
+    @property
+    def is_passed(self) -> bool:
+        """Every slot in this round's editable stages has already kicked off.
+
+        Distinguishes "closed for now" (deadline passed but matches still
+        upcoming) from "closed for good — the matches this round was about
+        have already been played".
+        """
+        now = timezone.now()
+        if now < self.deadline:
+            return False
+        return not BracketSlot.objects.filter(
+            tournament_id=self.tournament_id,
+            stage__in=self.editable_stages.all(),
+            scheduled_kickoff__gt=now,
+        ).exists()
+
     def _unresolved_dependency_count(self) -> int:
         if not self.depends_on_stage_id:
             return 0

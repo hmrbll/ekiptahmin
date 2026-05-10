@@ -33,6 +33,7 @@
           hx-post="{% url 'slot_prediction_save' round.id slot.id %}"
           hx-target="#slot-row-{{ slot.id }}"
           hx-swap="outerHTML"
+          {% if slot.stage.kind == "GROUP" %}hx-trigger="change from:input delay:400ms, submit"{% endif %}
           class="pred-form space-y-3"
           data-pred-form="{{ slot.id }}">
         {% csrf_token %}
@@ -85,11 +86,15 @@
                 {% if form.away_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_team.errors }}</div>{% endif %}
             </div>
 
+            {% if slot.stage.kind == "GROUP" %}
+            <span class="text-xs text-slate-500" data-autosave-indicator>otomatik</span>
+            {% else %}
             <button type="submit"
                     {% if slot.is_locked %}disabled{% endif %}
                     class="rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-semibold px-3 py-2 text-sm transition">
                 Kaydet
             </button>
+            {% endif %}
         </div>
 
         {% if slot.stage.kind != "GROUP" %}

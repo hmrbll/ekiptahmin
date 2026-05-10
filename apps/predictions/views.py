@@ -11,6 +11,7 @@
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
@@ -221,6 +222,24 @@ def slot_prediction_save(
             # The fresh form (built inside _build_row_context) lost the
             # submitted bound state — keep the bound form so errors render.
             ctx["form"] = form
-        return render(request, "predictions/_slot_row.html", ctx)
+
+        body = render_to_string("predictions/_slot_row.html", ctx, request=request)
+
+        # If this was a group slot, also push an out-of-band update for
+        # that group's standings table so the live ranking on screen
+        # reflects the new prediction without a full page reload.
+        if saved and slot.stage.kind == "GROUP":
+            letter = slot.position.split("-")[0].replace("Group", "")
+            standings = standings_for_group(request.user, pr.tournament, letter)
+            teams_by_code = {t.code: t for t in pr.tournament.teams.all()}
+            rows = [{"team": teams_by_code.get(s.team_code), "stat": s} for s in standings]
+            standings_html = render_to_string(
+                "predictions/_standings_table.html",
+                {"letter": letter, "standings": rows, "oob": True},
+                request=request,
+            )
+            body += standings_html
+
+        return HttpResponse(body)
 
     return redirect("prediction_round_detail", round_id=pr.id)

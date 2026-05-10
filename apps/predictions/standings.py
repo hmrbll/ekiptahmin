@@ -24,13 +24,8 @@ def predictions_to_group_matches(predictions) -> list[GroupMatch]:
     ]
 
 
-def standings_for_group(user, tournament, group_letter: str) -> list[TeamStanding]:
-    """Compute the standings for one group from the user's predictions.
-
-    Uses the user's most recent prediction per slot across all rounds.
-    Returns standings sorted 1st → last; teams the user hasn't predicted
-    yet won't appear.
-    """
+def _user_predicted_matches(user, tournament, group_letter: str):
+    """Return the user's most recent prediction per group slot. May be empty."""
     group_slots = list(
         BracketSlot.objects.filter(
             tournament=tournament,
@@ -47,7 +42,6 @@ def standings_for_group(user, tournament, group_letter: str) -> list[TeamStandin
         .select_related("home_team", "away_team")
         .order_by("slot_id", "-prediction_round__order")
     )
-    # Take latest per slot
     seen: set[int] = set()
     latest = []
     for p in preds:
@@ -55,14 +49,42 @@ def standings_for_group(user, tournament, group_letter: str) -> list[TeamStandin
             continue
         seen.add(p.slot_id)
         latest.append(p)
+    return latest
 
-    return compute_group_standings(predictions_to_group_matches(latest))
+
+def standings_for_group(
+    user, tournament, group_letter: str, *, pad_with_zeros: bool = True,
+) -> list[TeamStanding]:
+    """Compute the standings for one group from the user's predictions.
+
+    Uses the user's most recent prediction per slot across all rounds.
+    By default, returns one row per team in the group — teams the user
+    hasn't predicted yet appear with all zeros so the table is never empty.
+    Pass `pad_with_zeros=False` for the cascade path: it must distinguish
+    "no predictions" from "predictions that happen to leave a team at 0".
+    """
+    latest = _user_predicted_matches(user, tournament, group_letter)
+    standings = compute_group_standings(predictions_to_group_matches(latest))
+
+    if pad_with_zeros:
+        seen_codes = {s.team_code for s in standings}
+        group_teams = Team.objects.filter(
+            tournament=tournament, group_letter=group_letter,
+        ).exclude(code__in=seen_codes).order_by("name_tr")
+        for team in group_teams:
+            standings.append(TeamStanding(team_code=team.code))
+
+    return standings
 
 
 def derive_group_team(user, tournament, group_letter: str, position: int):
-    """Return the Team object the user has at `position` of group `group_letter`,
-    or None if not enough predictions exist."""
-    standings = standings_for_group(user, tournament, group_letter)
+    """Return the Team the user has at `position` of group `group_letter`,
+    or None if the user hasn't predicted enough matches to determine it.
+
+    Uses unpadded standings — a team in slot 1 of an empty group is *not*
+    a real prediction.
+    """
+    standings = standings_for_group(user, tournament, group_letter, pad_with_zeros=False)
     if len(standings) < position:
         return None
     target_code = standings[position - 1].team_code

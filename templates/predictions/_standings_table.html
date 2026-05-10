@@ -1,0 +1,40 @@
+{% load static %}
+<div id="standings-{{ letter }}"{% if oob %} hx-swap-oob="outerHTML"{% endif %} class="rounded-xl border border-white/5 bg-slate-950/40 overflow-hidden">
+    <table class="w-full text-xs">
+        <thead>
+            <tr class="text-slate-500 uppercase">
+                <th class="text-left px-3 py-2 font-medium">#</th>
+                <th class="text-left px-3 py-2 font-medium">Takım</th>
+                <th class="text-center px-2 py-2 font-medium" title="Oynanan">O</th>
+                <th class="text-center px-2 py-2 font-medium" title="Galibiyet/Beraberlik/Mağlubiyet">G-B-M</th>
+                <th class="text-center px-2 py-2 font-medium" title="Averaj">A</th>
+                <th class="text-center px-2 py-2 font-medium" title="Atılan-Yenilen">A-Y</th>
+                <th class="text-right px-3 py-2 font-medium">P</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5">
+            {% for row in standings %}
+            <tr class="{% if forloop.counter <= 2 %}bg-emerald-500/5{% endif %}">
+                <td class="px-3 py-2 text-slate-400">{{ forloop.counter }}</td>
+                <td class="px-3 py-2">
+                    {% if row.team and row.team.flag_svg_path %}
+                    <span class="inline-flex items-center gap-2">
+                        <img src="{% static row.team.flag_svg_path %}" alt="{{ row.team.code }}" class="w-4 h-3 rounded-sm object-cover">
+                        <span>{{ row.team.name_tr }}</span>
+                    </span>
+                    {% elif row.team %}
+                    {{ row.team.name_tr }}
+                    {% else %}
+                    <span class="font-mono text-slate-500">{{ row.stat.team_code }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-2 py-2 text-center text-slate-300">{{ row.stat.played }}</td>
+                <td class="px-2 py-2 text-center text-slate-400 font-mono">{{ row.stat.wins }}-{{ row.stat.draws }}-{{ row.stat.losses }}</td>
+                <td class="px-2 py-2 text-center text-slate-300 font-mono">{% if row.stat.gd >= 0 %}+{% endif %}{{ row.stat.gd }}</td>
+                <td class="px-2 py-2 text-center text-slate-400 font-mono">{{ row.stat.gf }}-{{ row.stat.ga }}</td>
+                <td class="px-3 py-2 text-right text-emerald-300 font-bold">{{ row.stat.points }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
