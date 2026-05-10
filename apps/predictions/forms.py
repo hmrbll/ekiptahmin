@@ -44,6 +44,48 @@ def _derive_cascaded_team(user, source_slot: BracketSlot, source_kind: str):
     return pred.winner_team() if source_kind == BracketSlot.SOURCE_KIND_WINNER else pred.loser_team()
 
 
+def _resolve_slot_side_team(user, slot: BracketSlot, side: str):
+    """Best-effort: figure out which Team belongs in `side` of `slot` for this user.
+
+    Uses the same precedence chain as `SlotPredictionForm._configure_side`:
+    actual (admin-set) → upstream slot cascade → group standings → best-third.
+    Returns the Team or None if no path resolves (e.g. user hasn't predicted
+    enough upstream slots yet).
+    """
+    actual = getattr(slot, f"{side}_team_actual")
+    if actual:
+        return actual
+
+    source_slot = getattr(slot, f"{side}_source_slot")
+    if source_slot:
+        kind = getattr(slot, f"{side}_source_kind")
+        return _derive_cascaded_team(user, source_slot, kind)
+
+    group_letter = getattr(slot, f"{side}_source_group_letter")
+    group_position = getattr(slot, f"{side}_source_group_position")
+    if group_letter and group_position:
+        return derive_group_team(user, slot.tournament, group_letter, group_position)
+
+    thirds_groups = getattr(slot, f"{side}_source_thirds_groups")
+    if thirds_groups:
+        return derive_best_third_for_slot(user, slot.tournament, slot)
+
+    return None
+
+
+def _format_slot_blocker_label(user, source_slot: BracketSlot) -> str:
+    """Label for a knockout cascade blocker. Prefers concrete team names
+    (resolved via the user's earlier predictions or admin-entered actuals)
+    and falls back to the textual `home_source` / `away_source` per side
+    when no path resolves yet.
+    """
+    home_team = _resolve_slot_side_team(user, source_slot, "home")
+    away_team = _resolve_slot_side_team(user, source_slot, "away")
+    home_text = home_team.name_tr if home_team else (source_slot.home_source or "?")
+    away_text = away_team.name_tr if away_team else (source_slot.away_source or "?")
+    return f"{source_slot.position} — {home_text} vs {away_text}"
+
+
 class SlotPredictionForm(forms.ModelForm):
     """Form for one user submitting a prediction for one slot in one round."""
 
@@ -101,7 +143,7 @@ class SlotPredictionForm(forms.ModelForm):
             team = _derive_cascaded_team(user, source_slot, kind)
             if team is None:
                 self.cascade_blocked_on.append({
-                    "label": f"{source_slot.position} — {source_slot.home_source} vs {source_slot.away_source}",
+                    "label": _format_slot_blocker_label(user, source_slot),
                     "slot": source_slot,
                 })
             else:

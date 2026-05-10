@@ -135,6 +135,78 @@ class TestCascadeForm:
         assert form.fields["home_team"].initial == team_bra  # loser of R32-1
         assert form.fields["away_team"].initial == team_ger  # winner of R32-3
 
+    def test_blocker_label_shows_resolved_teams_when_upstream_predicted(
+        self, user, tournament, prediction_round, r16_slot_cascaded,
+        team_tur, team_bra, team_arg, team_ger,
+    ):
+        """When user has predicted the R32 source slots but not R16 yet, the
+        blocker shown for a downstream QF slot should name the concrete teams
+        (Türkiye vs Almanya) instead of the abstract `Winner of R32-1` text.
+        """
+        r16, home_src, away_src, r32_stage = r16_slot_cascaded
+        prediction_round.editable_stages.add(r32_stage)
+
+        # User predicts R32-1 (TUR wins) and R32-3 (GER wins) — these feed R16-1.
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=home_src,
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=away_src,
+            home_team=team_arg, away_team=team_ger, home_score=0, away_score=3,
+        )
+
+        # QF slot fed by R16-1 winner on both sides (synthetic but sufficient
+        # — what matters is that the form's blocker points at R16-1).
+        qf_stage = Stage.objects.create(
+            tournament=tournament, kind=Stage.QF, order=3,
+            points_exact=14, points_diff=9, points_result=5,
+            penalty_loser_pct=Decimal("0.60"),
+        )
+        qf_slot = BracketSlot.objects.create(
+            tournament=tournament, stage=qf_stage, position="QF-1",
+            scheduled_kickoff=timezone.now() + timedelta(days=25),
+            home_source_slot=r16, home_source_kind=BracketSlot.SOURCE_KIND_WINNER,
+            away_source_slot=r16, away_source_kind=BracketSlot.SOURCE_KIND_LOSER,
+        )
+
+        form = SlotPredictionForm(
+            user=user, prediction_round=prediction_round, slot=qf_slot,
+        )
+        labels = [b["label"] for b in form.cascade_blocked_on]
+        assert any("Türkiye" in label and "Almanya" in label for label in labels), labels
+        # And the abstract source text should NOT be in the label any more.
+        assert not any("Winner of" in label for label in labels), labels
+
+    def test_blocker_label_falls_back_to_source_text_when_unresolved(
+        self, user, tournament, prediction_round, r16_slot_cascaded,
+    ):
+        """No upstream predictions yet → label keeps the textual source
+        descriptions on the source slot (e.g., `A Grubu 1.si`) so the user
+        still has a hint about who they're predicting for.
+        """
+        r16, home_src, away_src, r32_stage = r16_slot_cascaded
+        prediction_round.editable_stages.add(r32_stage)
+
+        qf_stage = Stage.objects.create(
+            tournament=tournament, kind=Stage.QF, order=3,
+            points_exact=14, points_diff=9, points_result=5,
+            penalty_loser_pct=Decimal("0.60"),
+        )
+        qf_slot = BracketSlot.objects.create(
+            tournament=tournament, stage=qf_stage, position="QF-1",
+            scheduled_kickoff=timezone.now() + timedelta(days=25),
+            home_source_slot=r16, home_source_kind=BracketSlot.SOURCE_KIND_WINNER,
+            away_source_slot=r16, away_source_kind=BracketSlot.SOURCE_KIND_LOSER,
+        )
+
+        form = SlotPredictionForm(
+            user=user, prediction_round=prediction_round, slot=qf_slot,
+        )
+        labels = [b["label"] for b in form.cascade_blocked_on]
+        # r16's textual sources from conftest are "A Grubu 1.si" / "B Grubu 2.si".
+        assert any("A Grubu 1.si" in label and "B Grubu 2.si" in label for label in labels), labels
+
     def test_cascaded_slot_form_blocks_submission_when_source_missing(
         self, user, prediction_round, r16_slot_cascaded, team_tur, team_arg,
     ):
