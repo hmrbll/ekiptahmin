@@ -87,7 +87,7 @@
             </div>
 
             {% if slot.stage.kind == "GROUP" %}
-            <span class="text-xs text-slate-500" data-autosave-indicator>otomatik</span>
+            <span aria-hidden="true"></span>
             {% else %}
             <button type="submit"
                     {% if slot.is_locked %}disabled{% endif %}
@@ -101,23 +101,44 @@
         <div class="penalty-section hidden mt-2 rounded-xl border border-white/5 bg-slate-900/40 p-3"
              data-penalty-section="{{ slot.id }}">
             <div class="text-xs uppercase tracking-wider text-slate-400 mb-2">Penaltı (berabere tahmininde)</div>
-            <div class="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
-                <select name="{{ form.penalty_winner.html_name }}"
-                        class="text-sm" aria-label="Penaltıyı kazanan">
-                    <option value="">— Penaltıyı kazanan —</option>
-                    {% for choice in form.penalty_winner.field.queryset %}
-                    <option value="{{ choice.id }}" {% if form.penalty_winner.value|stringformat:"s" == choice.id|stringformat:"s" %}selected{% endif %}>
-                        {{ choice.name_tr }}
-                    </option>
-                    {% endfor %}
-                </select>
-                <input type="number" min="0" max="30" name="{{ form.home_penalties.html_name }}"
-                       value="{{ form.home_penalties.value|default_if_none:'' }}"
-                       class="w-14 text-center" placeholder="0" aria-label="Ev penaltı">
-                <span class="text-slate-500 text-sm">–</span>
-                <input type="number" min="0" max="30" name="{{ form.away_penalties.html_name }}"
-                       value="{{ form.away_penalties.value|default_if_none:'' }}"
-                       class="w-14 text-center" placeholder="0" aria-label="Deplasman penaltı">
+            <div class="space-y-3">
+                <div>
+                    <div class="text-xs text-slate-500 mb-1.5">Penaltıyı kazanan</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        {% if display_home %}
+                        <label class="cursor-pointer">
+                            <input type="radio" name="{{ form.penalty_winner.html_name }}" value="{{ display_home.id }}"
+                                   class="sr-only peer"
+                                   {% if form.penalty_winner.value|stringformat:"s" == display_home.id|stringformat:"s" %}checked{% endif %}>
+                            <span class="block text-center text-sm rounded-lg border border-white/10 bg-slate-900/40 px-2 py-2 peer-checked:bg-emerald-500/15 peer-checked:border-emerald-400/40 peer-checked:text-emerald-200 transition">
+                                {{ display_home.name_tr }}
+                            </span>
+                        </label>
+                        {% endif %}
+                        {% if display_away %}
+                        <label class="cursor-pointer">
+                            <input type="radio" name="{{ form.penalty_winner.html_name }}" value="{{ display_away.id }}"
+                                   class="sr-only peer"
+                                   {% if form.penalty_winner.value|stringformat:"s" == display_away.id|stringformat:"s" %}checked{% endif %}>
+                            <span class="block text-center text-sm rounded-lg border border-white/10 bg-slate-900/40 px-2 py-2 peer-checked:bg-emerald-500/15 peer-checked:border-emerald-400/40 peer-checked:text-emerald-200 transition">
+                                {{ display_away.name_tr }}
+                            </span>
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-500 mb-1.5">Penaltı skoru</div>
+                    <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center max-w-xs">
+                        <input type="number" min="0" max="30" name="{{ form.home_penalties.html_name }}"
+                               value="{{ form.home_penalties.value|default_if_none:'' }}"
+                               class="text-center" placeholder="0" aria-label="Ev penaltı">
+                        <span class="text-slate-500 text-sm">–</span>
+                        <input type="number" min="0" max="30" name="{{ form.away_penalties.html_name }}"
+                               value="{{ form.away_penalties.value|default_if_none:'' }}"
+                               class="text-center" placeholder="0" aria-label="Deplasman penaltı">
+                    </div>
+                </div>
             </div>
             {% if form.penalty_winner.errors %}<div class="text-xs text-red-300 mt-1">{{ form.penalty_winner.errors }}</div>{% endif %}
             {% if form.home_penalties.errors %}<div class="text-xs text-red-300 mt-1">{{ form.home_penalties.errors }}</div>{% endif %}

@@ -70,7 +70,8 @@ class TestWizardSteps:
         client.force_login(user)
         r = client.get(reverse("predict_round_entry", args=[prediction_round.id]))
         assert r.status_code == 302
-        assert "/knockout/" in r["Location"]
+        # First knockout step is the lowest-order editable stage (R16 here)
+        assert "/knockout/R16/" in r["Location"]
 
     def test_group_step_shows_only_that_groups_slots(
         self, client, user, prediction_round, group_slot, r16_slot,
@@ -94,15 +95,23 @@ class TestWizardSteps:
         assert b'value="2"' in r.content
         assert b'value="1"' in r.content
 
-    def test_knockout_step_shows_knockout_slots_only(
+    def test_knockout_stage_step_shows_only_that_stages_slots(
         self, client, user, prediction_round, group_slot, r16_slot,
     ):
         client.force_login(user)
-        r = client.get(reverse("predict_knockout_step", args=[prediction_round.id]))
+        r = client.get(reverse("predict_knockout_stage_step", args=[prediction_round.id, "R16"]))
         assert r.status_code == 200
         assert b"R16-1" in r.content
         assert b"GroupA-M1" not in r.content
+        assert "Son 16".encode("utf-8") in r.content
         assert "90 / 120 dk".encode("utf-8") in r.content
+
+    def test_knockout_stage_step_rejects_unknown_kind(
+        self, client, user, prediction_round, r16_slot,
+    ):
+        client.force_login(user)
+        r = client.get(reverse("predict_knockout_stage_step", args=[prediction_round.id, "BOGUS"]))
+        assert r.status_code == 302  # bounces back to entry
 
     def test_groups_summary_lists_all_group_blocks(
         self, client, user, prediction_round, group_slot,
@@ -111,7 +120,16 @@ class TestWizardSteps:
         r = client.get(reverse("predict_groups_summary", args=[prediction_round.id]))
         assert r.status_code == 200
         assert b"GroupA-M1" in r.content
-        assert "Tüm Grupların".encode("utf-8") in r.content
+        assert "Grup Özet".encode("utf-8") in r.content
+
+    def test_knockout_summary_lists_all_knockout_sections(
+        self, client, user, prediction_round, r16_slot,
+    ):
+        client.force_login(user)
+        r = client.get(reverse("predict_knockout_summary", args=[prediction_round.id]))
+        assert r.status_code == 200
+        assert b"R16-1" in r.content
+        assert "Eleme Özet".encode("utf-8") in r.content
 
 
 @pytest.mark.django_db
@@ -181,8 +199,8 @@ class TestSlotPredictionSave:
             home_team=team_tur, away_team=team_arg, home_score=3, away_score=2,
         )
         client.force_login(user)
-        # Knockout step renders the carried-over scores in the form inputs.
-        r = client.get(reverse("predict_knockout_step", args=[later.id]))
+        # Knockout R16 step renders the carried-over scores in the form inputs.
+        r = client.get(reverse("predict_knockout_stage_step", args=[later.id, "R16"]))
         assert b'value="3"' in r.content
         assert b'value="2"' in r.content
 

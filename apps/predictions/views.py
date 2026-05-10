@@ -24,6 +24,17 @@ from .standings import standings_for_group
 
 GROUP_LETTERS = list("ABCDEFGHIJKL")
 
+# Knockout stage ordering + Turkish labels for the wizard step pills.
+KNOCKOUT_STAGE_ORDER = ["R32", "R16", "QF", "SF", "THIRD", "FINAL"]
+KNOCKOUT_LABELS = {
+    "R32": "Son 32",
+    "R16": "Son 16",
+    "QF": "Çeyrek Final",
+    "SF": "Yarı Final",
+    "THIRD": "3.lük",
+    "FINAL": "Final",
+}
+
 
 # ---------- Index views ----------
 
@@ -79,14 +90,25 @@ def _round_steps(pr) -> list[dict]:
             })
         steps.append({
             "key": "groups-summary",
-            "label": "Özet",
+            "label": "Grup Özet",
             "url": reverse("predict_groups_summary", args=[pr.id]),
         })
-    if _has_knockout_step(pr):
+
+    editable_knockout_kinds = set(
+        pr.editable_stages.exclude(kind="GROUP").values_list("kind", flat=True)
+    )
+    knockout_kinds_in_order = [k for k in KNOCKOUT_STAGE_ORDER if k in editable_knockout_kinds]
+    for kind in knockout_kinds_in_order:
         steps.append({
-            "key": "knockout",
-            "label": "Eleme Turları",
-            "url": reverse("predict_knockout_step", args=[pr.id]),
+            "key": f"knockout-{kind}",
+            "label": KNOCKOUT_LABELS[kind],
+            "url": reverse("predict_knockout_stage_step", args=[pr.id, kind]),
+        })
+    if knockout_kinds_in_order:
+        steps.append({
+            "key": "knockout-summary",
+            "label": "Eleme Özet",
+            "url": reverse("predict_knockout_summary", args=[pr.id]),
         })
     return steps
 
@@ -252,34 +274,76 @@ def _build_group_block_has_slots(pr, letter: str) -> bool:
 # ---------- Knockout step ----------
 
 
-@login_required
-def predict_knockout_step(request: HttpRequest, round_id: int) -> HttpResponse:
-    pr = get_object_or_404(PredictionRound.objects.select_related("tournament"), pk=round_id)
-    if not _has_knockout_step(pr):
-        return redirect("predict_round_entry", round_id=pr.id)
-
-    knockout_stages = list(
-        pr.editable_stages.exclude(kind="GROUP").order_by("order")
-    )
+def _knockout_section_for_stage(request, pr, stage_kind):
+    """Returns a (stage, items) tuple for one knockout stage in this tournament."""
+    try:
+        stage = pr.tournament.stages.get(kind=stage_kind)
+    except pr.tournament.stages.model.DoesNotExist:
+        return None
     slots = list(
         BracketSlot.objects
-        .filter(tournament=pr.tournament, stage__in=knockout_stages)
+        .filter(tournament=pr.tournament, stage=stage)
         .select_related("stage", "home_team_actual", "away_team_actual",
                         "home_source_slot", "away_source_slot")
         .order_by("scheduled_kickoff")
     )
-
+    if not slots:
+        return None
     all_latest, this_round = _user_preds_index(request.user, pr)
-    grouped: dict = {}
-    for slot in slots:
-        item = _build_row_context(request, pr, slot, all_latest, this_round.get(slot.id))
-        grouped.setdefault(slot.stage, []).append(item)
+    items = [
+        _build_row_context(request, pr, slot, all_latest, this_round.get(slot.id))
+        for slot in slots
+    ]
+    return (stage, items)
 
-    sections = [(stage, items) for stage, items in grouped.items()]
+
+@login_required
+def predict_knockout_stage_step(
+    request: HttpRequest, round_id: int, kind: str,
+) -> HttpResponse:
+    """One knockout stage in isolation (Son 32, Son 16, Çeyrek Final, ...)."""
+    pr = get_object_or_404(PredictionRound.objects.select_related("tournament"), pk=round_id)
+    kind = kind.upper()
+    if kind not in KNOCKOUT_STAGE_ORDER:
+        return redirect("predict_round_entry", round_id=pr.id)
+    if not pr.editable_stages.filter(kind=kind).exists():
+        return redirect("predict_round_entry", round_id=pr.id)
+
+    section = _knockout_section_for_stage(request, pr, kind)
+    if section is None:
+        return redirect("predict_round_entry", round_id=pr.id)
+
+    ctx = {
+        "round": pr,
+        "stage": section[0],
+        "items": section[1],
+        "stage_label": KNOCKOUT_LABELS[kind],
+    }
+    ctx.update(_wrap_steps(pr, f"knockout-{kind}"))
+    return render(request, "predictions/knockout_stage_step.html", ctx)
+
+
+@login_required
+def predict_knockout_summary(request: HttpRequest, round_id: int) -> HttpResponse:
+    """All editable knockout stages on one page (review + edit)."""
+    pr = get_object_or_404(PredictionRound.objects.select_related("tournament"), pk=round_id)
+    if not _has_knockout_step(pr):
+        return redirect("predict_round_entry", round_id=pr.id)
+
+    editable_knockout_kinds = set(
+        pr.editable_stages.exclude(kind="GROUP").values_list("kind", flat=True)
+    )
+    sections = []
+    for kind in KNOCKOUT_STAGE_ORDER:
+        if kind not in editable_knockout_kinds:
+            continue
+        section = _knockout_section_for_stage(request, pr, kind)
+        if section is not None:
+            sections.append(section)
 
     ctx = {"round": pr, "sections": sections}
-    ctx.update(_wrap_steps(pr, "knockout"))
-    return render(request, "predictions/knockout_step.html", ctx)
+    ctx.update(_wrap_steps(pr, "knockout-summary"))
+    return render(request, "predictions/knockout_summary.html", ctx)
 
 
 # ---------- HTMX save endpoint ----------

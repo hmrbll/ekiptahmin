@@ -28,9 +28,14 @@ urlpatterns = [
         name="predict_groups_summary",
     ),
     path(
-        "round/<int:round_id>/knockout/",
-        views.predict_knockout_step,
-        name="predict_knockout_step",
+        "round/<int:round_id>/knockout/<str:kind>/",
+        views.predict_knockout_stage_step,
+        name="predict_knockout_stage_step",
+    ),
+    path(
+        "round/<int:round_id>/knockout-summary/",
+        views.predict_knockout_summary,
+        name="predict_knockout_summary",
     ),
 
     # POST endpoint (HTMX or fallback) for saving one slot's prediction
