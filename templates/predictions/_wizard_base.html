@@ -63,10 +63,27 @@
         const isDraw = home.value !== "" && away.value !== "" && Number(home.value) === Number(away.value);
         pen.classList.toggle("hidden", !isDraw);
     }
-    function bothScoresFilled(form) {
+    // Block auto-save while the form isn't in a saveable shape:
+    // - both scores must be filled
+    // - on knockout draws, penalty winner + non-tied penalty score required
+    function isReadyToSave(form) {
         const home = form.querySelector('[data-score-input="home"]');
         const away = form.querySelector('[data-score-input="away"]');
-        return home && away && home.value !== "" && away.value !== "";
+        if (!home || !away || home.value === "" || away.value === "") return false;
+
+        const row = form.closest("[data-slot-row]");
+        const stage = row ? row.dataset.stageKind : "";
+        const isDraw = Number(home.value) === Number(away.value);
+        if (stage !== "GROUP" && isDraw) {
+            const winner = form.querySelector('input[type=radio][name$="penalty_winner"]:checked');
+            const homePen = form.querySelector('input[name$="home_penalties"]');
+            const awayPen = form.querySelector('input[name$="away_penalties"]');
+            if (!winner) return false;
+            if (!homePen || !awayPen) return false;
+            if (homePen.value === "" || awayPen.value === "") return false;
+            if (Number(homePen.value) === Number(awayPen.value)) return false;
+        }
+        return true;
     }
     function init(root) {
         (root || document).querySelectorAll("[data-pred-form]").forEach((form) => {
@@ -74,12 +91,9 @@
             form.addEventListener("input", function (e) {
                 if (e.target.matches('[data-score-input]')) updatePenaltyVisibility(form);
             });
-            const row = form.closest("[data-slot-row]");
-            if (row && row.dataset.stageKind === "GROUP") {
-                form.addEventListener("htmx:beforeRequest", function (e) {
-                    if (!bothScoresFilled(form)) e.preventDefault();
-                });
-            }
+            form.addEventListener("htmx:beforeRequest", function (e) {
+                if (!isReadyToSave(form)) e.preventDefault();
+            });
         });
     }
     document.addEventListener("DOMContentLoaded", function () { init(); });
