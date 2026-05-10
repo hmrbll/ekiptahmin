@@ -1,5 +1,7 @@
-{# Step pills shown above each wizard page. Wraps to multiple lines on narrow
-   screens — no native scrollbar, no horizontal overflow. #}
+{% comment %}
+Step pills shown above each wizard page. Wraps to multiple lines on narrow
+screens — no native scrollbar, no horizontal overflow.
+{% endcomment %}
 {% if steps|length > 1 %}
 <nav class="mb-6">
     <div class="flex flex-wrap gap-1.5">
