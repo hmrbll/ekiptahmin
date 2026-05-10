@@ -13,7 +13,7 @@ services:
     region: frankfurt
     buildCommand: "./build.sh"
     startCommand: "gunicorn config.wsgi:application --workers 2 --threads 2"
-    healthCheckPath: /admin/login/
+    healthCheckPath: /healthz/
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.10"
