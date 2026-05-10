@@ -286,11 +286,13 @@ def r32_slot_thirds(tournament):
 
 @pytest.mark.django_db
 class TestR32ThirdsCascade:
-    def test_thirds_dropdown_filters_to_third_place_candidates(
-        self, user, tournament, prediction_round, r32_slot_thirds, group_a_slots,
-        stage_group, team_tur, team_bra, team_arg, team_ger,
+    def test_blocked_until_all_twelve_groups_have_a_third(
+        self, user, prediction_round, r32_slot_thirds, group_a_slots,
+        team_tur, team_bra,
     ):
-        # Predict Group A so 3rd place is determined (BRA finishes 3rd)
+        """The FIFA table needs the full set of 12 third-placed teams, not just
+        a subset — so when only one group has predictions, the slot is blocked.
+        """
         slots_a, other1, other2 = group_a_slots
         SlotPrediction.objects.create(
             user=user, prediction_round=prediction_round, slot=slots_a[0],
@@ -304,23 +306,19 @@ class TestR32ThirdsCascade:
             user=user, prediction_round=prediction_round, slot=slots_a[2],
             home_team=team_tur, away_team=other1, home_score=1, away_score=0,
         )
-        # Standings A: TUR(6), MAR(3), BRA(0=ga2 gd-2), ESP(0 gd-1) → BRA 3rd? No: ESP gd=-1, BRA gd=-2 → ESP 3rd
-
-        # Check actual computed third
-        third = derive_group_team(user, tournament, "A", 3)
-        assert third is not None  # Third determined
-
-        # Add Group B slot + prediction to make B's 3rd determinable
-        for i, (h, a) in enumerate([(team_arg, team_ger)], start=1):
-            BracketSlot.objects.create(
-                tournament=tournament, stage=stage_group, position=f"GroupB-M{i}",
-                scheduled_kickoff=timezone.now() + timedelta(days=5),
-                home_team_actual=h, away_team_actual=a,
-            )
-
         form = SlotPredictionForm(
             user=user, prediction_round=prediction_round, slot=r32_slot_thirds,
         )
-        # The thirds queryset is filtered to A's third (B can't compute 3rd from 1 match)
-        third_pks = list(form.fields["home_team"].queryset.values_list("pk", flat=True))
-        assert third.pk in third_pks
+        labels = [b["label"] for b in form.cascade_blocked_on]
+        assert any("3.lerden biri" in label for label in labels)
+
+
+def test_best_third_table_loads():
+    """Sanity check: the FIFA allocation JSON parses and has 495 entries."""
+    from apps.predictions.standings import _best_third_table
+    table = _best_third_table()
+    assert len(table) == 495
+    # Spot-check a known entry from Wikipedia row #1: groups EFGHIJKL
+    assert table["EFGHIJKL"]["R32-7"] == "E"
+    assert table["EFGHIJKL"]["R32-2"] == "F"
+    assert table["EFGHIJKL"]["R32-8"] == "K"

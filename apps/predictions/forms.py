@@ -21,7 +21,7 @@ from django.core.exceptions import ValidationError
 from apps.tournament.models import BracketSlot, Team
 
 from .models import SlotPrediction
-from .standings import derive_group_team, thirds_candidates
+from .standings import derive_best_third_for_slot, derive_group_team
 
 
 def _derive_cascaded_team(user, source_slot: BracketSlot, source_kind: str):
@@ -125,18 +125,20 @@ class SlotPredictionForm(forms.ModelForm):
 
         thirds_groups = getattr(slot, f"{side}_source_thirds_groups")
         if thirds_groups:
-            letters = [c for c in thirds_groups.split(",") if c.strip()]
-            candidates = thirds_candidates(user, slot.tournament, letters)
-            if not candidates:
+            # FIFA's Best-Third Allocation table picks exactly one of the 12
+            # groups' third-place finishers for this slot, given which 8
+            # qualify. The user doesn't choose — it falls out of their group
+            # predictions deterministically.
+            team = derive_best_third_for_slot(user, slot.tournament, slot)
+            if team is None:
+                letters = [c for c in thirds_groups.split(",") if c.strip()]
                 self.cascade_blocked_on.append({
-                    "label": f"3.lerden biri ({'/'.join(letters)}) — bu grupların maçlarını tahmin et",
+                    "label": f"3.lerden biri ({'/'.join(letters)}) — tüm 12 grubun maçlarını tahmin et",
                     "slot": None,
                 })
             else:
-                field.queryset = Team.objects.filter(
-                    tournament=slot.tournament,
-                    pk__in=[t.pk for t in candidates],
-                )
+                field.initial = team
+                field.disabled = True
             return
 
     def clean(self):
