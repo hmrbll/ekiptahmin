@@ -60,6 +60,11 @@ class SlotPredictionForm(forms.ModelForm):
         self.user = user
         self.prediction_round = prediction_round
         self.slot = slot
+        # Set on the instance so ModelForm._post_clean → instance.full_clean()
+        # can run model-level validation (penalty rules depend on slot.stage).
+        self.instance.user = user
+        self.instance.prediction_round = prediction_round
+        self.instance.slot = slot
         # Each entry is {"label": str, "slot": BracketSlot|None}.
         # Slot present → clickable link to that slot's edit page.
         # Slot None → static label (e.g., "A Grubu 2.si" — fix by predicting group matches).
@@ -148,10 +153,10 @@ class SlotPredictionForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance: SlotPrediction = super().save(commit=False)
+        # FKs already set in __init__ on self.instance — re-assert for clarity.
         instance.user = self.user
         instance.prediction_round = self.prediction_round
         instance.slot = self.slot
         if commit:
-            instance.full_clean()
             instance.save()
         return instance

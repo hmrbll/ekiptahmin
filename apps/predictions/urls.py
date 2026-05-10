@@ -10,8 +10,8 @@ urlpatterns = [
         name="prediction_round_detail",
     ),
     path(
-        "round/<int:round_id>/slot/<int:slot_id>/",
-        views.slot_prediction_edit,
-        name="slot_prediction_edit",
+        "round/<int:round_id>/slot/<int:slot_id>/save/",
+        views.slot_prediction_save,
+        name="slot_prediction_save",
     ),
 ]

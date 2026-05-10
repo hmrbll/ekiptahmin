@@ -1,0 +1,137 @@
+{% load static %}
+<li id="slot-row-{{ slot.id }}"
+    class="rounded-2xl border {% if just_saved %}border-emerald-400/40{% else %}border-white/10{% endif %} bg-white/5 p-4 transition-colors"
+    data-slot-row="{{ slot.id }}"
+    data-stage-kind="{{ slot.stage.kind }}">
+
+    <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-3">
+        <span class="font-mono">{{ slot.position }}</span>
+        <span>·</span>
+        <span>{{ slot.scheduled_kickoff|date:"d M H:i" }}</span>
+        {% if slot.venue %}<span>·</span><span class="truncate">{{ slot.venue }}</span>{% endif %}
+        {% if slot.is_locked %}<span class="text-amber-400">· Kilitli (kickoff geçti)</span>{% endif %}
+    </div>
+
+    {% if cascade_blocked_on %}
+    <div class="rounded-xl border border-amber-400/30 bg-amber-400/5 p-3 text-sm">
+        <div class="text-amber-300 font-medium mb-1">Önce alttaki tahminleri yap:</div>
+        <ul class="space-y-1">
+            {% for blk in cascade_blocked_on %}
+            <li>
+                {% if blk.slot %}
+                <a href="#slot-row-{{ blk.slot.id }}" class="text-emerald-300 hover:text-emerald-200">→ {{ blk.label }}</a>
+                {% else %}
+                <span class="text-slate-300">→ {{ blk.label }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <form method="post"
+          action="{% url 'slot_prediction_save' round.id slot.id %}"
+          hx-post="{% url 'slot_prediction_save' round.id slot.id %}"
+          hx-target="#slot-row-{{ slot.id }}"
+          hx-swap="outerHTML"
+          class="pred-form space-y-3"
+          data-pred-form="{{ slot.id }}">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-[1fr_auto_auto_auto_1fr_auto] gap-2 items-center">
+            {# Home team #}
+            <div>
+                {% if form.home_team.field.disabled %}
+                    {% if display_home %}
+                        <div class="flex items-center gap-2 px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
+                            {% if display_home.flag_svg_path %}<img src="{% static display_home.flag_svg_path %}" alt="{{ display_home.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                            <span class="text-sm truncate">{{ display_home.name_tr }}</span>
+                        </div>
+                    {% endif %}
+                    <input type="hidden" name="{{ form.home_team.html_name }}" value="{{ form.home_team.initial.id }}">
+                {% else %}
+                    {{ form.home_team }}
+                {% endif %}
+                {% if form.home_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.home_team.errors }}</div>{% endif %}
+            </div>
+
+            {# Score #}
+            <input type="number" min="0" max="20" name="{{ form.home_score.html_name }}"
+                   value="{{ form.home_score.value|default_if_none:'' }}" required
+                   class="w-14 text-center" data-score-input="home" aria-label="Ev skoru">
+            <span class="text-slate-500 text-sm">–</span>
+            <input type="number" min="0" max="20" name="{{ form.away_score.html_name }}"
+                   value="{{ form.away_score.value|default_if_none:'' }}" required
+                   class="w-14 text-center" data-score-input="away" aria-label="Deplasman skoru">
+
+            {# Away team #}
+            <div>
+                {% if form.away_team.field.disabled %}
+                    {% if display_away %}
+                        <div class="flex items-center gap-2 px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
+                            {% if display_away.flag_svg_path %}<img src="{% static display_away.flag_svg_path %}" alt="{{ display_away.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                            <span class="text-sm truncate">{{ display_away.name_tr }}</span>
+                        </div>
+                    {% endif %}
+                    <input type="hidden" name="{{ form.away_team.html_name }}" value="{{ form.away_team.initial.id }}">
+                {% else %}
+                    {{ form.away_team }}
+                {% endif %}
+                {% if form.away_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_team.errors }}</div>{% endif %}
+            </div>
+
+            <button type="submit"
+                    {% if slot.is_locked %}disabled{% endif %}
+                    class="rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-semibold px-3 py-2 text-sm transition">
+                Kaydet
+            </button>
+        </div>
+
+        {% if slot.stage.kind != "GROUP" %}
+        <div class="penalty-section hidden mt-2 rounded-xl border border-white/5 bg-slate-900/40 p-3"
+             data-penalty-section="{{ slot.id }}">
+            <div class="text-xs uppercase tracking-wider text-slate-400 mb-2">Penaltı (berabere tahmininde)</div>
+            <div class="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+                <select name="{{ form.penalty_winner.html_name }}"
+                        class="text-sm" aria-label="Penaltıyı kazanan">
+                    <option value="">— Penaltıyı kazanan —</option>
+                    {% for choice in form.penalty_winner.field.queryset %}
+                    <option value="{{ choice.id }}" {% if form.penalty_winner.value|stringformat:"s" == choice.id|stringformat:"s" %}selected{% endif %}>
+                        {{ choice.name_tr }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <input type="number" min="0" max="30" name="{{ form.home_penalties.html_name }}"
+                       value="{{ form.home_penalties.value|default_if_none:'' }}"
+                       class="w-14 text-center" placeholder="0" aria-label="Ev penaltı">
+                <span class="text-slate-500 text-sm">–</span>
+                <input type="number" min="0" max="30" name="{{ form.away_penalties.html_name }}"
+                       value="{{ form.away_penalties.value|default_if_none:'' }}"
+                       class="w-14 text-center" placeholder="0" aria-label="Deplasman penaltı">
+            </div>
+            {% if form.penalty_winner.errors %}<div class="text-xs text-red-300 mt-1">{{ form.penalty_winner.errors }}</div>{% endif %}
+            {% if form.home_penalties.errors %}<div class="text-xs text-red-300 mt-1">{{ form.home_penalties.errors }}</div>{% endif %}
+            {% if form.away_penalties.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_penalties.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+
+        {% if pred and just_saved %}
+        <div class="text-xs text-emerald-400">✓ Kaydedildi</div>
+        {% endif %}
+    </form>
+    {% endif %}
+</li>
+{% if just_saved %}
+<script>
+  // Briefly highlight the row, then fade.
+  setTimeout(() => {
+    const el = document.getElementById("slot-row-{{ slot.id }}");
+    if (el) el.classList.remove("border-emerald-400/40");
+  }, 1500);
+</script>
+{% endif %}
