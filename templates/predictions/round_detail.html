@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ round.name }} — Tahminler{% endblock %}
+
+{% block content %}
+<main class="px-6 py-12 max-w-4xl mx-auto">
+    <a href="{% url 'prediction_rounds' %}" class="text-sm text-slate-400 hover:text-white">← Round listesi</a>
+    <h1 class="text-3xl font-bold mt-2 mb-2">{{ round.name }}</h1>
+    <p class="text-slate-400 mb-8">
+        Bitiş: {{ round.deadline|date:"d M Y H:i" }} · Ağırlık: ×{{ round.weight }}
+    </p>
+
+    <ul class="space-y-2">
+        {% for slot, pred in slot_rows %}
+        <li class="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between">
+            <div>
+                <div class="font-mono text-sm text-slate-400">{{ slot.position }}</div>
+                <div>
+                    {% if slot.home_team_actual %}
+                        {{ slot.home_team_actual.name_tr }} – {{ slot.away_team_actual.name_tr }}
+                    {% else %}
+                        {{ slot.home_source }} – {{ slot.away_source }}
+                    {% endif %}
+                </div>
+                <div class="text-xs text-slate-500">{{ slot.scheduled_kickoff|date:"d M Y H:i" }}</div>
+            </div>
+            <div class="text-right">
+                {% if pred %}
+                    <div class="text-sm font-semibold text-emerald-400">
+                        {{ pred.home_team.code }} {{ pred.home_score }}-{{ pred.away_score }} {{ pred.away_team.code }}
+                    </div>
+                {% else %}
+                    <div class="text-sm text-slate-500">Tahmin yok</div>
+                {% endif %}
+                {% if not slot.is_locked %}
+                <a href="{% url 'slot_prediction_edit' round.id slot.id %}"
+                   class="text-xs text-emerald-400 hover:text-emerald-300">
+                    {% if pred %}Düzenle{% else %}Tahmin yap{% endif %}
+                </a>
+                {% else %}
+                <div class="text-xs text-slate-600">Kilitli</div>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="text-slate-500">Bu round'da düzenlenebilir slot yok.</li>
+        {% endfor %}
+    </ul>
+</main>
+{% endblock %}

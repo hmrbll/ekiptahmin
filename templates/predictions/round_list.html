@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Tahminler — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<main class="px-6 py-12 max-w-3xl mx-auto">
+    <h1 class="text-3xl font-bold mb-2">Tahmin Round'ları</h1>
+    <p class="text-slate-400 mb-8">{{ tournament.name }}</p>
+
+    <ul class="space-y-3">
+        {% for r in rounds %}
+        <li class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="font-semibold">{{ r.name }}</div>
+                    <div class="text-sm text-slate-400">
+                        Ağırlık: ×{{ r.weight }} · Bitiş: {{ r.deadline|date:"d M Y H:i" }}
+                    </div>
+                </div>
+                {% if r.is_open %}
+                    <a href="{% url 'prediction_round_detail' r.id %}"
+                       class="text-sm text-emerald-400 hover:text-emerald-300">Aç →</a>
+                {% else %}
+                    <span class="text-sm text-slate-500">Kapalı</span>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="text-slate-500">Henüz round tanımlanmamış.</li>
+        {% endfor %}
+    </ul>
+</main>
+{% endblock %}

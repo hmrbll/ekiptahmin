@@ -19,15 +19,13 @@
 
     <main class="px-6 py-12 max-w-3xl mx-auto">
         <h1 class="text-3xl font-bold mb-2">Hoş geldin{% if user.nickname %}, {{ user.nickname }}{% endif %} 👋</h1>
-        <p class="text-slate-400 mb-8">Turnuva henüz başlamadı. Tahminler, leaderboard, maç ekranları yakında burada olacak.</p>
+        <p class="text-slate-400 mb-8">2026 Dünya Kupası tahmin oyununa hoş geldin.</p>
 
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div class="text-sm font-medium text-slate-300 mb-2">Sıradaki adım</div>
-            <p class="text-sm text-slate-400">
-                Turnuva fikstürü ve tahmin formu Faz 2-4'te eklenecek.
-                O zamana kadar burada bir şey yapacak yok.
-            </p>
-        </div>
+        <a href="{% url 'prediction_rounds' %}"
+           class="block rounded-2xl border border-white/10 bg-white/5 p-6 hover:bg-white/10 transition">
+            <div class="text-sm font-medium text-slate-300 mb-1">Tahminler</div>
+            <p class="text-sm text-slate-400">Aktif round'ları görüntüle ve tahmin gönder →</p>
+        </a>
     </main>
 </div>
 {% endblock %}

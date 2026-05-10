@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ slot.position }} — Tahmin{% endblock %}
+
+{% block content %}
+<main class="px-6 py-12 max-w-xl mx-auto">
+    <a href="{% url 'prediction_round_detail' round.id %}" class="text-sm text-slate-400 hover:text-white">← {{ round.name }}</a>
+    <h1 class="text-2xl font-bold mt-2 mb-2">{{ slot.position }}</h1>
+    <p class="text-slate-400 mb-6">{{ slot.scheduled_kickoff|date:"d M Y H:i" }}</p>
+
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        {% for field in form %}
+        <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+            <div class="text-xs text-red-300 mt-1">{{ field.errors }}</div>
+            {% endif %}
+            {% if field.help_text %}
+            <div class="text-xs text-slate-500 mt-1">{{ field.help_text }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <button type="submit"
+                class="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2 transition">
+            Kaydet
+        </button>
+    </form>
+</main>
+{% endblock %}
