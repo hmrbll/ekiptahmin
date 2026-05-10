@@ -21,6 +21,7 @@ from django.core.exceptions import ValidationError
 from apps.tournament.models import BracketSlot, Team
 
 from .models import SlotPrediction
+from .standings import derive_group_team, thirds_candidates
 
 
 def _derive_cascaded_team(user, source_slot: BracketSlot, source_kind: str):
@@ -59,7 +60,10 @@ class SlotPredictionForm(forms.ModelForm):
         self.user = user
         self.prediction_round = prediction_round
         self.slot = slot
-        self.cascade_blocked_on: list[BracketSlot] = []
+        # Each entry is {"label": str, "slot": BracketSlot|None}.
+        # Slot present → clickable link to that slot's edit page.
+        # Slot None → static label (e.g., "A Grubu 2.si" — fix by predicting group matches).
+        self.cascade_blocked_on: list[dict] = []
 
         teams_qs = Team.objects.filter(tournament=slot.tournament).order_by("name_tr")
         self.fields["home_team"].queryset = teams_qs
@@ -75,22 +79,60 @@ class SlotPredictionForm(forms.ModelForm):
             self.fields["away_team"].disabled = True
             return
 
-        # Cascaded knockout slots: derive teams from the user's prior predictions.
-        if slot.home_source_slot_id:
-            home_team = _derive_cascaded_team(user, slot.home_source_slot, slot.home_source_kind)
-            if home_team is None:
-                self.cascade_blocked_on.append(slot.home_source_slot)
-            else:
-                self.fields["home_team"].initial = home_team
-                self.fields["home_team"].disabled = True
+        # Cascade resolution per side (knockout from R32 onward).
+        # Three source kinds, in priority order:
+        #   1. slot-derived (source_slot FK) — winner/loser of an earlier slot
+        #   2. group-derived (group_letter + group_position) — "A Grubu 2.si"
+        #   3. thirds-derived (thirds_groups) — "3.lerden biri (A/B/C)" — user picks
+        # If no source is set, the field stays a free dropdown of all teams.
+        self._configure_side(user, slot, "home")
+        self._configure_side(user, slot, "away")
 
-        if slot.away_source_slot_id:
-            away_team = _derive_cascaded_team(user, slot.away_source_slot, slot.away_source_kind)
-            if away_team is None:
-                self.cascade_blocked_on.append(slot.away_source_slot)
+    def _configure_side(self, user, slot, side: str):
+        field = self.fields[f"{side}_team"]
+        source_slot = getattr(slot, f"{side}_source_slot")
+        if source_slot:
+            kind = getattr(slot, f"{side}_source_kind")
+            team = _derive_cascaded_team(user, source_slot, kind)
+            if team is None:
+                self.cascade_blocked_on.append({
+                    "label": f"{source_slot.position} — {source_slot.home_source} vs {source_slot.away_source}",
+                    "slot": source_slot,
+                })
             else:
-                self.fields["away_team"].initial = away_team
-                self.fields["away_team"].disabled = True
+                field.initial = team
+                field.disabled = True
+            return
+
+        group_letter = getattr(slot, f"{side}_source_group_letter")
+        group_position = getattr(slot, f"{side}_source_group_position")
+        if group_letter and group_position:
+            team = derive_group_team(user, slot.tournament, group_letter, group_position)
+            if team is None:
+                self.cascade_blocked_on.append({
+                    "label": f"{group_letter} Grubu {group_position}.si — grup maçlarını tahmin et",
+                    "slot": None,
+                })
+            else:
+                field.initial = team
+                field.disabled = True
+            return
+
+        thirds_groups = getattr(slot, f"{side}_source_thirds_groups")
+        if thirds_groups:
+            letters = [c for c in thirds_groups.split(",") if c.strip()]
+            candidates = thirds_candidates(user, slot.tournament, letters)
+            if not candidates:
+                self.cascade_blocked_on.append({
+                    "label": f"3.lerden biri ({'/'.join(letters)}) — bu grupların maçlarını tahmin et",
+                    "slot": None,
+                })
+            else:
+                field.queryset = Team.objects.filter(
+                    tournament=slot.tournament,
+                    pk__in=[t.pk for t in candidates],
+                )
+            return
 
     def clean(self):
         cleaned = super().clean()

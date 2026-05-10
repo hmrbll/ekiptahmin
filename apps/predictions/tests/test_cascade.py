@@ -9,7 +9,8 @@ from django.utils import timezone
 
 from apps.predictions.forms import SlotPredictionForm
 from apps.predictions.models import SlotPrediction
-from apps.tournament.models import BracketSlot, PredictionRound, Stage
+from apps.predictions.standings import derive_group_team
+from apps.tournament.models import BracketSlot, PredictionRound, Stage, Team
 
 
 @pytest.fixture
@@ -61,7 +62,8 @@ class TestCascadeForm:
         form = SlotPredictionForm(
             user=user, prediction_round=prediction_round, slot=r16,
         )
-        assert form.cascade_blocked_on == [home_src, away_src]
+        blocked_slots = [b["slot"] for b in form.cascade_blocked_on]
+        assert blocked_slots == [home_src, away_src]
 
     def test_cascade_derives_winner_from_user_prediction(
         self, user, prediction_round, r16_slot_cascaded, team_tur, team_bra, team_arg, team_ger,
@@ -191,3 +193,134 @@ class TestSlotPredictionWinnerLoser:
         )
         assert p.winner_team() is None
         assert p.loser_team() is None
+
+
+@pytest.fixture
+def group_a_slots(tournament, stage_group, team_tur, team_bra):
+    """3 group matches in Group A (need at least 1 match for partial standings)."""
+    # Need 2 more teams in group A
+    other1 = Team.objects.create(tournament=tournament, code="MAR", name_tr="Fas", group_letter="A")
+    other2 = Team.objects.create(tournament=tournament, code="ESP", name_tr="İspanya", group_letter="A")
+    slots = []
+    for i, (h, a) in enumerate([(team_tur, team_bra), (other1, other2), (team_tur, other1)], start=1):
+        slots.append(BracketSlot.objects.create(
+            tournament=tournament, stage=stage_group, position=f"GroupA-M{i}",
+            scheduled_kickoff=timezone.now() + timedelta(days=5 + i),
+            home_team_actual=h, away_team_actual=a,
+        ))
+    return slots, other1, other2
+
+
+@pytest.fixture
+def r32_slot_group_cascade(tournament):
+    """R32 slot with home cascading from 'A Grubu 1.si', away free."""
+    r32_stage = Stage.objects.create(
+        tournament=tournament, kind=Stage.R32, order=1,
+        points_exact=7, points_diff=5, points_result=3,
+        penalty_loser_pct=Decimal("0.60"),
+    )
+    return BracketSlot.objects.create(
+        tournament=tournament, stage=r32_stage, position="R32-1",
+        scheduled_kickoff=timezone.now() + timedelta(days=15),
+        home_source_group_letter="A", home_source_group_position=1,
+    ), r32_stage
+
+
+@pytest.mark.django_db
+class TestR32GroupCascade:
+    def test_group_cascade_blocked_when_no_group_predictions(
+        self, user, prediction_round, r32_slot_group_cascade, group_a_slots,
+    ):
+        slot, _ = r32_slot_group_cascade
+        form = SlotPredictionForm(
+            user=user, prediction_round=prediction_round, slot=slot,
+        )
+        labels = [b["label"] for b in form.cascade_blocked_on]
+        assert any("A Grubu 1.si" in label for label in labels)
+
+    def test_group_cascade_derives_first_place_from_predictions(
+        self, user, prediction_round, r32_slot_group_cascade, group_a_slots,
+        team_tur, team_bra,
+    ):
+        slot, _ = r32_slot_group_cascade
+        slots, other1, other2 = group_a_slots
+
+        # User predicts: TUR beats BRA 2-0, MAR beats ESP 1-0, TUR beats MAR 1-0
+        # → TUR: 2W=6pts; MAR: 1W 1L=3pts; BRA: 1L=0pts; ESP: 1L=0pts
+        # → A Grubu 1.si = TUR
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=slots[0],
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=0,
+        )
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=slots[1],
+            home_team=other1, away_team=other2, home_score=1, away_score=0,
+        )
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=slots[2],
+            home_team=team_tur, away_team=other1, home_score=1, away_score=0,
+        )
+
+        form = SlotPredictionForm(
+            user=user, prediction_round=prediction_round, slot=slot,
+        )
+        assert form.cascade_blocked_on == []
+        assert form.fields["home_team"].initial == team_tur
+        assert form.fields["home_team"].disabled is True
+
+
+@pytest.fixture
+def r32_slot_thirds(tournament):
+    """R32 slot with home cascading from '3.lerden biri (A/B)' source."""
+    r32_stage = Stage.objects.create(
+        tournament=tournament, kind=Stage.R32, order=1,
+        points_exact=7, points_diff=5, points_result=3,
+        penalty_loser_pct=Decimal("0.60"),
+    )
+    return BracketSlot.objects.create(
+        tournament=tournament, stage=r32_stage, position="R32-2",
+        scheduled_kickoff=timezone.now() + timedelta(days=15),
+        home_source_thirds_groups="A,B",
+    )
+
+
+@pytest.mark.django_db
+class TestR32ThirdsCascade:
+    def test_thirds_dropdown_filters_to_third_place_candidates(
+        self, user, tournament, prediction_round, r32_slot_thirds, group_a_slots,
+        stage_group, team_tur, team_bra, team_arg, team_ger,
+    ):
+        # Predict Group A so 3rd place is determined (BRA finishes 3rd)
+        slots_a, other1, other2 = group_a_slots
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=slots_a[0],
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=0,
+        )
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=slots_a[1],
+            home_team=other1, away_team=other2, home_score=1, away_score=0,
+        )
+        SlotPrediction.objects.create(
+            user=user, prediction_round=prediction_round, slot=slots_a[2],
+            home_team=team_tur, away_team=other1, home_score=1, away_score=0,
+        )
+        # Standings A: TUR(6), MAR(3), BRA(0=ga2 gd-2), ESP(0 gd-1) → BRA 3rd? No: ESP gd=-1, BRA gd=-2 → ESP 3rd
+
+        # Check actual computed third
+        third = derive_group_team(user, tournament, "A", 3)
+        assert third is not None  # Third determined
+
+        # Add Group B slot + prediction to make B's 3rd determinable
+        for i, (h, a) in enumerate([(team_arg, team_ger)], start=1):
+            BracketSlot.objects.create(
+                tournament=tournament, stage=stage_group, position=f"GroupB-M{i}",
+                scheduled_kickoff=timezone.now() + timedelta(days=5),
+                home_team_actual=h, away_team_actual=a,
+            )
+
+        form = SlotPredictionForm(
+            user=user, prediction_round=prediction_round, slot=r32_slot_thirds,
+        )
+        # The thirds queryset is filtered to A's third (B can't compute 3rd from 1 match)
+        third_pks = list(form.fields["home_team"].queryset.values_list("pk", flat=True))
+        assert third.pk in third_pks

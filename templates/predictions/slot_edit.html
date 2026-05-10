@@ -50,17 +50,20 @@
         <div class="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5 mb-6">
             <h3 class="font-semibold text-amber-300 mb-2">Önce alttaki maçları tahmin et</h3>
             <p class="text-sm text-slate-300 mb-3">
-                Bu maçın takımları senin önceki round tahminlerinden türetiliyor.
-                Şu maçları henüz tahmin etmedin:
+                Bu maçın takımları senin önceki tahminlerinden türetiliyor.
+                Eksik olanlar:
             </p>
             <ul class="space-y-2">
-                {% for src in cascade_blocked_on %}
+                {% for blk in cascade_blocked_on %}
                 <li>
-                    <a href="{% url 'slot_prediction_edit' round.id src.id %}"
+                    {% if blk.slot %}
+                    <a href="{% url 'slot_prediction_edit' round.id blk.slot.id %}"
                        class="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200">
-                        <span class="font-mono">{{ src.position }}</span> →
-                        <span>{{ src.home_source }} vs {{ src.away_source }}</span>
+                        → {{ blk.label }}
                     </a>
+                    {% else %}
+                    <span class="text-sm text-slate-300">→ {{ blk.label }}</span>
+                    {% endif %}
                 </li>
                 {% endfor %}
             </ul>
