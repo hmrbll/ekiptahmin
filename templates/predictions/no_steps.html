@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}{{ round.name }} — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+    <main class="px-6 py-24 max-w-xl mx-auto text-center">
+        <h1 class="text-2xl font-bold mb-3">{{ round.name }}</h1>
+        <p class="text-slate-400">Bu round için tahmin yapılabilecek bir aşama tanımlı değil.</p>
+    </main>
+</div>
+{% endblock %}

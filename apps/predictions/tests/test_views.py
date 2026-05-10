@@ -54,26 +54,35 @@ class TestRoundListView:
 
 
 @pytest.mark.django_db
-class TestRoundDetailView:
-    def test_shows_only_editable_stage_slots(
+class TestWizardSteps:
+    def test_round_entry_redirects_to_first_group_when_groups_editable(
         self, client, user, prediction_round, group_slot, r16_slot,
     ):
         client.force_login(user)
-        r = client.get(reverse("prediction_round_detail", args=[prediction_round.id]))
+        r = client.get(reverse("predict_round_entry", args=[prediction_round.id]))
+        assert r.status_code == 302
+        assert "/group/A/" in r["Location"]
+
+    def test_round_entry_jumps_to_knockout_when_no_group_editable(
+        self, client, user, prediction_round, r16_slot, stage_r16,
+    ):
+        prediction_round.editable_stages.set([stage_r16])
+        client.force_login(user)
+        r = client.get(reverse("predict_round_entry", args=[prediction_round.id]))
+        assert r.status_code == 302
+        assert "/knockout/" in r["Location"]
+
+    def test_group_step_shows_only_that_groups_slots(
+        self, client, user, prediction_round, group_slot, r16_slot,
+    ):
+        client.force_login(user)
+        r = client.get(reverse("predict_group_step", args=[prediction_round.id, "A"]))
         assert r.status_code == 200
         assert b"GroupA-M1" in r.content
-        assert b"R16-1" in r.content
-
-    def test_filters_out_slots_from_non_editable_stages(
-        self, client, user, prediction_round, group_slot, r16_slot, stage_group,
-    ):
-        prediction_round.editable_stages.set([stage_group])
-        client.force_login(user)
-        r = client.get(reverse("prediction_round_detail", args=[prediction_round.id]))
-        assert b"GroupA-M1" in r.content
+        # Knockout slot belongs to the knockout step, not the group step
         assert b"R16-1" not in r.content
 
-    def test_shows_users_existing_prediction_score(
+    def test_group_step_shows_user_prediction_score(
         self, client, user, prediction_round, group_slot, team_tur, team_bra,
     ):
         SlotPrediction.objects.create(
@@ -81,34 +90,28 @@ class TestRoundDetailView:
             home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
         )
         client.force_login(user)
-        r = client.get(reverse("prediction_round_detail", args=[prediction_round.id]))
-        # The score shows as input value="2" / value="1" on the inline form
+        r = client.get(reverse("predict_group_step", args=[prediction_round.id, "A"]))
         assert b'value="2"' in r.content
         assert b'value="1"' in r.content
 
-    def test_other_users_predictions_not_shown(
-        self, client, user, prediction_round, r16_slot, team_tur, team_arg, db,
-    ):
-        from django.contrib.auth import get_user_model
-        other = get_user_model().objects.create_user(
-            email="other@example.com", username="other@example.com",
-        )
-        SlotPrediction.objects.create(
-            user=other, prediction_round=prediction_round, slot=r16_slot,
-            home_team=team_tur, away_team=team_arg, home_score=2, away_score=1,
-        )
-        client.force_login(user)
-        r = client.get(reverse("prediction_round_detail", args=[prediction_round.id]))
-        # The current user has no prediction → score inputs render empty
-        assert SlotPrediction.objects.filter(user=user).count() == 0
-
-    def test_score_label_differs_for_group_vs_knockout(
+    def test_knockout_step_shows_knockout_slots_only(
         self, client, user, prediction_round, group_slot, r16_slot,
     ):
         client.force_login(user)
-        r = client.get(reverse("prediction_round_detail", args=[prediction_round.id]))
-        assert "Skor: 90 dk".encode("utf-8") in r.content
+        r = client.get(reverse("predict_knockout_step", args=[prediction_round.id]))
+        assert r.status_code == 200
+        assert b"R16-1" in r.content
+        assert b"GroupA-M1" not in r.content
         assert "90 / 120 dk".encode("utf-8") in r.content
+
+    def test_groups_summary_lists_all_group_blocks(
+        self, client, user, prediction_round, group_slot,
+    ):
+        client.force_login(user)
+        r = client.get(reverse("predict_groups_summary", args=[prediction_round.id]))
+        assert r.status_code == 200
+        assert b"GroupA-M1" in r.content
+        assert "Tüm Grupların".encode("utf-8") in r.content
 
 
 @pytest.mark.django_db
@@ -178,8 +181,8 @@ class TestSlotPredictionSave:
             home_team=team_tur, away_team=team_arg, home_score=3, away_score=2,
         )
         client.force_login(user)
-        r = client.get(reverse("prediction_round_detail", args=[later.id]))
-        # Earlier prediction's scores are pre-filled in the new round's form
+        # Knockout step renders the carried-over scores in the form inputs.
+        r = client.get(reverse("predict_knockout_step", args=[later.id]))
         assert b'value="3"' in r.content
         assert b'value="2"' in r.content
 

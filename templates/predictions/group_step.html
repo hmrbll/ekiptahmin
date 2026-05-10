@@ -1,0 +1,25 @@
+{% extends "predictions/_wizard_base.html" %}
+{% load static %}
+
+{% block title %}Grup {{ group.letter }} — {{ round.name }}{% endblock %}
+
+{% block step_content %}
+<section class="mb-6">
+    <div class="flex items-baseline gap-3 mb-4">
+        <h2 class="text-xl font-bold flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-400/10 border border-emerald-400/30 text-emerald-300">{{ group.letter }}</span>
+            Grup {{ group.letter }}
+        </h2>
+        <span class="text-xs text-slate-500">· Skor: 90 dk · Otomatik kaydedilir</span>
+    </div>
+
+    <ul class="space-y-2 mb-6">
+        {% for item in group.items %}
+            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on round=round %}
+        {% endfor %}
+    </ul>
+
+    <h3 class="text-xs uppercase tracking-wider text-slate-500 mb-2">Sıralama (anlık)</h3>
+    {% include "predictions/_standings_table.html" with letter=group.letter standings=group.standings %}
+</section>
+{% endblock %}

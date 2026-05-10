@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+<style>
+    .pred-form input[type=number],
+    .pred-form select {
+        background-color: rgb(15 23 42 / 0.7);
+        border: 1px solid rgb(255 255 255 / 0.1);
+        border-radius: 0.5rem;
+        padding: 0.45rem 0.55rem;
+        color: rgb(248 250 252);
+    }
+    .pred-form select { width: 100%; }
+    .pred-form input[type=number]:focus,
+    .pred-form select:focus {
+        outline: none;
+        border-color: rgb(52 211 153 / 0.6);
+        box-shadow: 0 0 0 2px rgb(52 211 153 / 0.2);
+    }
+    .pred-form input:disabled,
+    .pred-form select:disabled {
+        background-color: rgb(15 23 42 / 0.4);
+        color: rgb(148 163 184);
+    }
+    .pred-form input[type=number]::-webkit-outer-spin-button,
+    .pred-form input[type=number]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    .pred-form input[type=number] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="px-6 py-12 max-w-5xl mx-auto">
+        {% include "predictions/_round_meta.html" %}
+        {% include "predictions/_wizard_nav.html" %}
+
+        {% block step_content %}{% endblock %}
+
+        {% include "predictions/_wizard_footer.html" %}
+    </main>
+</div>
+
+<script>
+(function () {
+    function updatePenaltyVisibility(form) {
+        const slotId = form.dataset.predForm;
+        const row = form.closest("[data-slot-row]");
+        if (!row || row.dataset.stageKind === "GROUP") return;
+        const home = form.querySelector('[data-score-input="home"]');
+        const away = form.querySelector('[data-score-input="away"]');
+        const pen = form.querySelector('[data-penalty-section="' + slotId + '"]');
+        if (!home || !away || !pen) return;
+        const isDraw = home.value !== "" && away.value !== "" && Number(home.value) === Number(away.value);
+        pen.classList.toggle("hidden", !isDraw);
+    }
+    function bothScoresFilled(form) {
+        const home = form.querySelector('[data-score-input="home"]');
+        const away = form.querySelector('[data-score-input="away"]');
+        return home && away && home.value !== "" && away.value !== "";
+    }
+    function init(root) {
+        (root || document).querySelectorAll("[data-pred-form]").forEach((form) => {
+            updatePenaltyVisibility(form);
+            form.addEventListener("input", function (e) {
+                if (e.target.matches('[data-score-input]')) updatePenaltyVisibility(form);
+            });
+            const row = form.closest("[data-slot-row]");
+            if (row && row.dataset.stageKind === "GROUP") {
+                form.addEventListener("htmx:beforeRequest", function (e) {
+                    if (!bothScoresFilled(form)) e.preventDefault();
+                });
+            }
+        });
+    }
+    document.addEventListener("DOMContentLoaded", function () { init(); });
+    document.body.addEventListener("htmx:afterSwap", function (e) { init(e.target); });
+})();
+</script>
+{% endblock %}
