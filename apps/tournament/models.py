@@ -219,6 +219,33 @@ class BracketSlot(models.Model):
     )
     away_source = models.CharField(max_length=80, blank=True)
 
+    # Structured links for cascade logic. R16/QF/SF/Third/Final slots reference
+    # the slot whose winner/loser feeds them. R32 slots leave these null —
+    # their teams come from group standings (handled by best-third rules at
+    # the actual tournament; users free-pick at prediction time).
+    SOURCE_KIND_WINNER = "WINNER"
+    SOURCE_KIND_LOSER = "LOSER"
+    SOURCE_KIND_CHOICES = [
+        (SOURCE_KIND_WINNER, "Winner of source slot"),
+        (SOURCE_KIND_LOSER, "Loser of source slot"),
+    ]
+
+    home_source_slot = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="feeds_home_to",
+        help_text="The slot whose winner/loser feeds the home side of this slot.",
+    )
+    home_source_kind = models.CharField(
+        max_length=8, choices=SOURCE_KIND_CHOICES, default=SOURCE_KIND_WINNER,
+    )
+    away_source_slot = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="feeds_away_to",
+    )
+    away_source_kind = models.CharField(
+        max_length=8, choices=SOURCE_KIND_CHOICES, default=SOURCE_KIND_WINNER,
+    )
+
     class Meta:
         ordering = ("scheduled_kickoff",)
         unique_together = (("tournament", "position"),)
@@ -230,6 +257,11 @@ class BracketSlot(models.Model):
     def is_locked(self) -> bool:
         """Predictions for this slot are locked once kickoff has passed."""
         return timezone.now() >= self.scheduled_kickoff
+
+    @property
+    def has_cascaded_teams(self) -> bool:
+        """True when both team sides come from earlier knockout slot predictions."""
+        return bool(self.home_source_slot_id and self.away_source_slot_id)
 
 
 class ActualResult(models.Model):

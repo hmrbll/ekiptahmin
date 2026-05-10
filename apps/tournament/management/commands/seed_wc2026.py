@@ -10,6 +10,7 @@ Reads:
 
 import csv
 import json
+import re
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -27,6 +28,28 @@ from apps.tournament.models import (
 )
 
 DATA_DIR = Path(settings.BASE_DIR) / "data" / "wc2026"
+
+# Matches "R32-1 Kazananı", "SF-2 Mağlubu", etc. Returns (position, kind) or None.
+_SOURCE_RE = re.compile(r"^(R32|R16|QF|SF|Third|Final)-?(\d*)\s+(Kazananı|Mağlubu)$")
+
+
+def _parse_source(source_str: str) -> tuple[str | None, str]:
+    """Parse a knockout source description into (position, kind).
+
+    Returns (position, "WINNER"|"LOSER") for slot-derived sources,
+    (None, "WINNER") for group-derived sources (R32 typically).
+    """
+    s = (source_str or "").strip()
+    m = _SOURCE_RE.match(s)
+    if not m:
+        return (None, BracketSlot.SOURCE_KIND_WINNER)
+    base, num, label = m.group(1), m.group(2), m.group(3)
+    position = f"{base}-{num}" if num else base
+    kind = (
+        BracketSlot.SOURCE_KIND_WINNER if label == "Kazananı"
+        else BracketSlot.SOURCE_KIND_LOSER
+    )
+    return (position, kind)
 
 
 class Command(BaseCommand):
@@ -163,30 +186,58 @@ class Command(BaseCommand):
 
         stages = {s.kind: s for s in tournament.stages.all()}
 
+        # Two-pass: first create/update all slots, then resolve source FKs
+        # (a R16 slot's source is an R32 slot which must already exist).
+        rows: list[dict] = []
         with path.open(encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                position = row["position"].strip()
-                stage_kind = row["stage_kind"].strip().upper()
-                stage = stages.get(stage_kind)
-                if stage is None:
-                    self.stdout.write(self.style.ERROR(
-                        f"  Skipping {position}: unknown stage_kind '{stage_kind}'"
-                    ))
-                    continue
+            for row in csv.DictReader(f):
+                rows.append(row)
 
-                slot, created = BracketSlot.objects.update_or_create(
-                    tournament=tournament,
-                    position=position,
-                    defaults={
-                        "stage": stage,
-                        "scheduled_kickoff": datetime.fromisoformat(row["kickoff_iso"]),
-                        "venue": row.get("venue", "").strip(),
-                        "home_source": row.get("home_source", "").strip(),
-                        "away_source": row.get("away_source", "").strip(),
-                    },
-                )
-                self._log(f"  Knockout slot: {position}", created)
+        for row in rows:
+            position = row["position"].strip()
+            stage_kind = row["stage_kind"].strip().upper()
+            stage = stages.get(stage_kind)
+            if stage is None:
+                self.stdout.write(self.style.ERROR(
+                    f"  Skipping {position}: unknown stage_kind '{stage_kind}'"
+                ))
+                continue
+
+            slot, created = BracketSlot.objects.update_or_create(
+                tournament=tournament,
+                position=position,
+                defaults={
+                    "stage": stage,
+                    "scheduled_kickoff": datetime.fromisoformat(row["kickoff_iso"]),
+                    "venue": row.get("venue", "").strip(),
+                    "home_source": row.get("home_source", "").strip(),
+                    "away_source": row.get("away_source", "").strip(),
+                },
+            )
+            self._log(f"  Knockout slot: {position}", created)
+
+        # Pass 2: resolve cascade FKs.
+        slots_by_position = {
+            s.position: s
+            for s in BracketSlot.objects.filter(tournament=tournament)
+        }
+        for row in rows:
+            position = row["position"].strip()
+            slot = slots_by_position.get(position)
+            if slot is None:
+                continue
+
+            home_pos, home_kind = _parse_source(row.get("home_source", ""))
+            away_pos, away_kind = _parse_source(row.get("away_source", ""))
+            home_src = slots_by_position.get(home_pos) if home_pos else None
+            away_src = slots_by_position.get(away_pos) if away_pos else None
+
+            BracketSlot.objects.filter(pk=slot.pk).update(
+                home_source_slot=home_src,
+                home_source_kind=home_kind,
+                away_source_slot=away_src,
+                away_source_kind=away_kind,
+            )
 
     # ---- Helpers ----
 

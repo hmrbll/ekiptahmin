@@ -3,8 +3,12 @@
 {% block title %}Tahminler — ekiptahmin.com{% endblock %}
 
 {% block content %}
-<main class="px-6 py-24 max-w-xl mx-auto text-center">
-    <h1 class="text-2xl font-bold mb-3">Aktif turnuva yok</h1>
-    <p class="text-slate-400">Şu an tahmin yapabileceğin bir turnuva tanımlı değil.</p>
-</main>
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="px-6 py-24 max-w-xl mx-auto text-center">
+        <h1 class="text-2xl font-bold mb-3">Aktif turnuva yok</h1>
+        <p class="text-slate-400">Şu an tahmin yapabileceğin bir turnuva tanımlı değil.</p>
+    </main>
+</div>
 {% endblock %}

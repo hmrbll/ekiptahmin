@@ -92,6 +92,30 @@ class SlotPrediction(models.Model):
     def is_draw_prediction(self) -> bool:
         return self.home_score == self.away_score
 
+    def winner_team(self):
+        """The team this prediction has winning. For draws, the penalty winner.
+
+        Returns None if the prediction is a draw without a penalty winner set
+        (group-stage slot or invalid state).
+        """
+        if self.home_score > self.away_score:
+            return self.home_team
+        if self.away_score > self.home_score:
+            return self.away_team
+        return self.penalty_winner
+
+    def loser_team(self):
+        """The team this prediction has losing. For draws, the non-penalty-winner.
+
+        Returns None if no winner is determined.
+        """
+        winner = self.winner_team()
+        if winner is None:
+            return None
+        if winner.id == self.home_team_id:
+            return self.away_team
+        return self.home_team
+
     def clean(self) -> None:
         errors: dict[str, str] = {}
 

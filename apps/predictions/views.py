@@ -42,17 +42,59 @@ def prediction_round_detail(request: HttpRequest, round_id: int) -> HttpResponse
         .select_related("stage", "home_team_actual", "away_team_actual")
         .order_by("scheduled_kickoff")
     )
-    user_preds = {
+    # Cascaded slots may inherit teams from the user's predictions in OTHER
+    # rounds — also fetch those so the round detail can show the derived
+    # teams. The dict is keyed by slot_id with the user's most recent
+    # prediction across all rounds.
+    all_user_preds_qs = (
+        SlotPrediction.objects
+        .filter(user=request.user)
+        .select_related("home_team", "away_team", "penalty_winner")
+        .order_by("slot_id", "-prediction_round__order")
+    )
+    latest_per_slot: dict[int, SlotPrediction] = {}
+    for p in all_user_preds_qs:
+        latest_per_slot.setdefault(p.slot_id, p)
+
+    user_preds_this_round = {
         p.slot_id: p
-        for p in SlotPrediction.objects
-            .filter(user=request.user, prediction_round=pr)
-            .select_related("home_team", "away_team", "penalty_winner")
+        for p in all_user_preds_qs
+        if p.prediction_round_id == pr.id
     }
-    slot_rows = [(slot, user_preds.get(slot.id)) for slot in slots]
+
+    grouped: dict = {}
+    for slot in slots:
+        pred = user_preds_this_round.get(slot.id)
+        # Compute display teams: actual > cascaded-derived > None (source label)
+        display_home = slot.home_team_actual
+        display_away = slot.away_team_actual
+        if display_home is None and slot.home_source_slot_id:
+            src = latest_per_slot.get(slot.home_source_slot_id)
+            if src:
+                display_home = (
+                    src.winner_team()
+                    if slot.home_source_kind == "WINNER"
+                    else src.loser_team()
+                )
+        if display_away is None and slot.away_source_slot_id:
+            src = latest_per_slot.get(slot.away_source_slot_id)
+            if src:
+                display_away = (
+                    src.winner_team()
+                    if slot.away_source_kind == "WINNER"
+                    else src.loser_team()
+                )
+        grouped.setdefault(slot.stage, []).append({
+            "slot": slot,
+            "pred": pred,
+            "display_home": display_home,
+            "display_away": display_away,
+        })
+    stage_groups = [(stage, items) for stage, items in grouped.items()]
     return render(
         request,
         "predictions/round_detail.html",
-        {"round": pr, "slot_rows": slot_rows},
+        {"round": pr, "stage_groups": stage_groups},
     )
 
 
@@ -105,5 +147,8 @@ def slot_prediction_edit(
     return render(
         request,
         "predictions/slot_edit.html",
-        {"form": form, "round": pr, "slot": slot, "instance": instance},
+        {
+            "form": form, "round": pr, "slot": slot, "instance": instance,
+            "cascade_blocked_on": form.cascade_blocked_on,
+        },
     )

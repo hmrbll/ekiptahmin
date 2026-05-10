@@ -96,12 +96,17 @@ class BracketSlotAdmin(admin.ModelAdmin):
     list_filter = ("tournament", "stage")
     search_fields = ("position", "venue", "home_source", "away_source")
     ordering = ("scheduled_kickoff",)
-    raw_id_fields = ("home_team_actual", "away_team_actual")
+    raw_id_fields = ("home_team_actual", "away_team_actual", "home_source_slot", "away_source_slot")
     inlines = [ActualResultInline]
     fieldsets = (
         (None, {"fields": ("tournament", "stage", "position")}),
         ("Schedule", {"fields": ("scheduled_kickoff", "venue")}),
-        ("Teams", {"fields": ("home_team_actual", "away_team_actual", "home_source", "away_source")}),
+        ("Teams (actual)", {"fields": ("home_team_actual", "away_team_actual")}),
+        ("Source descriptions (display)", {"fields": ("home_source", "away_source")}),
+        ("Cascade links (R16+)", {
+            "fields": ("home_source_slot", "home_source_kind", "away_source_slot", "away_source_kind"),
+            "description": "Drives the bracket cascade: which earlier slot's winner/loser feeds each side.",
+        }),
     )
 
     @admin.display(boolean=True, description="Locked?")

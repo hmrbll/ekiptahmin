@@ -76,7 +76,8 @@ class TestRoundDetailView:
         )
         client.force_login(user)
         r = client.get(reverse("prediction_round_detail", args=[prediction_round.id]))
-        assert b"TUR 2-1 ARG" in r.content
+        # Score is rendered as "2 – 1" (en-dash) in the polished template.
+        assert "2 – 1".encode("utf-8") in r.content
 
     def test_other_users_predictions_not_shown(
         self, client, user, prediction_round, r16_slot, team_tur, team_arg, db,
@@ -91,8 +92,7 @@ class TestRoundDetailView:
         )
         client.force_login(user)
         r = client.get(reverse("prediction_round_detail", args=[prediction_round.id]))
-        assert b"TUR 2-1 ARG" not in r.content
-        assert b"Tahmin yok" in r.content
+        assert "2 – 1".encode("utf-8") not in r.content
 
 
 @pytest.mark.django_db

@@ -1,39 +1,138 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ slot.position }} — Tahmin{% endblock %}
 
+{% block extra_head %}
+<style>
+    /* Tailwind doesn't ship form-element styles by default; keep these minimal
+       and scoped to this page to avoid affecting other forms. */
+    .pred-form input, .pred-form select {
+        background-color: rgb(15 23 42 / 0.7);
+        border: 1px solid rgb(255 255 255 / 0.1);
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        color: rgb(248 250 252);
+        width: 100%;
+    }
+    .pred-form input:focus, .pred-form select:focus {
+        outline: none;
+        border-color: rgb(52 211 153 / 0.6);
+        box-shadow: 0 0 0 2px rgb(52 211 153 / 0.2);
+    }
+    .pred-form input:disabled, .pred-form select:disabled {
+        background-color: rgb(15 23 42 / 0.4);
+        color: rgb(148 163 184);
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<main class="px-6 py-12 max-w-xl mx-auto">
-    <a href="{% url 'prediction_round_detail' round.id %}" class="text-sm text-slate-400 hover:text-white">← {{ round.name }}</a>
-    <h1 class="text-2xl font-bold mt-2 mb-2">{{ slot.position }}</h1>
-    <p class="text-slate-400 mb-6">{{ slot.scheduled_kickoff|date:"d M Y H:i" }}</p>
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
 
-    <form method="post" class="space-y-4">
-        {% csrf_token %}
-
-        {% if form.non_field_errors %}
-        <div class="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {{ form.non_field_errors }}
+    <main class="px-6 py-12 max-w-2xl mx-auto">
+        <a href="{% url 'prediction_round_detail' round.id %}" class="text-sm text-slate-400 hover:text-white">
+            ← {{ round.name }}
+        </a>
+        <div class="mt-3 mb-8">
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                <span class="font-mono">{{ slot.position }}</span>
+                <span>·</span>
+                <span>{{ slot.stage.get_kind_display }}</span>
+            </div>
+            <h1 class="text-2xl font-bold">{{ slot.scheduled_kickoff|date:"d M Y H:i" }}</h1>
+            {% if slot.venue %}<p class="text-slate-400 text-sm mt-1">{{ slot.venue }}</p>{% endif %}
         </div>
+
+        {% if cascade_blocked_on %}
+        <div class="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5 mb-6">
+            <h3 class="font-semibold text-amber-300 mb-2">Önce alttaki maçları tahmin et</h3>
+            <p class="text-sm text-slate-300 mb-3">
+                Bu maçın takımları senin önceki round tahminlerinden türetiliyor.
+                Şu maçları henüz tahmin etmedin:
+            </p>
+            <ul class="space-y-2">
+                {% for src in cascade_blocked_on %}
+                <li>
+                    <a href="{% url 'slot_prediction_edit' round.id src.id %}"
+                       class="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200">
+                        <span class="font-mono">{{ src.position }}</span> →
+                        <span>{{ src.home_source }} vs {{ src.away_source }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% else %}
+
+        <form method="post" class="pred-form rounded-2xl border border-white/10 bg-white/5 p-6 space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <div>
+                <label class="block text-xs uppercase tracking-wider text-slate-400 mb-2">Eşleşme</label>
+                <div class="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
+                    <div>
+                        {{ form.home_team }}
+                        {% if form.home_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.home_team.errors }}</div>{% endif %}
+                    </div>
+                    <span class="text-slate-500 text-sm">vs</span>
+                    <div>
+                        {{ form.away_team }}
+                        {% if form.away_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_team.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                {% if form.home_team.field.disabled %}
+                <p class="text-xs text-slate-500 mt-2">
+                    {% if slot.home_team_actual %}Grup eşleşmesi sabit.{% else %}Takımlar önceki round tahminlerinden türetildi.{% endif %}
+                </p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs uppercase tracking-wider text-slate-400 mb-2">Skor (90 dk)</label>
+                <div class="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
+                    {{ form.home_score }}
+                    <span class="text-slate-500 text-sm">–</span>
+                    {{ form.away_score }}
+                </div>
+                {% if form.home_score.errors %}<div class="text-xs text-red-300 mt-1">{{ form.home_score.errors }}</div>{% endif %}
+                {% if form.away_score.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_score.errors }}</div>{% endif %}
+            </div>
+
+            {% if slot.stage.kind != "GROUP" %}
+            <div class="rounded-xl border border-white/5 bg-slate-900/40 p-4">
+                <label class="block text-xs uppercase tracking-wider text-slate-400 mb-2">
+                    Penaltı (sadece beraberlik tahmininde)
+                </label>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Penaltıyı kazanan</label>
+                        {{ form.penalty_winner }}
+                        {% if form.penalty_winner.errors %}<div class="text-xs text-red-300 mt-1">{{ form.penalty_winner.errors }}</div>{% endif %}
+                    </div>
+                    <div class="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
+                        {{ form.home_penalties }}
+                        <span class="text-slate-500 text-sm">–</span>
+                        {{ form.away_penalties }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <button type="submit"
+                    class="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition">
+                Kaydet
+            </button>
+        </form>
         {% endif %}
-
-        {% for field in form %}
-        <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1">{{ field.label }}</label>
-            {{ field }}
-            {% if field.errors %}
-            <div class="text-xs text-red-300 mt-1">{{ field.errors }}</div>
-            {% endif %}
-            {% if field.help_text %}
-            <div class="text-xs text-slate-500 mt-1">{{ field.help_text }}</div>
-            {% endif %}
-        </div>
-        {% endfor %}
-
-        <button type="submit"
-                class="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2 transition">
-            Kaydet
-        </button>
-    </form>
-</main>
+    </main>
+</div>
 {% endblock %}
