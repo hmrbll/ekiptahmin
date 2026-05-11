@@ -230,6 +230,41 @@ class TestHomeAuthenticated:
         # Own row gets the highlight class.
         assert "border-emerald-400/20" in body
 
+    def test_chips_sort_along_home_to_away_spectrum(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """Predicted scores order as 4-1, 3-0, 2-2, 1-1, 0-1, 1-2 — i.e. from
+        biggest home margin (with bigger gf first) through draws to growing
+        away margins.
+        """
+        slot = _slot(t, group_stage, "GroupA-M1",
+                     timezone.now() + timedelta(days=1), tur, bra)
+        score_to_nick = [
+            ((4, 1), "U41"),
+            ((3, 0), "U30"),
+            ((2, 2), "U22"),
+            ((1, 1), "U11"),
+            ((0, 1), "U01"),
+            ((1, 2), "U12"),
+        ]
+        for (h, a), nick in score_to_nick:
+            u = User.objects.create_user(
+                email=f"{nick}@x.com", username=f"{nick}@x.com", nickname=nick,
+            )
+            SlotPrediction.objects.create(
+                user=u, prediction_round=pre_round, slot=slot,
+                home_team=tur, away_team=bra, home_score=h, away_score=a,
+            )
+
+        viewer = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        client.force_login(viewer)
+        r = client.get(reverse("home"))
+        body = r.content.decode("utf-8")
+        positions = [body.find(nick) for _, nick in score_to_nick]
+        # All nicks present and in the expected spectrum order.
+        assert all(p > 0 for p in positions), positions
+        assert positions == sorted(positions), positions
+
     def test_upcoming_match_lists_all_user_prediction_chips(
         self, client, t, group_stage, pre_round, tur, bra,
     ):
@@ -259,29 +294,36 @@ class TestHomeAuthenticated:
         self, client, t, group_stage, pre_round, tur, bra,
     ):
         """A played match's chip list uses the per-matchup colour classes so
-        outcomes are readable at a glance.
+        outcomes are readable at a glance. Palette: emerald = tam skor,
+        amber = aynı fark, indigo = doğru sonuç.
         """
         me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
-        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        diff_buddy = User.objects.create_user(email="d@x.com", username="d@x.com", nickname="Diff")
+        result_buddy = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Result")
         slot = _slot(t, group_stage, "GroupA-M1",
                      timezone.now() - timedelta(hours=2), tur, bra)
-        # Me hits exact, rival gets correct outcome only.
+        # actual = 2–1. Me hits exact, Diff hits same goal-diff (3-2),
+        # Result gets correct outcome only (3-0 = result tier).
         SlotPrediction.objects.create(
             user=me, prediction_round=pre_round, slot=slot,
             home_team=tur, away_team=bra, home_score=2, away_score=1,
         )
         SlotPrediction.objects.create(
-            user=rival, prediction_round=pre_round, slot=slot,
+            user=diff_buddy, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=2,
+        )
+        SlotPrediction.objects.create(
+            user=result_buddy, prediction_round=pre_round, slot=slot,
             home_team=tur, away_team=bra, home_score=3, away_score=0,
         )
         ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
         client.force_login(me)
         r = client.get(reverse("home"))
         body = r.content.decode("utf-8")
-        # Exact = emerald, result = indigo. The Tailwind class fragments are
-        # unique enough to identify on the page.
+        # Distinctive Tailwind class fragments per matchup colour.
         assert "border-emerald-400/30" in body  # me's exact chip
-        assert "border-indigo-400/30" in body   # rival's result chip
+        assert "border-amber-400/30" in body    # diff chip
+        assert "border-indigo-400/30" in body   # result chip
 
     def test_leaderboard_module_caps_at_twelve(
         self, client, t, group_stage, pre_round, tur, bra,

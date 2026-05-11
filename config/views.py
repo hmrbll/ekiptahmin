@@ -14,15 +14,24 @@ UPCOMING_LIMIT = 4
 RESULTS_LIMIT = 4
 LEADERBOARD_LIMIT = 12
 
-# Ordering for prediction chips beneath each match: best matchup first.
-_MATCHUP_PRIORITY = {
-    SlotScore.EXACT: 0,
-    SlotScore.DIFF: 1,
-    SlotScore.RESULT: 2,
-    SlotScore.PENALTY_LOSER_BONUS: 3,
-    SlotScore.MISS: 4,
-    SlotScore.NO_RESULT: 5,
-}
+def _score_spectrum_key(home: int, away: int) -> tuple[int, int]:
+    """Sort key arranging predicted scores from "strong home win" through
+    draws to "strong away win". Per Hemre's spec:
+
+    - Primary: -(home - away)  — bigger home margin first, then draws, then
+      bigger away margins.
+    - Tiebreaker within home wins / draws: bigger home score (= bigger gf)
+      first.
+    - Tiebreaker within away wins: smaller home score first, so the smallest
+      away win (0-1) precedes a bigger one (1-2). This grows toward the
+      "max away" end of the spectrum.
+
+    Example sort: 4-1, 3-0, 2-2, 1-1, 0-1, 1-2.
+    """
+    diff = home - away
+    primary = -diff
+    secondary = -home if diff >= 0 else home
+    return (primary, secondary)
 
 
 def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
@@ -79,7 +88,7 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
             "away_score": display.away_score,
             "matchup_type": match_type,
             "_sort": (
-                _MATCHUP_PRIORITY.get(ss.matchup_type, 99),
+                *_score_spectrum_key(display.home_score, display.away_score),
                 (ss.user.nickname or ss.user.email).lower(),
             ),
         })
