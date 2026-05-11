@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.templatetags.static import static
 from django.utils.html import format_html
 
-from .models import ActualResult, BracketSlot, PredictionRound, Stage, Team, Tournament
+from .models import BracketSlot, PredictionRound, Stage, Team, Tournament
 
 
 class StageInline(admin.TabularInline):
@@ -80,22 +80,11 @@ class PredictionRoundAdmin(admin.ModelAdmin):
         return obj.is_open
 
 
-class ActualResultInline(admin.StackedInline):
-    model = ActualResult
-    extra = 0
-    fields = (
-        "home_score",
-        "away_score",
-        "went_to_extra_time",
-        "went_to_penalties",
-        "penalty_winner",
-        "home_penalties",
-        "away_penalties",
-    )
-
-
 @admin.register(BracketSlot)
 class BracketSlotAdmin(admin.ModelAdmin):
+    """Slot structure edits (kickoff, venue, cascade links). Score entry is
+    handled by the /admin/results/ wizard, not by an inline here.
+    """
     list_display = (
         "position",
         "stage",
@@ -109,7 +98,6 @@ class BracketSlotAdmin(admin.ModelAdmin):
     search_fields = ("position", "venue", "home_source", "away_source")
     ordering = ("scheduled_kickoff",)
     raw_id_fields = ("home_team_actual", "away_team_actual", "home_source_slot", "away_source_slot")
-    inlines = [ActualResultInline]
     fieldsets = (
         (None, {"fields": ("tournament", "stage", "position")}),
         ("Schedule", {"fields": ("scheduled_kickoff", "venue")}),
@@ -124,17 +112,3 @@ class BracketSlotAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description="Locked?")
     def is_locked(self, obj):
         return obj.is_locked
-
-
-@admin.register(ActualResult)
-class ActualResultAdmin(admin.ModelAdmin):
-    list_display = ("slot", "home_score", "away_score", "went_to_penalties", "penalty_winner", "entered_at", "entered_by")
-    list_filter = ("went_to_penalties", "went_to_extra_time", "slot__stage")
-    search_fields = ("slot__position",)
-    raw_id_fields = ("slot", "penalty_winner", "entered_by")
-    readonly_fields = ("entered_at",)
-
-    def save_model(self, request, obj, form, change):
-        if not obj.entered_by:
-            obj.entered_by = request.user
-        super().save_model(request, obj, form, change)

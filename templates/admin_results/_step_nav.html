@@ -1,5 +1,7 @@
-{# Pills navigation for the result-entry wizard. Mirrors the prediction
-   wizard's nav but routes to admin_results URLs. #}
+{% comment %}
+Pills navigation for the result-entry wizard. Mirrors the prediction
+wizard's nav but routes to admin_results URLs.
+{% endcomment %}
 <nav class="mb-6 flex flex-wrap gap-2 text-xs">
     {% for step in steps %}
     <a href="{{ step.url }}"
