@@ -34,4 +34,7 @@ python manage.py collectstatic --no-input
 echo "==> Running migrations..."
 python manage.py migrate --no-input
 
+echo "==> Seeding tournament data..."
+python manage.py seed_wc2026
+
 echo "==> Build complete."
