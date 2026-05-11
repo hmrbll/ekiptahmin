@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tüm Tahminler — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="px-6 py-12 max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-2">Tüm Tahminler</h1>
+        <p class="text-slate-400 mb-2">{{ tournament.name|default:"" }}</p>
+        <p class="text-slate-500 text-xs mb-8">
+            Bir maçın tahminleri ancak <span class="text-slate-300">kickoff geçince</span> ya da
+            <span class="text-slate-300">sonuç girilince</span> herkese görünür.
+        </p>
+
+        {% if matches %}
+        <ul class="space-y-4">
+            {% for m in matches %}
+            <li class="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-3">
+                    <span class="font-mono">{{ m.slot.position }}</span>
+                    <span>·</span>
+                    <span class="uppercase tracking-wider">{{ m.slot.stage.get_kind_display }}</span>
+                    <span>·</span>
+                    <span>{{ m.slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
+                    {% if m.slot.venue %}<span>·</span><span class="truncate">{{ m.slot.venue }}</span>{% endif %}
+                </div>
+
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3 text-base sm:text-lg">
+                        <span class="inline-flex items-center gap-2">
+                            {% if m.slot.home_team_actual.flag_svg_path %}<img src="{% static m.slot.home_team_actual.flag_svg_path %}" alt="{{ m.slot.home_team_actual.code }}" class="w-6 h-4 rounded-sm object-cover">{% endif %}
+                            <span class="text-slate-100">{{ m.slot.home_team_actual.name_tr }}</span>
+                        </span>
+                        {% if m.actual %}
+                        <span class="mx-1 font-mono font-semibold text-slate-200">{{ m.actual.home_score }}–{{ m.actual.away_score }}</span>
+                        {% else %}
+                        <span class="mx-1 text-slate-500">vs</span>
+                        {% endif %}
+                        <span class="inline-flex items-center gap-2">
+                            <span class="text-slate-100">{{ m.slot.away_team_actual.name_tr }}</span>
+                            {% if m.slot.away_team_actual.flag_svg_path %}<img src="{% static m.slot.away_team_actual.flag_svg_path %}" alt="{{ m.slot.away_team_actual.code }}" class="w-6 h-4 rounded-sm object-cover">{% endif %}
+                        </span>
+                    </div>
+                    {% if m.actual.went_to_penalties %}
+                    <span class="text-xs text-slate-500">pen: {{ m.actual.penalty_winner.code }} {{ m.actual.home_penalties }}–{{ m.actual.away_penalties }}</span>
+                    {% endif %}
+                </div>
+
+                {% if m.is_public %}
+                {% if m.predictions %}
+                <div class="border-t border-white/5 pt-3">
+                    <div class="text-xs uppercase tracking-wider text-slate-500 mb-2">Tahminler ({{ m.predictions|length }})</div>
+                    <ul class="divide-y divide-white/5">
+                        {% for p in m.predictions %}
+                        <li class="flex items-center justify-between py-2 text-sm">
+                            <a href="{% url 'leaderboard_user_detail' p.user.id %}" class="text-slate-200 hover:text-emerald-300 transition">
+                                {{ p.user.nickname|default:p.user.email }}
+                            </a>
+                            <div class="flex items-center gap-2 text-xs">
+                                {% if p.home_team.flag_svg_path %}<img src="{% static p.home_team.flag_svg_path %}" alt="{{ p.home_team.code }}" class="w-4 h-3 rounded-sm object-cover">{% endif %}
+                                <span class="truncate">{{ p.home_team.name_tr }}</span>
+                                <span class="font-mono text-slate-300">{{ p.home_score }}–{{ p.away_score }}</span>
+                                <span class="truncate">{{ p.away_team.name_tr }}</span>
+                                {% if p.away_team.flag_svg_path %}<img src="{% static p.away_team.flag_svg_path %}" alt="{{ p.away_team.code }}" class="w-4 h-3 rounded-sm object-cover">{% endif %}
+                                {% if p.penalty_winner %}
+                                <span class="text-slate-500 ml-1">pen: {{ p.penalty_winner.code }}</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <div class="border-t border-white/5 pt-3 text-sm text-slate-500">
+                    Bu maç için kayıtlı tahmin yok.
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="border-t border-white/5 pt-3 text-xs text-slate-500">
+                    {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti — kilit sonrası görünür.{% else %}Henüz kimse tahmin etmedi.{% endif %}
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+            <p class="text-slate-400">Henüz takımları belli olan maç yok.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

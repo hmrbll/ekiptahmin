@@ -14,9 +14,10 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.tournament.models import BracketSlot, PredictionRound, Tournament
+from apps.tournament.models import ActualResult, BracketSlot, PredictionRound, Tournament
 
 from .forms import SlotPredictionForm
 from .models import BracketCompletionEvent, SlotPrediction
@@ -37,6 +38,83 @@ KNOCKOUT_LABELS = {
 
 
 # ---------- Index views ----------
+
+
+# ---------- Public "all predictions" view ----------
+
+
+# Slot is treated as locked (predictions become public) when EITHER its
+# kickoff has passed OR an ActualResult has been entered. The latter covers
+# matches that admin tested ahead of schedule.
+def _slot_predictions_public(slot: BracketSlot) -> bool:
+    return slot.is_locked or hasattr(slot, "result")
+
+
+def predictions_all(request: HttpRequest) -> HttpResponse:
+    """Match-by-match public view of every user's predictions.
+
+    No login required. Predictions are revealed only after a slot has
+    locked (kickoff passed or actual result entered) — pre-lock predictions
+    stay private so users don't copy each other.
+    """
+    tournament = Tournament.objects.filter(is_active=True).first()
+    if tournament is None:
+        return render(request, "predictions/all.html", {"tournament": None})
+
+    slots = list(
+        BracketSlot.objects
+        .filter(tournament=tournament)
+        .select_related("stage", "home_team_actual", "away_team_actual", "result")
+        .order_by("scheduled_kickoff")
+    )
+
+    # Fetch the latest prediction per (user, slot) across rounds in one pass.
+    slot_ids = [s.id for s in slots]
+    preds_qs = (
+        SlotPrediction.objects
+        .filter(slot_id__in=slot_ids)
+        .select_related("user", "home_team", "away_team", "prediction_round")
+        .order_by("slot_id", "user_id", "-prediction_round__order")
+    )
+    latest_by_slot_user: dict[tuple[int, int], SlotPrediction] = {}
+    for p in preds_qs:
+        latest_by_slot_user.setdefault((p.slot_id, p.user_id), p)
+
+    # Count, per slot, how many distinct users predicted (used for the
+    # pre-lock "N kişi tahmin etti" hint).
+    prediction_counts: dict[int, int] = {}
+    for slot_id, _user_id in latest_by_slot_user.keys():
+        prediction_counts[slot_id] = prediction_counts.get(slot_id, 0) + 1
+
+    matches = []
+    for slot in slots:
+        # Skip slots that don't have teams determined yet — there's nothing
+        # meaningful to show for them on a per-match page.
+        if not (slot.home_team_actual_id and slot.away_team_actual_id):
+            continue
+
+        is_public = _slot_predictions_public(slot)
+        slot_preds = []
+        if is_public:
+            slot_preds = sorted(
+                (p for (sid, _uid), p in latest_by_slot_user.items() if sid == slot.id),
+                key=lambda p: (p.user.nickname or p.user.email or "").lower(),
+            )
+        matches.append({
+            "slot": slot,
+            "actual": getattr(slot, "result", None),
+            "is_public": is_public,
+            "predictions": slot_preds,
+            "prediction_count": prediction_counts.get(slot.id, 0),
+        })
+
+    return render(request, "predictions/all.html", {
+        "tournament": tournament,
+        "matches": matches,
+    })
+
+
+# ---------- "My predictions" round list ----------
 
 
 @login_required

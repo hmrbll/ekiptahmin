@@ -75,6 +75,8 @@
                                     <span class="mx-2 font-mono text-slate-300">{{ row.prediction.home_score }}–{{ row.prediction.away_score }}</span>
                                     {{ row.prediction.away_team.name_tr }}
                                 </div>
+                                {% elif row.prediction_hidden %}
+                                <div class="text-sm text-slate-500">— kilit sonrası görünür</div>
                                 {% else %}
                                 <div class="text-sm text-slate-500">— tahmin yok</div>
                                 {% endif %}

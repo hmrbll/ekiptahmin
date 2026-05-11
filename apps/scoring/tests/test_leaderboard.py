@@ -183,10 +183,9 @@ class TestTieDescriptions:
 
 @pytest.mark.django_db
 class TestLeaderboardView:
-    def test_anonymous_redirected(self, client):
+    def test_anonymous_can_view(self, client, t):
         r = client.get(reverse("leaderboard"))
-        assert r.status_code == 302
-        assert "/auth/login/" in r["Location"]
+        assert r.status_code == 200
 
     def test_authenticated_sees_table(
         self, client, t, pre_round, slot1, tur, bra,
@@ -226,10 +225,25 @@ class TestLeaderboardView:
 
 @pytest.mark.django_db
 class TestUserDetailView:
-    def test_anonymous_redirected(self, client, t):
+    def test_anonymous_can_view(self, client, t):
         u = User.objects.create_user(email="x@x.com", username="x@x.com", nickname="X")
         r = client.get(reverse("leaderboard_user_detail", args=[u.id]))
-        assert r.status_code == 302
+        assert r.status_code == 200
+
+    def test_pre_lock_predictions_hidden_from_non_owner(
+        self, client, t, pre_round, slot1, tur, bra,
+    ):
+        owner = User.objects.create_user(email="o@x.com", username="o@x.com", nickname="Owner")
+        SlotPrediction.objects.create(
+            user=owner, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        # No ActualResult and kickoff is in the future → slot not locked.
+        r = client.get(reverse("leaderboard_user_detail", args=[owner.id]))
+        body = r.content.decode("utf-8")
+        assert "kilit sonrası görünür" in body
+        # The prediction's actual score (2–1) should NOT leak into the page.
+        assert "2–1" not in body
 
     def test_renders_user_breakdown_with_score_badges(
         self, client, t, pre_round, slot1, slot2, tur, bra,
@@ -279,9 +293,9 @@ class TestUserDetailView:
 
 @pytest.mark.django_db
 class TestResultsView:
-    def test_anonymous_redirected(self, client, t):
+    def test_anonymous_can_view(self, client, t):
         r = client.get(reverse("results"))
-        assert r.status_code == 302
+        assert r.status_code == 200
 
     def test_empty_state_when_no_results(self, client, t):
         u = User.objects.create_user(email="x@x.com", username="x@x.com", nickname="X")

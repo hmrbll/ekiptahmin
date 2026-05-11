@@ -4,6 +4,8 @@ from . import views
 
 urlpatterns = [
     path("", views.prediction_rounds, name="prediction_rounds"),
+    # Public: match-by-match view of every user's predictions (post-lock only)
+    path("all/", views.predictions_all, name="predictions_all"),
 
     # Wizard entry — redirects to the first step of the round
     path(

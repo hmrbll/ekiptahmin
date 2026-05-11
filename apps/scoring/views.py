@@ -1,7 +1,11 @@
-"""Leaderboard views — read-only aggregations over SlotScore."""
+"""Leaderboard views — read-only aggregations over SlotScore.
+
+All three views (leaderboard list, per-user score sheet, played-results
+log) are public. `user_detail` redacts pre-lock predictions for visitors
+who aren't the row's owner so the cascade game isn't ruined by peeking.
+"""
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 
@@ -17,7 +21,6 @@ from .leaderboard import describe_ties, leaderboard_for_tournament
 from .models import SlotScore
 
 
-@login_required
 def leaderboard(request: HttpRequest) -> HttpResponse:
     tournament = Tournament.objects.filter(is_active=True).first()
     if tournament is None:
@@ -71,7 +74,6 @@ def _earning_or_latest_prediction(user, slot, earning_round_order):
     return qs.order_by("-prediction_round__order").first()
 
 
-@login_required
 def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
     """Per-slot score sheet for one user."""
     User = get_user_model()
@@ -95,16 +97,27 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
         )
     }
 
+    # Lock rule: a target's pre-lock prediction is hidden from everyone but
+    # the owner. Once kickoff passes or an actual result is entered, the
+    # prediction becomes public.
+    is_self = request.user.is_authenticated and request.user.id == target.id
+
     sections_by_kind: dict[str, list[dict]] = {}
     total_points = 0
     for score in scores:
         slot = score.slot
         actual = actuals_by_slot.get(slot.id)
-        prediction = _earning_or_latest_prediction(target, slot, score.earning_round_order)
+        is_locked = slot.is_locked or actual is not None
+        raw_prediction = _earning_or_latest_prediction(target, slot, score.earning_round_order)
+        # Hide pre-lock predictions from non-owners — but remember whether
+        # one existed so the template can render "kilit sonrası görünür"
+        # instead of the regular "tahmin yok" fallback.
+        prediction_visible = is_self or is_locked
         sections_by_kind.setdefault(slot.stage.kind, []).append({
             "slot": slot,
             "actual": actual,
-            "prediction": prediction,
+            "prediction": raw_prediction if prediction_visible else None,
+            "prediction_hidden": (not prediction_visible) and raw_prediction is not None,
             "score": score,
         })
         total_points += score.total
@@ -132,7 +145,6 @@ _MATCHUP_BADGE = {
 }
 
 
-@login_required
 def results_list(request: HttpRequest) -> HttpResponse:
     """Played matches (those with an ActualResult) ordered by kickoff,
     each with the per-user point breakdown.
