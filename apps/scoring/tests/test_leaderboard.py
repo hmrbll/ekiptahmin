@@ -200,7 +200,7 @@ class TestLeaderboardView:
         client.force_login(u)
         r = client.get(reverse("leaderboard"))
         assert r.status_code == 200
-        assert b"Skor Tablosu" in r.content
+        assert "Puan Durumu".encode("utf-8") in r.content
         assert b"Me" in r.content
 
     def test_view_renders_empty_state(self, client, t):
@@ -275,3 +275,86 @@ class TestUserDetailView:
         client.force_login(u)
         r = client.get(reverse("leaderboard_user_detail", args=[999999]))
         assert r.status_code == 404
+
+
+@pytest.mark.django_db
+class TestResultsView:
+    def test_anonymous_redirected(self, client, t):
+        r = client.get(reverse("results"))
+        assert r.status_code == 302
+
+    def test_empty_state_when_no_results(self, client, t):
+        u = User.objects.create_user(email="x@x.com", username="x@x.com", nickname="X")
+        client.force_login(u)
+        r = client.get(reverse("results"))
+        assert r.status_code == 200
+        assert "Henüz sonuç girilmedi".encode("utf-8") in r.content
+
+    def test_lists_played_matches_with_user_breakdown(
+        self, client, t, pre_round, slot1, tur, bra,
+    ):
+        u1 = User.objects.create_user(email="a@x.com", username="a@x.com", nickname="Ali")
+        u2 = User.objects.create_user(email="b@x.com", username="b@x.com", nickname="Veli")
+        SlotPrediction.objects.create(
+            user=u1, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=u2, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
+
+        client.force_login(u1)
+        r = client.get(reverse("results"))
+        assert r.status_code == 200
+        # Slot info
+        assert b"GroupA-M1" in r.content
+        # Both users + their badges appear
+        assert b"Ali" in r.content
+        assert b"Veli" in r.content
+        # Hemre's spec: exact → "Tam skor", result → "Doğru sonuç"
+        assert "Tam skor".encode("utf-8") in r.content
+        assert "Doğru sonuç".encode("utf-8") in r.content
+
+    def test_excludes_slots_without_actual_result(
+        self, client, t, pre_round, slot1, slot2, tur, bra,
+    ):
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot2,
+            home_team=bra, away_team=tur, home_score=1, away_score=0,
+        )
+        # Only slot1 has an ActualResult.
+        ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
+        client.force_login(u)
+        r = client.get(reverse("results"))
+        assert b"GroupA-M1" in r.content
+        assert b"GroupA-M2" not in r.content
+
+
+@pytest.mark.django_db
+class TestLeaderboardCountColumns:
+    def test_columns_show_per_matchup_counts(
+        self, client, t, pre_round, slot1, slot2, tur, bra,
+    ):
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        # Slot1: exact (TUR 2-1 BRA)
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        # Slot2: wrong outcome (predicted home win, actual is away win)
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot2,
+            home_team=bra, away_team=tur, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
+        ActualResult.objects.create(slot=slot2, home_score=0, away_score=2)
+
+        client.force_login(u)
+        r = client.get(reverse("leaderboard"))
+        body = r.content.decode("utf-8")
+        # Header columns appear with Hemre's wording.
+        for col in ["Toplam Puan", "Doğru Skor", "Doğru Fark", "Doğru Sonuç", "Penaltı Bonus", "Yanlış"]:
+            assert col in body, col

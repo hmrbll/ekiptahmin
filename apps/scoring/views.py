@@ -23,24 +23,28 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
     if tournament is None:
         return render(request, "scoring/no_tournament.html", status=200)
 
-    rounds = list(PredictionRound.objects.filter(tournament=tournament).order_by("order"))
     entries = leaderboard_for_tournament(tournament)
 
-    # Align per-round values with `rounds` so the template can iterate
-    # row-by-column without a dict lookup filter.
+    # Per-matchup-type counts (Hemre's column spec): exact / diff / result /
+    # penalty bonus / wrong. "Wrong" combines miss + no_prediction — both
+    # mean "had a chance, didn't earn points on a played match".
     rows = []
     for e in entries:
+        c = e.counts
         rows.append({
             "rank": e.rank,
             "user_id": e.user.id,
             "nickname": e.nickname,
             "total": e.total,
-            "per_round_values": [e.per_round.get(r.order) for r in rounds],
+            "exact": c.get(SlotScore.EXACT, 0),
+            "diff": c.get(SlotScore.DIFF, 0),
+            "result": c.get(SlotScore.RESULT, 0),
+            "penalty_bonus": c.get(SlotScore.PENALTY_LOSER_BONUS, 0),
+            "wrong": c.get(SlotScore.MISS, 0) + c.get(SlotScore.NO_PREDICTION, 0),
         })
 
     return render(request, "scoring/leaderboard.html", {
         "tournament": tournament,
-        "rounds": rounds,
         "rows": rows,
         "tie_notes": describe_ties(entries),
     })
@@ -113,4 +117,68 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
         "target_user": target,
         "sections": sections,
         "total_points": total_points,
+    })
+
+
+# Matchup-type → (Turkish label, Tailwind badge classes) for the results page.
+_MATCHUP_BADGE = {
+    SlotScore.EXACT: ("Tam skor", "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"),
+    SlotScore.DIFF: ("Aynı fark", "bg-sky-400/10 border-sky-400/30 text-sky-300"),
+    SlotScore.RESULT: ("Doğru sonuç", "bg-indigo-400/10 border-indigo-400/30 text-indigo-300"),
+    SlotScore.PENALTY_LOSER_BONUS: ("Penaltı bonusu", "bg-amber-400/10 border-amber-400/30 text-amber-300"),
+    SlotScore.MISS: ("Yanlış", "bg-rose-500/10 border-rose-500/30 text-rose-300"),
+    SlotScore.NO_PREDICTION: ("Tahmin yok", "bg-white/5 border-white/10 text-slate-500"),
+}
+
+
+@login_required
+def results_list(request: HttpRequest) -> HttpResponse:
+    """Played matches (those with an ActualResult) ordered by kickoff,
+    each with the per-user point breakdown.
+    """
+    tournament = Tournament.objects.filter(is_active=True).first()
+    if tournament is None:
+        return render(request, "scoring/no_tournament.html", status=200)
+
+    actuals = list(
+        ActualResult.objects
+        .filter(slot__tournament=tournament)
+        .select_related(
+            "slot__stage", "slot__home_team_actual", "slot__away_team_actual",
+            "penalty_winner",
+        )
+        .order_by("-slot__scheduled_kickoff")
+    )
+
+    slot_ids = [a.slot_id for a in actuals]
+    score_rows = (
+        SlotScore.objects
+        .filter(slot_id__in=slot_ids)
+        # `no_result` rows shouldn't exist when ActualResult is present, but
+        # filter defensively so a stale row doesn't sneak in.
+        .exclude(matchup_type=SlotScore.NO_RESULT)
+        .select_related("user")
+        .order_by("-total", "user__nickname")
+    )
+    scores_by_slot: dict[int, list] = {}
+    for s in score_rows:
+        label, badge_cls = _MATCHUP_BADGE.get(s.matchup_type, ("", ""))
+        scores_by_slot.setdefault(s.slot_id, []).append({
+            "score": s,
+            "user": s.user,
+            "label": label,
+            "badge_cls": badge_cls,
+        })
+
+    matches = []
+    for actual in actuals:
+        matches.append({
+            "actual": actual,
+            "slot": actual.slot,
+            "scores": scores_by_slot.get(actual.slot_id, []),
+        })
+
+    return render(request, "scoring/results.html", {
+        "tournament": tournament,
+        "matches": matches,
     })

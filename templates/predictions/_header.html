@@ -4,9 +4,9 @@
         ekiptahmin<span class="text-emerald-400">.com</span>
     </a>
     <div class="flex items-center gap-4 text-sm">
-        <a href="{% url 'dashboard' %}" class="text-slate-400 hover:text-white transition">Dashboard</a>
         <a href="{% url 'prediction_rounds' %}" class="text-slate-300 hover:text-white transition">Tahminler</a>
-        <a href="{% url 'leaderboard' %}" class="text-slate-300 hover:text-white transition">Skor Tablosu</a>
+        <a href="{% url 'results' %}" class="text-slate-300 hover:text-white transition">Sonuçlar</a>
+        <a href="{% url 'leaderboard' %}" class="text-slate-300 hover:text-white transition">Puan Durumu</a>
         <span class="text-slate-500 hidden sm:inline">·</span>
         <span class="text-slate-400 hidden sm:inline">{{ user.nickname|default:user.email }}</span>
         <form method="post" action="{% url 'logout' %}" class="inline">

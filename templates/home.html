@@ -9,10 +9,13 @@
             ekiptahmin<span class="text-emerald-400">.com</span>
         </a>
         {% if user.is_authenticated %}
-            <a href="{% url 'dashboard' %}"
-               class="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-400/20 transition">
-                Dashboard →
-            </a>
+            <div class="flex items-center gap-3 text-sm">
+                <span class="text-slate-400 hidden sm:inline">{{ user.nickname|default:user.email }}</span>
+                <form method="post" action="{% url 'logout' %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="text-slate-400 hover:text-white transition">Çıkış</button>
+                </form>
+            </div>
         {% else %}
             <a href="{% url 'login' %}"
                class="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition">
@@ -43,6 +46,7 @@
                     2026 FIFA Dünya Kupası tahmin oyunu. 104 maç, 6 tahmin turu, 1 şampiyon — bracket'i en iyi okuyan kazanır.
                 </p>
 
+                {% if not user.is_authenticated %}
                 <div class="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                     <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                         <div class="text-2xl sm:text-3xl font-bold text-emerald-400">48</div>
@@ -61,9 +65,31 @@
                         <div class="text-xs text-slate-400 mt-1">Şampiyon</div>
                     </div>
                 </div>
+                {% endif %}
             </div>
         </section>
 
+        {% if user.is_authenticated %}
+        <section class="px-6 pb-12 sm:pb-20">
+            <div class="max-w-3xl mx-auto grid sm:grid-cols-3 gap-4">
+                <a href="{% url 'prediction_rounds' %}"
+                   class="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 transition">
+                    <div class="text-base font-semibold text-slate-100 mb-1">Tahminler</div>
+                    <p class="text-sm text-slate-400">Aktif round'lar ve tahmin formu →</p>
+                </a>
+                <a href="{% url 'results' %}"
+                   class="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 transition">
+                    <div class="text-base font-semibold text-slate-100 mb-1">Sonuçlar</div>
+                    <p class="text-sm text-slate-400">Oynanmış maçlar ve oyuncu puanları →</p>
+                </a>
+                <a href="{% url 'leaderboard' %}"
+                   class="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 transition">
+                    <div class="text-base font-semibold text-slate-100 mb-1">Puan Durumu</div>
+                    <p class="text-sm text-slate-400">Genel sıralama ve detaylar →</p>
+                </a>
+            </div>
+        </section>
+        {% else %}
         <section class="px-6 pb-12 sm:pb-20">
             <div class="max-w-3xl mx-auto grid sm:grid-cols-2 gap-4">
                 <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
@@ -87,10 +113,30 @@
                 </div>
             </div>
         </section>
+        {% endif %}
 
         <footer class="mt-auto py-6 px-6 text-center text-xs text-slate-500 border-t border-white/5">
             ekiptahmin.com — Bir Hemre Ballı markasıdır.
         </footer>
     </main>
 </div>
+
+{% if is_production %}
+<script>
+// One-shot dataLayer push for sign_up / login events arriving from
+// confirm_token's redirect (?event=sign_up|login). Strip the param so a
+// page refresh doesn't re-fire the event.
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    const ev = params.get("event");
+    if (ev === "sign_up" || ev === "login") {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({event: ev});
+        params.delete("event");
+        const clean = window.location.pathname + (params.toString() ? "?" + params : "");
+        window.history.replaceState({}, "", clean);
+    }
+})();
+</script>
+{% endif %}
 {% endblock %}

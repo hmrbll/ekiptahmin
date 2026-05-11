@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Sonuçlar — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="px-6 py-12 max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-2">Sonuçlar</h1>
+        <p class="text-slate-400 mb-8">{{ tournament.name }}</p>
+
+        {% if matches %}
+        <ul class="space-y-4">
+            {% for m in matches %}
+            <li class="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-3">
+                    <span class="font-mono">{{ m.slot.position }}</span>
+                    <span>·</span>
+                    <span class="uppercase tracking-wider">{{ m.slot.stage.get_kind_display }}</span>
+                    <span>·</span>
+                    <span>{{ m.slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
+                    {% if m.slot.venue %}<span>·</span><span class="truncate">{{ m.slot.venue }}</span>{% endif %}
+                </div>
+
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-base sm:text-lg">
+                        <span class="text-slate-100">{{ m.slot.home_team_actual.name_tr|default:"?" }}</span>
+                        <span class="mx-3 font-mono font-semibold text-slate-200">{{ m.actual.home_score }}–{{ m.actual.away_score }}</span>
+                        <span class="text-slate-100">{{ m.slot.away_team_actual.name_tr|default:"?" }}</span>
+                    </div>
+                    {% if m.actual.went_to_penalties %}
+                    <span class="text-xs text-slate-500">pen: {{ m.actual.penalty_winner.code }} {{ m.actual.home_penalties }}–{{ m.actual.away_penalties }}</span>
+                    {% endif %}
+                </div>
+
+                {% if m.scores %}
+                <div class="border-t border-white/5 pt-3">
+                    <div class="text-xs uppercase tracking-wider text-slate-500 mb-2">Oyuncu puanları</div>
+                    <ul class="space-y-1">
+                        {% for entry in m.scores %}
+                        <li class="flex items-center justify-between text-sm py-1">
+                            <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="text-slate-200 hover:text-emerald-300 transition">
+                                {{ entry.user.nickname|default:entry.user.email }}
+                            </a>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs px-2 py-0.5 rounded-full border {{ entry.badge_cls }}">
+                                    {{ entry.label }}
+                                </span>
+                                <span class="font-mono font-semibold {% if entry.score.total > 0 %}text-emerald-300{% else %}text-slate-400{% endif %} w-14 text-right">
+                                    {{ entry.score.total|floatformat:2 }}
+                                </span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <div class="border-t border-white/5 pt-3 text-sm text-slate-500">
+                    Bu maç için kayıtlı oyuncu tahmini yok.
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+            <p class="text-slate-400">Henüz sonuç girilmedi.</p>
+            <p class="text-slate-500 text-sm mt-2">Admin maç sonuçlarını girdikçe burada listelenecek.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

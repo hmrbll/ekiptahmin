@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Skor Tablosu — ekiptahmin.com{% endblock %}
+{% block title %}Puan Durumu — ekiptahmin.com{% endblock %}
 
 {% block content %}
 <div class="min-h-full">
     {% include "predictions/_header.html" %}
 
     <main class="px-6 py-12 max-w-5xl mx-auto">
-        <h1 class="text-3xl font-bold mb-2">Skor Tablosu</h1>
+        <h1 class="text-3xl font-bold mb-2">Puan Durumu</h1>
         <p class="text-slate-400 mb-8">{{ tournament.name }}</p>
 
         {% if rows %}
@@ -17,12 +17,12 @@
                     <tr>
                         <th class="text-left px-4 py-3 font-medium">#</th>
                         <th class="text-left px-4 py-3 font-medium">Oyuncu</th>
-                        <th class="text-right px-4 py-3 font-medium">Toplam</th>
-                        {% for r in rounds %}
-                        <th class="text-right px-4 py-3 font-medium text-slate-500" title="{{ r.name }} (×{{ r.weight }})">
-                            {{ r.name }}
-                        </th>
-                        {% endfor %}
+                        <th class="text-right px-4 py-3 font-medium">Toplam Puan</th>
+                        <th class="text-right px-4 py-3 font-medium text-emerald-300/80">Doğru Skor</th>
+                        <th class="text-right px-4 py-3 font-medium text-sky-300/80">Doğru Fark</th>
+                        <th class="text-right px-4 py-3 font-medium text-indigo-300/80">Doğru Sonuç</th>
+                        <th class="text-right px-4 py-3 font-medium text-amber-300/80">Penaltı Bonus</th>
+                        <th class="text-right px-4 py-3 font-medium text-rose-300/80">Yanlış</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -33,11 +33,11 @@
                             <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-slate-200 hover:text-emerald-300 transition">{{ row.nickname }}</a>
                         </td>
                         <td class="px-4 py-3 text-right font-semibold">{{ row.total|floatformat:2 }}</td>
-                        {% for v in row.per_round_values %}
-                        <td class="px-4 py-3 text-right text-slate-400">
-                            {% if v %}{{ v|floatformat:2 }}{% else %}<span class="text-slate-600">—</span>{% endif %}
-                        </td>
-                        {% endfor %}
+                        <td class="px-4 py-3 text-right text-slate-300">{{ row.exact }}</td>
+                        <td class="px-4 py-3 text-right text-slate-300">{{ row.diff }}</td>
+                        <td class="px-4 py-3 text-right text-slate-300">{{ row.result }}</td>
+                        <td class="px-4 py-3 text-right text-slate-300">{{ row.penalty_bonus }}</td>
+                        <td class="px-4 py-3 text-right text-slate-300">{{ row.wrong }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -58,7 +58,7 @@
         {% else %}
         <div class="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
             <p class="text-slate-400">Henüz puan kaydedilmedi.</p>
-            <p class="text-slate-500 text-sm mt-2">Maç sonuçları girildikçe skor tablosu burada görünecek.</p>
+            <p class="text-slate-500 text-sm mt-2">Maç sonuçları girildikçe puan durumu burada görünecek.</p>
         </div>
         {% endif %}
     </main>

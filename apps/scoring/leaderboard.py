@@ -52,6 +52,7 @@ class LeaderboardEntry:
     rank: int
     total: Decimal
     per_round: dict  # {round.order: Decimal} for every round in the tournament
+    counts: dict  # {SlotScore.matchup_type: int}
     tiebreakers: tuple  # (total, weighted_correct, match_only, fr_total, fr_correct, fr_match_only)
     nickname: str = ""  # cached for template use
 
@@ -92,7 +93,9 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[LeaderboardEntry]
 
         per_round = {o: Decimal("0") for o in round_orders}
         weighted_correct = Decimal("0")
+        counts: dict[str, int] = {}
         for s in scores:
+            counts[s.matchup_type] = counts.get(s.matchup_type, 0) + 1
             if s.earning_round_order is not None and s.earning_round_order in per_round:
                 per_round[s.earning_round_order] += s.total
             if s.matchup_type in CORRECT_MATCHUP_TYPES and s.earning_round_order is not None:
@@ -110,6 +113,7 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[LeaderboardEntry]
             rank=0,  # filled in below
             total=total,
             per_round=per_round,
+            counts=counts,
             tiebreakers=(total, weighted_correct, match_only, fr_total, fr_correct, fr_match_only),
             nickname=getattr(user, "nickname", "") or user.email,
         ))

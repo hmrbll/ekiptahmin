@@ -29,7 +29,7 @@ class TestTokenConfirm:
         )
         r = client.get(_confirm_url_for(user))
         assert r.status_code == 302
-        assert r.url.startswith(reverse("dashboard"))
+        assert r.url.startswith(reverse("home"))
         assert "event=login" in r.url
         # Session should now have the user
         assert int(client.session["_auth_user_id"]) == user.pk
