@@ -1,30 +1,70 @@
 {% load static %}
-<header class="border-b border-white/5 px-6 py-4 flex items-center justify-between">
-    <a href="{% url 'home' %}" class="text-sm font-semibold text-slate-300 hover:text-white transition">
-        ekiptahmin<span class="text-emerald-400">.com</span>
-    </a>
-    <div class="flex items-center gap-4 text-sm">
-        <a href="{% url 'predictions_all' %}" class="text-slate-300 hover:text-white transition">Tüm Tahminler</a>
-        <a href="{% url 'results' %}" class="text-slate-300 hover:text-white transition">Sonuçlar</a>
-        <a href="{% url 'leaderboard' %}" class="text-slate-300 hover:text-white transition">Puan Durumu</a>
-        {% if user.is_authenticated %}
-        <a href="{% url 'prediction_rounds' %}" class="text-emerald-300/90 hover:text-emerald-200 transition">Tahminlerim</a>
-        {% endif %}
-        {% if user.is_staff %}
-        <a href="{% url 'admin_results_entry' %}" class="text-amber-300/80 hover:text-amber-200 transition">Sonuç Gir</a>
-        {% endif %}
-        {% if user.is_authenticated %}
-        <span class="text-slate-500 hidden sm:inline">·</span>
-        <span class="text-slate-400 hidden sm:inline">{{ user.nickname|default:user.email }}</span>
-        <form method="post" action="{% url 'logout' %}" class="inline">
-            {% csrf_token %}
-            <button type="submit" class="text-slate-400 hover:text-white transition">Çıkış</button>
-        </form>
-        {% else %}
-        <a href="{% url 'login' %}"
-           class="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition">
-            Giriş yap
+<header class="border-b border-white/5">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        <a href="{% url 'home' %}" class="text-sm font-semibold text-slate-300 hover:text-white transition shrink-0">
+            ekiptahmin<span class="text-emerald-400">.com</span>
         </a>
-        {% endif %}
+
+        {# Desktop nav (>= sm) #}
+        <nav class="hidden sm:flex items-center gap-4 text-sm">
+            <a href="{% url 'predictions_all' %}" class="text-slate-300 hover:text-white transition">Tüm Tahminler</a>
+            <a href="{% url 'results' %}" class="text-slate-300 hover:text-white transition">Sonuçlar</a>
+            <a href="{% url 'leaderboard' %}" class="text-slate-300 hover:text-white transition">Puan Durumu</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'prediction_rounds' %}" class="text-emerald-300/90 hover:text-emerald-200 transition">Tahminlerim</a>
+            {% endif %}
+            {% if user.is_staff %}
+            <a href="{% url 'admin_results_entry' %}" class="text-amber-300/80 hover:text-amber-200 transition">Sonuç Gir</a>
+            {% endif %}
+            {% if user.is_authenticated %}
+            <span class="text-slate-500">·</span>
+            <span class="text-slate-400 max-w-[10rem] truncate">{{ user.nickname|default:user.email }}</span>
+            <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-slate-400 hover:text-white transition">Çıkış</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}"
+               class="rounded-full border border-white/20 bg-white/5 px-4 py-2 hover:bg-white/10 transition">
+                Giriş yap
+            </a>
+            {% endif %}
+        </nav>
+
+        {# Mobile menu (< sm) — native <details> dropdown, no JS #}
+        <details class="sm:hidden relative">
+            <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer p-2 -mr-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition" aria-label="Menüyü aç">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-slate-300">
+                    <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/>
+                </svg>
+            </summary>
+            <div class="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-white/10 bg-slate-900/95 backdrop-blur p-2 shadow-2xl z-50">
+                {% if user.is_authenticated %}
+                <div class="px-3 py-2 border-b border-white/5 mb-1">
+                    <div class="text-xs text-slate-500">Giriş yaptın</div>
+                    <div class="text-sm text-slate-200 truncate">{{ user.nickname|default:user.email }}</div>
+                </div>
+                {% endif %}
+                <a href="{% url 'predictions_all' %}" class="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 transition">Tüm Tahminler</a>
+                <a href="{% url 'results' %}" class="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 transition">Sonuçlar</a>
+                <a href="{% url 'leaderboard' %}" class="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 transition">Puan Durumu</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'prediction_rounds' %}" class="block px-3 py-2 rounded-lg text-sm text-emerald-300 hover:bg-emerald-400/10 transition">Tahminlerim</a>
+                {% endif %}
+                {% if user.is_staff %}
+                <a href="{% url 'admin_results_entry' %}" class="block px-3 py-2 rounded-lg text-sm text-amber-300 hover:bg-amber-400/10 transition">Sonuç Gir</a>
+                {% endif %}
+                <div class="border-t border-white/5 mt-1 pt-1">
+                    {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-white/5 transition">Çıkış</button>
+                    </form>
+                    {% else %}
+                    <a href="{% url 'login' %}" class="block px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 transition">Giriş yap</a>
+                    {% endif %}
+                </div>
+            </div>
+        </details>
     </div>
 </header>

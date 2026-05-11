@@ -7,13 +7,13 @@
 <div class="min-h-full">
     {% include "predictions/_header.html" %}
 
-    <main class="px-6 py-12 max-w-4xl mx-auto">
+    <main class="px-4 sm:px-6 py-8 sm:py-12 max-w-4xl mx-auto">
         <a href="{% url 'leaderboard' %}" class="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1 mb-3">
             ← Skor tablosu
         </a>
 
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold mb-1">{{ target_user.nickname|default:target_user.email }}</h1>
+        <div class="mb-6 sm:mb-8">
+            <h1 class="text-2xl sm:text-3xl font-bold mb-1 break-words">{{ target_user.nickname|default:target_user.email }}</h1>
             <p class="text-slate-400 text-sm">
                 {{ tournament.name }}
                 <span class="mx-2 text-slate-600">·</span>
@@ -22,7 +22,7 @@
         </div>
 
         {% if sections %}
-        <div class="space-y-8">
+        <div class="space-y-6 sm:space-y-8">
             {% for section in sections %}
             <section>
                 <h2 class="text-lg font-semibold mb-3 text-slate-300">
@@ -39,41 +39,68 @@
                 <ul class="space-y-2">
                     {% for row in section.rows %}
                     <li class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-2">
-                            <span class="font-mono">{{ row.slot.position }}</span>
-                            <span>·</span>
-                            <span>{{ row.slot.scheduled_kickoff|date:"d M H:i" }}</span>
-                            {% if row.slot.venue %}<span>·</span><span class="truncate">{{ row.slot.venue }}</span>{% endif %}
+                        <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-slate-500 mb-3">
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                                <span class="font-mono">{{ row.slot.position }}</span>
+                                <span>·</span>
+                                <span>{{ row.slot.scheduled_kickoff|date:"d M H:i" }}</span>
+                                {% if row.slot.venue %}<span>·</span><span class="truncate">{{ row.slot.venue }}</span>{% endif %}
+                            </div>
+                            {# Score + badge — top-right on mobile too so it's always visible #}
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-xs px-2 py-0.5 rounded-full border
+                                    {% if row.score.matchup_type == 'exact' %}bg-emerald-400/10 border-emerald-400/30 text-emerald-300
+                                    {% elif row.score.matchup_type == 'diff' %}bg-sky-400/10 border-sky-400/30 text-sky-300
+                                    {% elif row.score.matchup_type == 'result' %}bg-indigo-400/10 border-indigo-400/30 text-indigo-300
+                                    {% elif row.score.matchup_type == 'penalty_loser_bonus' %}bg-amber-400/10 border-amber-400/30 text-amber-300
+                                    {% elif row.score.matchup_type == 'miss' %}bg-rose-500/10 border-rose-500/30 text-rose-300
+                                    {% else %}bg-white/5 border-white/10 text-slate-500{% endif %}">
+                                    {% if row.score.matchup_type == 'exact' %}Tam skor
+                                    {% elif row.score.matchup_type == 'diff' %}Aynı fark
+                                    {% elif row.score.matchup_type == 'result' %}Doğru sonuç
+                                    {% elif row.score.matchup_type == 'penalty_loser_bonus' %}Penaltı bonusu
+                                    {% elif row.score.matchup_type == 'miss' %}Yanlış
+                                    {% elif row.score.matchup_type == 'no_prediction' %}Tahmin yok
+                                    {% elif row.score.matchup_type == 'no_result' %}Beklemede
+                                    {% endif %}
+                                </span>
+                                <span class="font-mono font-semibold text-sm
+                                    {% if row.score.total > 0 %}text-emerald-300
+                                    {% elif row.score.matchup_type == 'no_result' %}text-slate-500
+                                    {% else %}text-slate-400{% endif %}">
+                                    {{ row.score.total|floatformat:2 }}
+                                </span>
+                            </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-center">
-                            {# Actual result (left) #}
-                            <div class="min-w-0">
+                        <div class="space-y-3">
+                            {# Actual result #}
+                            <div>
                                 <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Sonuç</div>
                                 {% if row.actual %}
-                                <div class="text-sm">
-                                    {{ row.slot.home_team_actual.name_tr|default:"?" }}
-                                    <span class="mx-2 font-mono text-slate-300">{{ row.actual.home_score }}–{{ row.actual.away_score }}</span>
-                                    {{ row.slot.away_team_actual.name_tr|default:"?" }}
-                                    {% if row.actual.went_to_penalties %}
-                                    <span class="text-xs text-slate-500">(pen: {{ row.actual.penalty_winner.code }} {{ row.actual.home_penalties }}–{{ row.actual.away_penalties }})</span>
-                                    {% endif %}
+                                <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
+                                    <span class="truncate text-right">{{ row.slot.home_team_actual.name_tr|default:"?" }}</span>
+                                    <span class="font-mono text-slate-300 whitespace-nowrap px-1">{{ row.actual.home_score }}–{{ row.actual.away_score }}</span>
+                                    <span class="truncate">{{ row.slot.away_team_actual.name_tr|default:"?" }}</span>
                                 </div>
+                                {% if row.actual.went_to_penalties %}
+                                <div class="text-xs text-slate-500 mt-1 text-center">pen: {{ row.actual.penalty_winner.code }} {{ row.actual.home_penalties }}–{{ row.actual.away_penalties }}</div>
+                                {% endif %}
                                 {% else %}
                                 <div class="text-sm text-slate-500">— henüz girilmedi</div>
                                 {% endif %}
                             </div>
 
-                            {# User's prediction (middle) #}
-                            <div class="min-w-0">
+                            {# User's prediction #}
+                            <div>
                                 <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">
-                                    Tahmin{% if row.prediction %} · {{ row.prediction.prediction_round.name }}{% endif %}
+                                    Tahmin{% if row.prediction %} <span class="text-slate-600">· {{ row.prediction.prediction_round.name }}</span>{% endif %}
                                 </div>
                                 {% if row.prediction %}
-                                <div class="text-sm">
-                                    {{ row.prediction.home_team.name_tr }}
-                                    <span class="mx-2 font-mono text-slate-300">{{ row.prediction.home_score }}–{{ row.prediction.away_score }}</span>
-                                    {{ row.prediction.away_team.name_tr }}
+                                <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
+                                    <span class="truncate text-right">{{ row.prediction.home_team.name_tr }}</span>
+                                    <span class="font-mono text-slate-300 whitespace-nowrap px-1">{{ row.prediction.home_score }}–{{ row.prediction.away_score }}</span>
+                                    <span class="truncate">{{ row.prediction.away_team.name_tr }}</span>
                                 </div>
                                 {% elif row.prediction_hidden %}
                                 <div class="text-sm text-slate-500">— kilit sonrası görünür</div>
@@ -82,39 +109,11 @@
                                 {% endif %}
                             </div>
 
-                            {# Score badge (right) #}
-                            <div class="md:text-right">
-                                <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Puan</div>
-                                <div class="flex md:flex-col md:items-end items-center gap-2">
-                                    <span class="font-mono font-semibold
-                                        {% if row.score.total > 0 %}text-emerald-300
-                                        {% elif row.score.matchup_type == 'no_result' %}text-slate-500
-                                        {% else %}text-slate-400{% endif %}">
-                                        {{ row.score.total|floatformat:2 }}
-                                    </span>
-                                    <span class="text-xs px-2 py-0.5 rounded-full border
-                                        {% if row.score.matchup_type == 'exact' %}bg-emerald-400/10 border-emerald-400/30 text-emerald-300
-                                        {% elif row.score.matchup_type == 'diff' %}bg-sky-400/10 border-sky-400/30 text-sky-300
-                                        {% elif row.score.matchup_type == 'result' %}bg-indigo-400/10 border-indigo-400/30 text-indigo-300
-                                        {% elif row.score.matchup_type == 'penalty_loser_bonus' %}bg-amber-400/10 border-amber-400/30 text-amber-300
-                                        {% elif row.score.matchup_type == 'miss' %}bg-rose-500/10 border-rose-500/30 text-rose-300
-                                        {% else %}bg-white/5 border-white/10 text-slate-500{% endif %}">
-                                        {% if row.score.matchup_type == 'exact' %}Tam skor
-                                        {% elif row.score.matchup_type == 'diff' %}Aynı fark
-                                        {% elif row.score.matchup_type == 'result' %}Doğru sonuç
-                                        {% elif row.score.matchup_type == 'penalty_loser_bonus' %}Penaltı bonusu
-                                        {% elif row.score.matchup_type == 'miss' %}Yanlış
-                                        {% elif row.score.matchup_type == 'no_prediction' %}Tahmin yok
-                                        {% elif row.score.matchup_type == 'no_result' %}Beklemede
-                                        {% endif %}
-                                    </span>
-                                </div>
-                                {% if row.score.points_penalty %}
-                                <div class="text-xs text-slate-500 mt-1">
-                                    Maç: {{ row.score.points_match|floatformat:2 }} · Pen: {{ row.score.points_penalty|floatformat:2 }}
-                                </div>
-                                {% endif %}
+                            {% if row.score.points_penalty %}
+                            <div class="text-xs text-slate-500">
+                                Maç: {{ row.score.points_match|floatformat:2 }} · Pen: {{ row.score.points_penalty|floatformat:2 }}
                             </div>
+                            {% endif %}
                         </div>
                     </li>
                     {% endfor %}

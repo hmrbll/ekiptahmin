@@ -44,14 +44,14 @@
         </div>
         {% endif %}
 
-        <div class="grid grid-cols-[1fr_auto_auto_auto_1fr_auto] gap-2 items-center">
+        <div class="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] gap-1.5 sm:gap-2 items-center">
             {# Home team #}
-            <div>
+            <div class="min-w-0">
                 {% if form.home_team.field.disabled %}
                     {% if display_home %}
-                        <div class="flex items-center gap-2 px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
-                            {% if display_home.flag_svg_path %}<img src="{% static display_home.flag_svg_path %}" alt="{{ display_home.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
-                            <span class="text-sm truncate">{{ display_home.name_tr }}</span>
+                        <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
+                            {% if display_home.flag_svg_path %}<img src="{% static display_home.flag_svg_path %}" alt="{{ display_home.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                            <span class="text-xs sm:text-sm truncate">{{ display_home.name_tr }}</span>
                         </div>
                     {% endif %}
                     <input type="hidden" name="{{ form.home_team.html_name }}" value="{{ form.home_team.initial.id }}">
@@ -62,21 +62,21 @@
             </div>
 
             {# Score #}
-            <input type="number" min="0" max="20" name="{{ form.home_score.html_name }}"
+            <input type="number" inputmode="numeric" min="0" max="20" name="{{ form.home_score.html_name }}"
                    value="{{ form.home_score.value|default_if_none:'' }}" required
-                   class="w-14 text-center" data-score-input="home" aria-label="Ev skoru">
+                   class="w-11 sm:w-14 text-center" data-score-input="home" aria-label="Ev skoru">
             <span class="text-slate-500 text-sm">–</span>
-            <input type="number" min="0" max="20" name="{{ form.away_score.html_name }}"
+            <input type="number" inputmode="numeric" min="0" max="20" name="{{ form.away_score.html_name }}"
                    value="{{ form.away_score.value|default_if_none:'' }}" required
-                   class="w-14 text-center" data-score-input="away" aria-label="Deplasman skoru">
+                   class="w-11 sm:w-14 text-center" data-score-input="away" aria-label="Deplasman skoru">
 
             {# Away team #}
-            <div>
+            <div class="min-w-0">
                 {% if form.away_team.field.disabled %}
                     {% if display_away %}
-                        <div class="flex items-center gap-2 px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
-                            {% if display_away.flag_svg_path %}<img src="{% static display_away.flag_svg_path %}" alt="{{ display_away.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
-                            <span class="text-sm truncate">{{ display_away.name_tr }}</span>
+                        <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
+                            {% if display_away.flag_svg_path %}<img src="{% static display_away.flag_svg_path %}" alt="{{ display_away.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                            <span class="text-xs sm:text-sm truncate">{{ display_away.name_tr }}</span>
                         </div>
                     {% endif %}
                     <input type="hidden" name="{{ form.away_team.html_name }}" value="{{ form.away_team.initial.id }}">
@@ -85,8 +85,6 @@
                 {% endif %}
                 {% if form.away_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_team.errors }}</div>{% endif %}
             </div>
-
-            <span aria-hidden="true"></span>
         </div>
 
         {% if slot.stage.kind != "GROUP" %}

@@ -6,12 +6,40 @@
 <div class="min-h-full">
     {% include "predictions/_header.html" %}
 
-    <main class="px-6 py-12 max-w-5xl mx-auto">
-        <h1 class="text-3xl font-bold mb-2">Puan Durumu</h1>
-        <p class="text-slate-400 mb-8">{{ tournament.name }}</p>
+    <main class="px-4 sm:px-6 py-8 sm:py-12 max-w-5xl mx-auto">
+        <h1 class="text-2xl sm:text-3xl font-bold mb-2">Puan Durumu</h1>
+        <p class="text-slate-400 mb-6 sm:mb-8">{{ tournament.name }}</p>
 
         {% if rows %}
-        <div class="overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
+        {# Mobile: compact card list with expandable breakdown (<md) #}
+        <ul class="md:hidden space-y-2">
+            {% for row in rows %}
+            <li class="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+                <details class="group">
+                    <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 flex items-center gap-3">
+                        <span class="font-mono text-xs text-slate-400 w-6 text-right shrink-0">{{ row.rank }}</span>
+                        <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-slate-200 hover:text-emerald-300 transition truncate flex-1 min-w-0">{{ row.nickname }}</a>
+                        <span class="font-mono font-semibold text-slate-100 shrink-0">{{ row.total|floatformat:2 }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-slate-500 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </summary>
+                    <div class="px-3 pb-3 pt-1 border-t border-white/5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                        <div class="flex items-center justify-between"><span class="text-emerald-300/80">Doğru Skor</span><span class="font-mono text-slate-300">{{ row.exact }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-sky-300/80">Doğru Fark</span><span class="font-mono text-slate-300">{{ row.diff }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-indigo-300/80">Doğru Sonuç</span><span class="font-mono text-slate-300">{{ row.result }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-amber-300/80">Penaltı Bonus</span><span class="font-mono text-slate-300">{{ row.penalty_bonus }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-rose-300/80">Yanlış</span><span class="font-mono text-slate-300">{{ row.wrong }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-slate-500">Tahmin Yok</span><span class="font-mono text-slate-300">{{ row.no_prediction }}</span></div>
+                        <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="col-span-2 mt-1 text-center text-emerald-300/90 hover:text-emerald-200 transition py-1 rounded-lg border border-emerald-400/20 bg-emerald-400/5">Detaylı kırılım →</a>
+                    </div>
+                </details>
+            </li>
+            {% endfor %}
+        </ul>
+
+        {# Desktop/tablet: full table (>=md) #}
+        <div class="hidden md:block overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
             <table class="w-full text-sm">
                 <thead class="text-xs uppercase tracking-wider text-slate-400 border-b border-white/5">
                     <tr>

@@ -14,15 +14,15 @@
             <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-rose-500/10 blur-3xl"></div>
         </div>
 
-        <section class="px-6 py-10 max-w-6xl mx-auto w-full">
+        <section class="px-4 sm:px-6 py-8 sm:py-10 max-w-6xl mx-auto w-full">
             {% if user.is_authenticated %}
-            <h1 class="text-2xl sm:text-3xl font-bold mb-1">Merhaba {{ user.nickname|default:user.email }} 👋</h1>
-            <p class="text-slate-400 text-sm mb-8">{{ tournament.name|default:"" }}</p>
+            <h1 class="text-2xl sm:text-3xl font-bold mb-1 break-words">Merhaba {{ user.nickname|default:user.email }} 👋</h1>
+            <p class="text-slate-400 text-sm mb-6 sm:mb-8">{{ tournament.name|default:"" }}</p>
             {% else %}
             <h1 class="text-2xl sm:text-3xl font-bold mb-1">
                 <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">ekiptahmin</span><span class="text-emerald-400">.com</span>
             </h1>
-            <p class="text-slate-400 text-sm mb-8">{{ tournament.name|default:"2026 FIFA Dünya Kupası tahmin oyunu" }}</p>
+            <p class="text-slate-400 text-sm mb-6 sm:mb-8">{{ tournament.name|default:"2026 FIFA Dünya Kupası tahmin oyunu" }}</p>
             {% endif %}
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -41,12 +41,16 @@
                                 <span class="font-mono">{{ item.slot.position }}</span>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M H:i" }}</span>
                             </div>
-                            <div class="flex items-center gap-2 text-sm">
-                                {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
-                                <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
-                                <span class="mx-1 text-slate-500">vs</span>
-                                <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
-                                {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
+                                <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
+                                    <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
+                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                </div>
+                                <span class="text-slate-500 text-xs px-0.5">vs</span>
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                    <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
+                                </div>
                             </div>
                             {% if user.is_authenticated %}
                             <div class="mt-1.5 text-xs">
@@ -90,12 +94,16 @@
                                 <span class="font-mono">{{ item.slot.position }}</span>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M" }}</span>
                             </div>
-                            <div class="flex items-center gap-2 text-sm">
-                                {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
-                                <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
-                                <span class="font-mono font-semibold mx-1">{{ item.actual.home_score }}–{{ item.actual.away_score }}</span>
-                                <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
-                                {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
+                                <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
+                                    <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
+                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                </div>
+                                <span class="font-mono font-semibold whitespace-nowrap px-0.5">{{ item.actual.home_score }}–{{ item.actual.away_score }}</span>
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                    <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
+                                </div>
                             </div>
                             {% if user.is_authenticated %}
                             <div class="mt-1.5 text-xs">
