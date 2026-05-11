@@ -26,7 +26,10 @@ def home(request: HttpRequest) -> HttpResponse:
 
     now = timezone.now()
 
-    # --- Upcoming matches (only slots with both teams known) ---
+    # --- Upcoming matches ---
+    # Only slots with both teams known AND no ActualResult yet. The kickoff
+    # date can be inaccurate (admin testing, schedule changes), so the
+    # presence of an ActualResult is the authoritative "match is done" signal.
     upcoming_slots = list(
         BracketSlot.objects
         .filter(
@@ -34,6 +37,7 @@ def home(request: HttpRequest) -> HttpResponse:
             scheduled_kickoff__gt=now,
             home_team_actual__isnull=False,
             away_team_actual__isnull=False,
+            result__isnull=True,
         )
         .select_related("stage", "home_team_actual", "away_team_actual")
         .order_by("scheduled_kickoff")[:UPCOMING_LIMIT]

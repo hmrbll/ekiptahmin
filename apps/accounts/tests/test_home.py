@@ -112,6 +112,34 @@ class TestHomeAuthenticated:
         # "2 maç" count chip reflects the actual available number.
         assert "2 maç" in body
 
+    def test_upcoming_excludes_slots_with_actual_result(
+        self, client, t, group_stage, tur, bra,
+    ):
+        """Even if kickoff is in the future, a slot that already has an
+        ActualResult is treated as done and dropped from the upcoming list.
+        """
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        now = timezone.now()
+        future_with_result = _slot(
+            t, group_stage, "GroupA-M1", now + timedelta(days=2), tur, bra,
+        )
+        ActualResult.objects.create(slot=future_with_result, home_score=2, away_score=1)
+        future_clean = _slot(
+            t, group_stage, "GroupA-M2", now + timedelta(days=3), bra, tur,
+        )
+
+        client.force_login(u)
+        r = client.get(reverse("home"))
+        body = r.content.decode("utf-8")
+        # The clean future slot remains in upcoming; the one with an actual
+        # result is dropped even though its kickoff is later.
+        # `GroupA-M1` will still appear in the recent-results module, so we
+        # assert via the "Tahminin"/"— tahmin yok" line which only renders
+        # under the upcoming module.
+        upcoming_section = body.split("Son sonuçlar")[0]
+        assert "GroupA-M2" in upcoming_section
+        assert "GroupA-M1" not in upcoming_section
+
     def test_upcoming_match_shows_user_prediction(
         self, client, t, group_stage, pre_round, tur, bra,
     ):
