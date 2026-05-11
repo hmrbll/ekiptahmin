@@ -317,6 +317,25 @@ class TestResultsView:
         assert "Tam skor".encode("utf-8") in r.content
         assert "Doğru sonuç".encode("utf-8") in r.content
 
+    def test_shows_user_prediction_under_match(
+        self, client, t, pre_round, slot1, tur, bra,
+    ):
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
+        client.force_login(u)
+        r = client.get(reverse("results"))
+        body = r.content.decode("utf-8")
+        # Predicted score 3-0 should appear in the user's row.
+        assert "3–0" in body
+        # Both team names show twice each (once in match header, once in
+        # the user's prediction row).
+        assert body.count("Türkiye") >= 2
+        assert body.count("Brezilya") >= 2
+
     def test_excludes_slots_without_actual_result(
         self, client, t, pre_round, slot1, slot2, tur, bra,
     ):
@@ -356,5 +375,38 @@ class TestLeaderboardCountColumns:
         r = client.get(reverse("leaderboard"))
         body = r.content.decode("utf-8")
         # Header columns appear with Hemre's wording.
-        for col in ["Toplam Puan", "Doğru Skor", "Doğru Fark", "Doğru Sonuç", "Penaltı Bonus", "Yanlış"]:
+        for col in [
+            "Toplam Puan", "Doğru Skor", "Doğru Fark", "Doğru Sonuç",
+            "Penaltı Bonus", "Yanlış", "Tahmin Yapmadı",
+        ]:
             assert col in body, col
+
+    def test_no_prediction_count_separate_from_wrong(
+        self, client, t, pre_round, slot1, slot2, tur, bra,
+    ):
+        """`no_prediction` (didn't predict) shows in its own column, not folded
+        into `wrong` (predicted but missed).
+        """
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        # Slot1: prediction is wrong outcome → miss
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=0, away_score=2,
+        )
+        ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
+        # Slot2: no prediction at all → no_prediction (needs explicit recompute
+        # since there's no SlotPrediction save signal to trigger it).
+        ActualResult.objects.create(slot=slot2, home_score=1, away_score=1)
+        from apps.scoring.cache import recompute_slot_for_user
+        recompute_slot_for_user(u, slot2)
+
+        client.force_login(u)
+        r = client.get(reverse("leaderboard"))
+        body = r.content.decode("utf-8")
+        # The user's row should contain a "1" in both Yanlış and Tahmin Yapmadı
+        # columns. Easiest assertion: the entry's exposed count fields.
+        from apps.scoring.leaderboard import leaderboard_for_tournament
+        entries = leaderboard_for_tournament(t)
+        me = entries[0]
+        assert me.counts.get("miss") == 1
+        assert me.counts.get("no_prediction") == 1

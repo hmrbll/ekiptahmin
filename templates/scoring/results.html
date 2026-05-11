@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Sonuçlar — ekiptahmin.com{% endblock %}
 
@@ -24,10 +25,16 @@
                 </div>
 
                 <div class="flex items-center justify-between mb-4">
-                    <div class="text-base sm:text-lg">
-                        <span class="text-slate-100">{{ m.slot.home_team_actual.name_tr|default:"?" }}</span>
-                        <span class="mx-3 font-mono font-semibold text-slate-200">{{ m.actual.home_score }}–{{ m.actual.away_score }}</span>
-                        <span class="text-slate-100">{{ m.slot.away_team_actual.name_tr|default:"?" }}</span>
+                    <div class="flex items-center gap-3 text-base sm:text-lg">
+                        <span class="inline-flex items-center gap-2">
+                            {% if m.slot.home_team_actual.flag_svg_path %}<img src="{% static m.slot.home_team_actual.flag_svg_path %}" alt="{{ m.slot.home_team_actual.code }}" class="w-6 h-4 rounded-sm object-cover">{% endif %}
+                            <span class="text-slate-100">{{ m.slot.home_team_actual.name_tr|default:"?" }}</span>
+                        </span>
+                        <span class="font-mono font-semibold text-slate-200">{{ m.actual.home_score }}–{{ m.actual.away_score }}</span>
+                        <span class="inline-flex items-center gap-2">
+                            <span class="text-slate-100">{{ m.slot.away_team_actual.name_tr|default:"?" }}</span>
+                            {% if m.slot.away_team_actual.flag_svg_path %}<img src="{% static m.slot.away_team_actual.flag_svg_path %}" alt="{{ m.slot.away_team_actual.code }}" class="w-6 h-4 rounded-sm object-cover">{% endif %}
+                        </span>
                     </div>
                     {% if m.actual.went_to_penalties %}
                     <span class="text-xs text-slate-500">pen: {{ m.actual.penalty_winner.code }} {{ m.actual.home_penalties }}–{{ m.actual.away_penalties }}</span>
@@ -37,20 +44,29 @@
                 {% if m.scores %}
                 <div class="border-t border-white/5 pt-3">
                     <div class="text-xs uppercase tracking-wider text-slate-500 mb-2">Oyuncu puanları</div>
-                    <ul class="space-y-1">
+                    <ul class="divide-y divide-white/5">
                         {% for entry in m.scores %}
-                        <li class="flex items-center justify-between text-sm py-1">
+                        <li class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1 items-center py-2 text-sm">
                             <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="text-slate-200 hover:text-emerald-300 transition">
                                 {{ entry.user.nickname|default:entry.user.email }}
                             </a>
-                            <div class="flex items-center gap-3">
-                                <span class="text-xs px-2 py-0.5 rounded-full border {{ entry.badge_cls }}">
-                                    {{ entry.label }}
-                                </span>
-                                <span class="font-mono font-semibold {% if entry.score.total > 0 %}text-emerald-300{% else %}text-slate-400{% endif %} w-14 text-right">
-                                    {{ entry.score.total|floatformat:2 }}
-                                </span>
+                            <div class="text-slate-400 flex items-center gap-2 text-xs">
+                                {% if entry.prediction %}
+                                    {% if entry.prediction.home_team.flag_svg_path %}<img src="{% static entry.prediction.home_team.flag_svg_path %}" alt="{{ entry.prediction.home_team.code }}" class="w-4 h-3 rounded-sm object-cover">{% endif %}
+                                    <span class="truncate">{{ entry.prediction.home_team.name_tr }}</span>
+                                    <span class="font-mono text-slate-300">{{ entry.prediction.home_score }}–{{ entry.prediction.away_score }}</span>
+                                    <span class="truncate">{{ entry.prediction.away_team.name_tr }}</span>
+                                    {% if entry.prediction.away_team.flag_svg_path %}<img src="{% static entry.prediction.away_team.flag_svg_path %}" alt="{{ entry.prediction.away_team.code }}" class="w-4 h-3 rounded-sm object-cover">{% endif %}
+                                {% else %}
+                                    <span class="text-slate-500">— tahmin yok</span>
+                                {% endif %}
                             </div>
+                            <span class="text-xs px-2 py-0.5 rounded-full border {{ entry.badge_cls }} justify-self-start md:justify-self-end">
+                                {{ entry.label }}
+                            </span>
+                            <span class="font-mono font-semibold {% if entry.score.total > 0 %}text-emerald-300{% else %}text-slate-400{% endif %} w-14 text-right">
+                                {{ entry.score.total|floatformat:2 }}
+                            </span>
                         </li>
                         {% endfor %}
                     </ul>

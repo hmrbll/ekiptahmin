@@ -25,9 +25,9 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
 
     entries = leaderboard_for_tournament(tournament)
 
-    # Per-matchup-type counts (Hemre's column spec): exact / diff / result /
-    # penalty bonus / wrong. "Wrong" combines miss + no_prediction — both
-    # mean "had a chance, didn't earn points on a played match".
+    # Per-matchup-type counts (Hemre's column spec). `wrong` is `miss` only;
+    # `no_prediction` gets its own column so the two failure modes (predicted
+    # wrong vs. didn't predict at all) stay distinguishable.
     rows = []
     for e in entries:
         c = e.counts
@@ -40,7 +40,8 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
             "diff": c.get(SlotScore.DIFF, 0),
             "result": c.get(SlotScore.RESULT, 0),
             "penalty_bonus": c.get(SlotScore.PENALTY_LOSER_BONUS, 0),
-            "wrong": c.get(SlotScore.MISS, 0) + c.get(SlotScore.NO_PREDICTION, 0),
+            "wrong": c.get(SlotScore.MISS, 0),
+            "no_prediction": c.get(SlotScore.NO_PREDICTION, 0),
         })
 
     return render(request, "scoring/leaderboard.html", {
@@ -160,6 +161,30 @@ def results_list(request: HttpRequest) -> HttpResponse:
         .select_related("user")
         .order_by("-total", "user__nickname")
     )
+
+    # Pre-fetch the earning (or latest) prediction for every (user, slot) row
+    # we're about to render so the template can show what each user predicted.
+    user_slot_pairs = {(s.user_id, s.slot_id): s for s in score_rows}
+    all_preds = (
+        SlotPrediction.objects
+        .filter(slot_id__in=slot_ids, user_id__in={uid for uid, _ in user_slot_pairs})
+        .select_related("home_team", "away_team", "prediction_round")
+        .order_by("user_id", "slot_id", "-prediction_round__order")
+    )
+    preds_by_user_slot: dict[tuple[int, int], list] = {}
+    for p in all_preds:
+        preds_by_user_slot.setdefault((p.user_id, p.slot_id), []).append(p)
+
+    def _pick_prediction(user_id, slot_id, earning_order):
+        bucket = preds_by_user_slot.get((user_id, slot_id), [])
+        if not bucket:
+            return None
+        if earning_order is not None:
+            for p in bucket:
+                if p.prediction_round.order == earning_order:
+                    return p
+        return bucket[0]  # latest (queryset is desc-ordered)
+
     scores_by_slot: dict[int, list] = {}
     for s in score_rows:
         label, badge_cls = _MATCHUP_BADGE.get(s.matchup_type, ("", ""))
@@ -168,6 +193,7 @@ def results_list(request: HttpRequest) -> HttpResponse:
             "user": s.user,
             "label": label,
             "badge_cls": badge_cls,
+            "prediction": _pick_prediction(s.user_id, s.slot_id, s.earning_round_order),
         })
 
     matches = []

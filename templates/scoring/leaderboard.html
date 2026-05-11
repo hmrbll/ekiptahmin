@@ -23,6 +23,7 @@
                         <th class="text-right px-4 py-3 font-medium text-indigo-300/80">Doğru Sonuç</th>
                         <th class="text-right px-4 py-3 font-medium text-amber-300/80">Penaltı Bonus</th>
                         <th class="text-right px-4 py-3 font-medium text-rose-300/80">Yanlış</th>
+                        <th class="text-right px-4 py-3 font-medium text-slate-500">Tahmin Yapmadı</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -38,6 +39,7 @@
                         <td class="px-4 py-3 text-right text-slate-300">{{ row.result }}</td>
                         <td class="px-4 py-3 text-right text-slate-300">{{ row.penalty_bonus }}</td>
                         <td class="px-4 py-3 text-right text-slate-300">{{ row.wrong }}</td>
+                        <td class="px-4 py-3 text-right text-slate-300">{{ row.no_prediction }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
