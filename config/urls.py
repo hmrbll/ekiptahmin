@@ -16,6 +16,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("apps.accounts.urls")),
     path("predictions/", include("apps.predictions.urls")),
+    path("leaderboard/", include("apps.scoring.urls")),
 ]
 
 if settings.DEBUG:
