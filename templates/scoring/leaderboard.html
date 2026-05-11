@@ -29,7 +29,9 @@
                     {% for row in rows %}
                     <tr class="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition">
                         <td class="px-4 py-3 font-mono text-slate-400">{{ row.rank }}</td>
-                        <td class="px-4 py-3">{{ row.nickname }}</td>
+                        <td class="px-4 py-3">
+                            <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-slate-200 hover:text-emerald-300 transition">{{ row.nickname }}</a>
+                        </td>
                         <td class="px-4 py-3 text-right font-semibold">{{ row.total|floatformat:2 }}</td>
                         {% for v in row.per_round_values %}
                         <td class="px-4 py-3 text-right text-slate-400">

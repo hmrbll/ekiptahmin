@@ -209,3 +209,69 @@ class TestLeaderboardView:
         r = client.get(reverse("leaderboard"))
         assert r.status_code == 200
         assert "Henüz puan kaydedilmedi".encode("utf-8") in r.content
+
+    def test_table_links_to_user_detail(
+        self, client, t, pre_round, slot1, tur, bra,
+    ):
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
+        client.force_login(u)
+        r = client.get(reverse("leaderboard"))
+        assert reverse("leaderboard_user_detail", args=[u.id]).encode() in r.content
+
+
+@pytest.mark.django_db
+class TestUserDetailView:
+    def test_anonymous_redirected(self, client, t):
+        u = User.objects.create_user(email="x@x.com", username="x@x.com", nickname="X")
+        r = client.get(reverse("leaderboard_user_detail", args=[u.id]))
+        assert r.status_code == 302
+
+    def test_renders_user_breakdown_with_score_badges(
+        self, client, t, pre_round, slot1, slot2, tur, bra,
+    ):
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        # Exact on slot1, miss (no prediction) on slot2.
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot1,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
+        ActualResult.objects.create(slot=slot2, home_score=1, away_score=1)
+        # Force a SlotScore for slot2 (no prediction → no_prediction row needs
+        # to be created via recompute since there's no SlotPrediction signal).
+        from apps.scoring.cache import recompute_slot_for_user
+        recompute_slot_for_user(u, slot2)
+
+        client.force_login(u)
+        r = client.get(reverse("leaderboard_user_detail", args=[u.id]))
+        assert r.status_code == 200
+        # Header
+        assert b"Me" in r.content
+        assert "Toplam".encode("utf-8") in r.content
+        # Slot1 should appear with an "exact" badge somewhere.
+        assert b"GroupA-M1" in r.content
+        assert "Tam skor".encode("utf-8") in r.content
+        # Slot2 (no prediction yet) gets the "Tahmin yok" badge.
+        assert b"GroupA-M2" in r.content
+        assert "Tahmin yok".encode("utf-8") in r.content
+
+    def test_renders_empty_state_for_user_with_no_scores(
+        self, client, t,
+    ):
+        u_viewer = User.objects.create_user(email="v@x.com", username="v@x.com", nickname="V")
+        u_target = User.objects.create_user(email="t@x.com", username="t@x.com", nickname="T")
+        client.force_login(u_viewer)
+        r = client.get(reverse("leaderboard_user_detail", args=[u_target.id]))
+        assert r.status_code == 200
+        assert "puan kaydı yok".encode("utf-8") in r.content
+
+    def test_404_for_unknown_user(self, client, t):
+        u = User.objects.create_user(email="x@x.com", username="x@x.com", nickname="X")
+        client.force_login(u)
+        r = client.get(reverse("leaderboard_user_detail", args=[999999]))
+        assert r.status_code == 404
