@@ -14,72 +14,16 @@
             <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-rose-500/10 blur-3xl"></div>
         </div>
 
-        {% if not user.is_authenticated %}
-        {# --- Anonymous landing --- #}
-        <section class="px-6 py-12 sm:py-20">
-            <div class="max-w-2xl mx-auto">
-                <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur">
-                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Yakında — Haziran 2026
-                </div>
-
-                <h1 class="text-4xl sm:text-6xl font-bold tracking-tight">
-                    <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">ekiptahmin</span><span class="text-emerald-400">.com</span>
-                </h1>
-
-                <p class="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed">
-                    2026 FIFA Dünya Kupası tahmin oyunu. 104 maç, 6 tahmin turu, 1 şampiyon — bracket'i en iyi okuyan kazanır.
-                </p>
-
-                <div class="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                        <div class="text-2xl sm:text-3xl font-bold text-emerald-400">48</div>
-                        <div class="text-xs text-slate-400 mt-1">Takım</div>
-                    </div>
-                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                        <div class="text-2xl sm:text-3xl font-bold text-indigo-400">104</div>
-                        <div class="text-xs text-slate-400 mt-1">Maç</div>
-                    </div>
-                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                        <div class="text-2xl sm:text-3xl font-bold text-rose-400">6</div>
-                        <div class="text-xs text-slate-400 mt-1">Tahmin Turu</div>
-                    </div>
-                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                        <div class="text-2xl sm:text-3xl font-bold text-amber-400">1</div>
-                        <div class="text-xs text-slate-400 mt-1">Şampiyon</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="px-6 pb-12 sm:pb-20">
-            <div class="max-w-3xl mx-auto grid sm:grid-cols-2 gap-4">
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-sm font-semibold text-slate-300">🏆 Liderlik tablosu</h2>
-                        <span class="text-xs text-slate-500">Yakında</span>
-                    </div>
-                    <p class="text-sm text-slate-400 leading-relaxed">
-                        Turnuva başladıktan sonra puan durumu burada görünecek.
-                    </p>
-                </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-sm font-semibold text-slate-300">⚽ Sıradaki maç</h2>
-                        <span class="text-xs text-slate-500">Yakında</span>
-                    </div>
-                    <p class="text-sm text-slate-400 leading-relaxed">
-                        Günün tahminleri burada görünecek.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        {% else %}
-        {# --- Authenticated overview --- #}
         <section class="px-6 py-10 max-w-6xl mx-auto w-full">
+            {% if user.is_authenticated %}
             <h1 class="text-2xl sm:text-3xl font-bold mb-1">Merhaba {{ user.nickname|default:user.email }} 👋</h1>
             <p class="text-slate-400 text-sm mb-8">{{ tournament.name|default:"" }}</p>
+            {% else %}
+            <h1 class="text-2xl sm:text-3xl font-bold mb-1">
+                <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">ekiptahmin</span><span class="text-emerald-400">.com</span>
+            </h1>
+            <p class="text-slate-400 text-sm mb-8">{{ tournament.name|default:"2026 FIFA Dünya Kupası tahmin oyunu" }}</p>
+            {% endif %}
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -104,6 +48,7 @@
                                 <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
                                 {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
                             </div>
+                            {% if user.is_authenticated %}
                             <div class="mt-1.5 text-xs">
                                 {% if item.prediction %}
                                 <span class="text-slate-500">Tahminin:</span>
@@ -112,6 +57,7 @@
                                 <span class="text-amber-300">— tahmin yok</span>
                                 {% endif %}
                             </div>
+                            {% endif %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -146,6 +92,7 @@
                                 <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
                                 {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
                             </div>
+                            {% if user.is_authenticated %}
                             <div class="mt-1.5 text-xs">
                                 {% if item.viewer_score %}
                                 <span class="text-slate-500">Aldığın:</span>
@@ -156,6 +103,7 @@
                                 <span class="text-slate-500">— puan yok</span>
                                 {% endif %}
                             </div>
+                            {% endif %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -178,7 +126,7 @@
                     {% if leaderboard_top %}
                     <ul class="space-y-1 flex-1 text-sm">
                         {% for entry in leaderboard_top %}
-                        <li class="flex items-center justify-between py-1.5 px-2 rounded-lg {% if entry.user.id == user.id %}bg-emerald-400/5 border border-emerald-400/20{% endif %}">
+                        <li class="flex items-center justify-between py-1.5 px-2 rounded-lg {% if user.is_authenticated and entry.user.id == user.id %}bg-emerald-400/5 border border-emerald-400/20{% endif %}">
                             <div class="flex items-center gap-2 min-w-0">
                                 <span class="font-mono text-xs text-slate-500 w-5 text-right">{{ entry.rank }}</span>
                                 <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="truncate text-slate-200 hover:text-emerald-300 transition">
@@ -201,7 +149,6 @@
 
             </div>
         </section>
-        {% endif %}
 
         <footer class="mt-auto py-6 px-6 text-center text-xs text-slate-500 border-t border-white/5">
             ekiptahmin.com — Bir Hemre Ballı markasıdır.

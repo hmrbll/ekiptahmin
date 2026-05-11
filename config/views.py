@@ -16,20 +16,18 @@ LEADERBOARD_LIMIT = 12
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    """Marketing landing for guests; overview dashboard for authenticated users."""
-    if not request.user.is_authenticated:
-        return render(request, "home.html", {})
-
+    """Overview dashboard. Same modules for everyone — anonymous visitors
+    just don't get the personal greeting and the per-row "your prediction"
+    / "points you earned" lines.
+    """
     tournament = Tournament.objects.filter(is_active=True).first()
     if tournament is None:
         return render(request, "home.html", {"tournament": None})
 
     now = timezone.now()
+    viewer = request.user if request.user.is_authenticated else None
 
-    # --- Upcoming matches ---
-    # Only slots with both teams known AND no ActualResult yet. The kickoff
-    # date can be inaccurate (admin testing, schedule changes), so the
-    # presence of an ActualResult is the authoritative "match is done" signal.
+    # --- Upcoming matches (only slots with both teams known) ---
     upcoming_slots = list(
         BracketSlot.objects
         .filter(
@@ -42,16 +40,18 @@ def home(request: HttpRequest) -> HttpResponse:
         .select_related("stage", "home_team_actual", "away_team_actual")
         .order_by("scheduled_kickoff")[:UPCOMING_LIMIT]
     )
-    # Latest prediction (across rounds) per upcoming slot for this user.
-    upcoming_slot_ids = [s.id for s in upcoming_slots]
+    # Latest prediction (across rounds) per upcoming slot — only when there's
+    # a logged-in viewer to attach predictions to.
     preds_by_slot: dict[int, SlotPrediction] = {}
-    for p in (
-        SlotPrediction.objects
-        .filter(user=request.user, slot_id__in=upcoming_slot_ids)
-        .select_related("home_team", "away_team", "prediction_round")
-        .order_by("slot_id", "-prediction_round__order")
-    ):
-        preds_by_slot.setdefault(p.slot_id, p)
+    if viewer is not None:
+        upcoming_slot_ids = [s.id for s in upcoming_slots]
+        for p in (
+            SlotPrediction.objects
+            .filter(user=viewer, slot_id__in=upcoming_slot_ids)
+            .select_related("home_team", "away_team", "prediction_round")
+            .order_by("slot_id", "-prediction_round__order")
+        ):
+            preds_by_slot.setdefault(p.slot_id, p)
     upcoming = [{"slot": s, "prediction": preds_by_slot.get(s.id)} for s in upcoming_slots]
 
     # --- Recent results ---
@@ -64,12 +64,13 @@ def home(request: HttpRequest) -> HttpResponse:
         )
         .order_by("-slot__scheduled_kickoff")[:RESULTS_LIMIT]
     )
-    # Look up the viewer's earned points for each recent result.
-    recent_slot_ids = [a.slot_id for a in recent_actuals]
-    viewer_scores = {
-        s.slot_id: s
-        for s in SlotScore.objects.filter(user=request.user, slot_id__in=recent_slot_ids)
-    }
+    viewer_scores: dict[int, SlotScore] = {}
+    if viewer is not None:
+        recent_slot_ids = [a.slot_id for a in recent_actuals]
+        viewer_scores = {
+            s.slot_id: s
+            for s in SlotScore.objects.filter(user=viewer, slot_id__in=recent_slot_ids)
+        }
     recent = [
         {"actual": a, "slot": a.slot, "viewer_score": viewer_scores.get(a.slot_id)}
         for a in recent_actuals

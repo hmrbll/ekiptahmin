@@ -73,13 +73,44 @@ def _slot(t, stage, position, kickoff, home, away):
 
 @pytest.mark.django_db
 class TestHomeAnonymous:
-    def test_renders_landing_for_guest(self, client):
+    def test_renders_dashboard_modules_for_guest(self, client, t):
+        """Anonymous visitors see the same three-module overview as
+        authenticated users — just without the personal greeting.
+        """
         r = client.get(reverse("home"))
         assert r.status_code == 200
         body = r.content.decode("utf-8")
-        # Marketing copy
+        # Module headers
+        assert "Sıradaki maçlar" in body
+        assert "Son sonuçlar" in body
+        assert "Puan durumu" in body
+        # No personal greeting for guests
+        assert "Merhaba" not in body
+        # Header offers the login pill
         assert "Giriş yap" in body
-        assert "104" in body  # one of the stat blocks
+
+    def test_guest_does_not_see_per_row_personal_lines(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """The "Tahminin: ..." and "Aldığın: ..." lines are only meaningful
+        for an identified viewer — guests shouldn't see them at all.
+        """
+        now = timezone.now()
+        slot = _slot(t, group_stage, "GroupA-M1", now + timedelta(days=1), tur, bra)
+        # Some other user has predicted, but no one is logged in.
+        rival = User.objects.create_user(
+            email="r@x.com", username="r@x.com", nickname="R",
+        )
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        r = client.get(reverse("home"))
+        body = r.content.decode("utf-8")
+        assert "GroupA-M1" in body  # the match still appears in upcoming
+        assert "Tahminin" not in body
+        assert "Aldığın" not in body
+        assert "tahmin yok" not in body
 
 
 @pytest.mark.django_db
