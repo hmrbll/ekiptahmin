@@ -1,28 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}ekiptahmin.com — 2026 Dünya Kupası Tahmin Oyunu{% endblock %}
 
 {% block content %}
 <div class="min-h-full flex flex-col">
-    <header class="relative z-10 px-6 py-5 flex items-center justify-between">
-        <a href="{% url 'home' %}" class="text-sm font-semibold text-slate-300 hover:text-white transition">
-            ekiptahmin<span class="text-emerald-400">.com</span>
-        </a>
-        {% if user.is_authenticated %}
-            <div class="flex items-center gap-3 text-sm">
-                <span class="text-slate-400 hidden sm:inline">{{ user.nickname|default:user.email }}</span>
-                <form method="post" action="{% url 'logout' %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="text-slate-400 hover:text-white transition">Çıkış</button>
-                </form>
-            </div>
-        {% else %}
-            <a href="{% url 'login' %}"
-               class="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition">
-                Giriş yap
-            </a>
-        {% endif %}
-    </header>
+    {% include "predictions/_header.html" %}
 
     <main class="relative isolate flex-1 flex flex-col">
         <div class="absolute inset-0 -z-10 overflow-hidden">
@@ -31,6 +14,8 @@
             <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-rose-500/10 blur-3xl"></div>
         </div>
 
+        {% if not user.is_authenticated %}
+        {# --- Anonymous landing --- #}
         <section class="px-6 py-12 sm:py-20">
             <div class="max-w-2xl mx-auto">
                 <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur">
@@ -46,7 +31,6 @@
                     2026 FIFA Dünya Kupası tahmin oyunu. 104 maç, 6 tahmin turu, 1 şampiyon — bracket'i en iyi okuyan kazanır.
                 </p>
 
-                {% if not user.is_authenticated %}
                 <div class="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                     <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                         <div class="text-2xl sm:text-3xl font-bold text-emerald-400">48</div>
@@ -65,31 +49,9 @@
                         <div class="text-xs text-slate-400 mt-1">Şampiyon</div>
                     </div>
                 </div>
-                {% endif %}
             </div>
         </section>
 
-        {% if user.is_authenticated %}
-        <section class="px-6 pb-12 sm:pb-20">
-            <div class="max-w-3xl mx-auto grid sm:grid-cols-3 gap-4">
-                <a href="{% url 'prediction_rounds' %}"
-                   class="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 transition">
-                    <div class="text-base font-semibold text-slate-100 mb-1">Tahminler</div>
-                    <p class="text-sm text-slate-400">Aktif round'lar ve tahmin formu →</p>
-                </a>
-                <a href="{% url 'results' %}"
-                   class="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 transition">
-                    <div class="text-base font-semibold text-slate-100 mb-1">Sonuçlar</div>
-                    <p class="text-sm text-slate-400">Oynanmış maçlar ve oyuncu puanları →</p>
-                </a>
-                <a href="{% url 'leaderboard' %}"
-                   class="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 transition">
-                    <div class="text-base font-semibold text-slate-100 mb-1">Puan Durumu</div>
-                    <p class="text-sm text-slate-400">Genel sıralama ve detaylar →</p>
-                </a>
-            </div>
-        </section>
-        {% else %}
         <section class="px-6 pb-12 sm:pb-20">
             <div class="max-w-3xl mx-auto grid sm:grid-cols-2 gap-4">
                 <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
@@ -101,7 +63,6 @@
                         Turnuva başladıktan sonra puan durumu burada görünecek.
                     </p>
                 </div>
-
                 <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
                     <div class="flex items-center justify-between mb-3">
                         <h2 class="text-sm font-semibold text-slate-300">⚽ Sıradaki maç</h2>
@@ -111,6 +72,133 @@
                         Günün tahminleri burada görünecek.
                     </p>
                 </div>
+            </div>
+        </section>
+
+        {% else %}
+        {# --- Authenticated overview --- #}
+        <section class="px-6 py-10 max-w-6xl mx-auto w-full">
+            <h1 class="text-2xl sm:text-3xl font-bold mb-1">Merhaba {{ user.nickname|default:user.email }} 👋</h1>
+            <p class="text-slate-400 text-sm mb-8">{{ tournament.name|default:"" }}</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                {# Upcoming matches #}
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-semibold text-slate-200">Sıradaki maçlar</h2>
+                        <span class="text-xs text-slate-500">{{ upcoming|length }} maç</span>
+                    </div>
+                    {% if upcoming %}
+                    <ul class="space-y-3 flex-1">
+                        {% for item in upcoming %}
+                        <li class="rounded-xl border border-white/5 bg-white/5 p-3">
+                            <div class="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                                <span class="font-mono">{{ item.slot.position }}</span>
+                                <span>{{ item.slot.scheduled_kickoff|date:"d M H:i" }}</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm">
+                                {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                                <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
+                                <span class="mx-1 text-slate-500">vs</span>
+                                <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
+                                {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                            </div>
+                            <div class="mt-1.5 text-xs">
+                                {% if item.prediction %}
+                                <span class="text-slate-500">Tahminin:</span>
+                                <span class="font-mono text-emerald-300">{{ item.prediction.home_score }}–{{ item.prediction.away_score }}</span>
+                                {% else %}
+                                <span class="text-amber-300">— tahmin yok</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="flex-1 flex items-center justify-center text-sm text-slate-500">
+                        Yaklaşan maç yok.
+                    </div>
+                    {% endif %}
+                    <a href="{% url 'prediction_rounds' %}" class="mt-4 text-xs text-emerald-300 hover:text-emerald-200 transition">
+                        Tüm tahminler →
+                    </a>
+                </div>
+
+                {# Recent results #}
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-semibold text-slate-200">Son sonuçlar</h2>
+                        <span class="text-xs text-slate-500">{{ recent|length }} maç</span>
+                    </div>
+                    {% if recent %}
+                    <ul class="space-y-3 flex-1">
+                        {% for item in recent %}
+                        <li class="rounded-xl border border-white/5 bg-white/5 p-3">
+                            <div class="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                                <span class="font-mono">{{ item.slot.position }}</span>
+                                <span>{{ item.slot.scheduled_kickoff|date:"d M" }}</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm">
+                                {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                                <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
+                                <span class="font-mono font-semibold mx-1">{{ item.actual.home_score }}–{{ item.actual.away_score }}</span>
+                                <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
+                                {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover">{% endif %}
+                            </div>
+                            <div class="mt-1.5 text-xs">
+                                {% if item.viewer_score %}
+                                <span class="text-slate-500">Aldığın:</span>
+                                <span class="font-mono font-semibold {% if item.viewer_score.total > 0 %}text-emerald-300{% else %}text-slate-400{% endif %}">
+                                    {{ item.viewer_score.total|floatformat:2 }}
+                                </span>
+                                {% else %}
+                                <span class="text-slate-500">— puan yok</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="flex-1 flex items-center justify-center text-sm text-slate-500">
+                        Henüz sonuç girilmedi.
+                    </div>
+                    {% endif %}
+                    <a href="{% url 'results' %}" class="mt-4 text-xs text-emerald-300 hover:text-emerald-200 transition">
+                        Tüm sonuçlar →
+                    </a>
+                </div>
+
+                {# Leaderboard top #}
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-semibold text-slate-200">Puan durumu</h2>
+                        <span class="text-xs text-slate-500">İlk {{ leaderboard_top|length }}</span>
+                    </div>
+                    {% if leaderboard_top %}
+                    <ul class="space-y-1 flex-1 text-sm">
+                        {% for entry in leaderboard_top %}
+                        <li class="flex items-center justify-between py-1.5 px-2 rounded-lg {% if entry.user.id == user.id %}bg-emerald-400/5 border border-emerald-400/20{% endif %}">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="font-mono text-xs text-slate-500 w-5 text-right">{{ entry.rank }}</span>
+                                <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="truncate text-slate-200 hover:text-emerald-300 transition">
+                                    {{ entry.nickname }}
+                                </a>
+                            </div>
+                            <span class="font-mono font-semibold text-slate-200 ml-2">{{ entry.total|floatformat:2 }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="flex-1 flex items-center justify-center text-sm text-slate-500">
+                        Henüz puan kaydedilmedi.
+                    </div>
+                    {% endif %}
+                    <a href="{% url 'leaderboard' %}" class="mt-4 text-xs text-emerald-300 hover:text-emerald-200 transition">
+                        Tam liste →
+                    </a>
+                </div>
+
             </div>
         </section>
         {% endif %}
