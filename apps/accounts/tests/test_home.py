@@ -230,6 +230,59 @@ class TestHomeAuthenticated:
         # Own row gets the highlight class.
         assert "border-emerald-400/20" in body
 
+    def test_upcoming_match_lists_all_user_prediction_chips(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """Each upcoming match in the home module shows a chip for every user
+        who has predicted it, including users other than the viewer.
+        """
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1",
+                     timezone.now() + timedelta(days=1), tur, bra)
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        client.force_login(me)
+        r = client.get(reverse("home"))
+        body = r.content.decode("utf-8")
+        assert "Me" in body and "Rival" in body
+        # Both predicted scores show as chips (verbatim with en-dash).
+        assert "2–1" in body and "3–0" in body
+
+    def test_recent_match_chips_carry_matchup_colour_classes(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """A played match's chip list uses the per-matchup colour classes so
+        outcomes are readable at a glance.
+        """
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1",
+                     timezone.now() - timedelta(hours=2), tur, bra)
+        # Me hits exact, rival gets correct outcome only.
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        client.force_login(me)
+        r = client.get(reverse("home"))
+        body = r.content.decode("utf-8")
+        # Exact = emerald, result = indigo. The Tailwind class fragments are
+        # unique enough to identify on the page.
+        assert "border-emerald-400/30" in body  # me's exact chip
+        assert "border-indigo-400/30" in body   # rival's result chip
+
     def test_leaderboard_module_caps_at_twelve(
         self, client, t, group_stage, pre_round, tur, bra,
     ):

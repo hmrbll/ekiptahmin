@@ -58,6 +58,11 @@
                                 {% endif %}
                             </div>
                             {% endif %}
+                            {% if item.chips %}
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                {% for chip in item.chips %}{% include "_prediction_chip.html" with chip=chip %}{% endfor %}
+                            </div>
+                            {% endif %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -102,6 +107,11 @@
                                 {% else %}
                                 <span class="text-slate-500">— puan yok</span>
                                 {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if item.chips %}
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                {% for chip in item.chips %}{% include "_prediction_chip.html" with chip=chip %}{% endfor %}
                             </div>
                             {% endif %}
                         </li>
