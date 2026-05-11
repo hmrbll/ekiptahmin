@@ -8,6 +8,9 @@
         <a href="{% url 'prediction_rounds' %}" class="text-slate-300 hover:text-white transition">Tahminler</a>
         <a href="{% url 'results' %}" class="text-slate-300 hover:text-white transition">Sonuçlar</a>
         <a href="{% url 'leaderboard' %}" class="text-slate-300 hover:text-white transition">Puan Durumu</a>
+        {% if user.is_staff %}
+        <a href="{% url 'admin_results_entry' %}" class="text-amber-300/80 hover:text-amber-200 transition">Sonuç Gir</a>
+        {% endif %}
         <span class="text-slate-500 hidden sm:inline">·</span>
         <span class="text-slate-400 hidden sm:inline">{{ user.nickname|default:user.email }}</span>
         <form method="post" action="{% url 'logout' %}" class="inline">

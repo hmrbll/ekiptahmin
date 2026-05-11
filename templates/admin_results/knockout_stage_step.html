@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ stage_label }} sonuçları — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="px-6 py-12 max-w-3xl mx-auto">
+        <a href="{% url 'admin_results_entry' %}" class="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1 mb-3">
+            ← Sonuç giriş ekranı
+        </a>
+        <h1 class="text-3xl font-bold mb-1">{{ stage_label }} — Sonuçlar</h1>
+        <p class="text-slate-400 text-sm mb-6">{{ tournament.name }}</p>
+
+        {% include "admin_results/_step_nav.html" %}
+
+        <ul class="space-y-3">
+            {% for item in items %}
+            {% include "admin_results/_slot_row.html" with slot=item.slot actual=item.actual result_form=item.result_form teams_form=item.teams_form %}
+            {% endfor %}
+        </ul>
+    </main>
+</div>
+{% endblock %}
