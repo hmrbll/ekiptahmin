@@ -19,7 +19,7 @@ from django.views.decorators.http import require_POST
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 
 from .forms import SlotPredictionForm
-from .models import SlotPrediction
+from .models import BracketCompletionEvent, SlotPrediction
 from .standings import standings_for_group
 
 GROUP_LETTERS = list("ABCDEFGHIJKL")
@@ -346,6 +346,33 @@ def predict_knockout_summary(request: HttpRequest, round_id: int) -> HttpRespons
     return render(request, "predictions/knockout_summary.html", ctx)
 
 
+def _check_and_mark_bracket_complete(user, pr) -> bool:
+    """If this is the first time `user` has a SlotPrediction for every
+    editable slot in `pr`, create a BracketCompletionEvent marker and
+    return True. Subsequent calls (or partial brackets) return False —
+    so the caller fires the GA4 `bracket_tamamlandi` event at most once
+    per (user, round).
+    """
+    editable_slot_count = BracketSlot.objects.filter(
+        tournament_id=pr.tournament_id,
+        stage__in=pr.editable_stages.all(),
+    ).count()
+    if editable_slot_count == 0:
+        return False
+    user_pred_count = (
+        SlotPrediction.objects
+        .filter(user=user, slot__tournament_id=pr.tournament_id,
+                slot__stage__in=pr.editable_stages.all())
+        .values("slot_id").distinct().count()
+    )
+    if user_pred_count < editable_slot_count:
+        return False
+    _, created = BracketCompletionEvent.objects.get_or_create(
+        user=user, prediction_round=pr,
+    )
+    return created
+
+
 # ---------- HTMX save endpoint ----------
 
 
@@ -381,6 +408,8 @@ def slot_prediction_save(
         ctx["just_saved"] = saved
         if not saved:
             ctx["form"] = form
+        if saved:
+            ctx["bracket_just_completed"] = _check_and_mark_bracket_complete(request.user, pr)
 
         body = render_to_string("predictions/_slot_row.html", ctx, request=request)
 

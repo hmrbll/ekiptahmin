@@ -159,6 +159,14 @@
     stage_kind: "{{ slot.stage.kind }}",
     round_id: {{ round.id }}
   });
+  {% if bracket_just_completed %}
+  window.dataLayer.push({
+    event: "bracket_tamamlandi",
+    round_id: {{ round.id }},
+    round_order: {{ round.order }},
+    round_name: "{{ round.name|escapejs }}"
+  });
+  {% endif %}
   {% endif %}
 </script>
 {% endif %}

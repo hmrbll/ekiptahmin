@@ -187,3 +187,29 @@ class SlotPrediction(models.Model):
 
         if errors:
             raise ValidationError(errors)
+
+
+class BracketCompletionEvent(models.Model):
+    """One row per (user, round) the first time the user's bracket for that
+    round is fully predicted. Used to fire the GA4 `bracket_tamamlandi`
+    event exactly once per round per user, even if the user later edits
+    individual slots.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bracket_completions",
+    )
+    prediction_round = models.ForeignKey(
+        "tournament.PredictionRound",
+        on_delete=models.CASCADE,
+        related_name="bracket_completions",
+    )
+    fired_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (("user", "prediction_round"),)
+
+    def __str__(self) -> str:
+        return f"{self.user_id} completed round {self.prediction_round_id} at {self.fired_at:%Y-%m-%d %H:%M}"

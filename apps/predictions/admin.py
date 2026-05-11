@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SlotPrediction
+from .models import BracketCompletionEvent, SlotPrediction
 
 
 @admin.register(SlotPrediction)
@@ -26,3 +26,12 @@ class SlotPredictionAdmin(admin.ModelAdmin):
         ("Penalties", {"fields": ("penalty_winner", "home_penalties", "away_penalties")}),
         ("Audit", {"fields": ("created_at", "updated_at")}),
     )
+
+
+@admin.register(BracketCompletionEvent)
+class BracketCompletionEventAdmin(admin.ModelAdmin):
+    list_display = ("user", "prediction_round", "fired_at")
+    list_filter = ("prediction_round",)
+    search_fields = ("user__email", "user__nickname")
+    raw_id_fields = ("user", "prediction_round")
+    readonly_fields = ("fired_at",)
