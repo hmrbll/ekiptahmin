@@ -36,9 +36,17 @@ if _resend_key and _resend_key != "placeholder_will_set_later":
     EMAIL_HOST_USER = "resend"
     EMAIL_HOST_PASSWORD = _resend_key
 else:
-    # No real key — silently drop emails. Avoids 500 on prod sign-up forms.
-    # Magic links won't be delivered until you sign up at resend.com and set the key.
+    # No key — silently drop emails (avoids 500 on prod sign-up forms) but
+    # print to stderr so Render logs make it obvious mail is disabled.
     EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+    import sys
+
+    print(
+        "WARNING: RESEND_API_KEY not set — emails are being silently dropped. "
+        "Set the env var on Render to enable real delivery.",
+        file=sys.stderr,
+        flush=True,
+    )
 
 # Logging
 LOGGING = {
