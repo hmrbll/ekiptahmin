@@ -114,7 +114,12 @@ SESAME_TOKEN_NAME = "t"             # short URL param: ?t=<token>
 SESAME_SIGNATURE_SIZE = 16          # bytes (128 bit) — solid security
 
 # Email
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@ekiptahmin.com")
+# Display name in From: makes Outlook/Hotmail trust the sender slightly more.
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL", default='"ekiptahmin.com" <noreply@ekiptahmin.com>'
+)
+# Reply-To routes user replies to a real inbox (ImprovMX forwards to admin).
+REPLY_TO_EMAIL = env("REPLY_TO_EMAIL", default="hello@ekiptahmin.com")
 RESEND_API_KEY = env("RESEND_API_KEY", default="")
 
 # Site

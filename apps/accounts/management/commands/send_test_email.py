@@ -3,7 +3,7 @@ EMAIL_BACKEND actually delivers. Use from Render Shell after wiring up
 RESEND_API_KEY + domain verification.
 """
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.core.management.base import BaseCommand, CommandError
 
 
@@ -19,26 +19,28 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, to, subject, **options):
-        self.stdout.write(f"EMAIL_BACKEND     = {settings.EMAIL_BACKEND}")
+        self.stdout.write(f"EMAIL_BACKEND      = {settings.EMAIL_BACKEND}")
         self.stdout.write(f"DEFAULT_FROM_EMAIL = {settings.DEFAULT_FROM_EMAIL}")
+        self.stdout.write(f"REPLY_TO_EMAIL     = {settings.REPLY_TO_EMAIL}")
         self.stdout.write(f"recipient          = {to}")
         self.stdout.write("---")
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=(
+                "This is a test email from ekiptahmin.com.\n\n"
+                "If you see this in your inbox, the email backend "
+                "(Resend SMTP + domain DNS + Render env) is wired up "
+                "correctly. If not, check Render logs for the "
+                "'mail.failed' or 'mail.dropped' line."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[to],
+            reply_to=[settings.REPLY_TO_EMAIL],
+        )
         try:
-            sent = send_mail(
-                subject=subject,
-                message=(
-                    "This is a test email from ekiptahmin.com.\n\n"
-                    "If you see this in your inbox, the email backend "
-                    "(Resend SMTP + domain DNS + Render env) is wired up "
-                    "correctly. If not, check Render logs for the "
-                    "'mail.failed' or 'mail.dropped' line."
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[to],
-                fail_silently=False,
-            )
+            sent = msg.send(fail_silently=False)
         except Exception as exc:
-            raise CommandError(f"send_mail raised: {exc!r}") from exc
+            raise CommandError(f"send raised: {exc!r}") from exc
 
         if "dummy" in settings.EMAIL_BACKEND.lower():
             self.stdout.write(self.style.WARNING(

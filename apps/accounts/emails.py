@@ -1,7 +1,7 @@
 import logging
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from sesame.utils import get_query_string
 
@@ -20,17 +20,22 @@ def _send(subject: str, body: str, html: str, recipient: str) -> None:
     so a successful return is NOT proof of delivery. The startup-time warning
     in prod settings + the explicit log line below is what makes silent drops
     visible.
+
+    Uses EmailMultiAlternatives (not send_mail) so we can attach a Reply-To
+    header that points at a real inbox — helps deliverability and lets users
+    actually reply to magic-link mails when they need help.
     """
     backend = settings.EMAIL_BACKEND
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[recipient],
+        reply_to=[settings.REPLY_TO_EMAIL],
+    )
+    msg.attach_alternative(html, "text/html")
     try:
-        accepted = send_mail(
-            subject=subject,
-            message=body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[recipient],
-            html_message=html,
-            fail_silently=False,
-        )
+        accepted = msg.send(fail_silently=False)
     except Exception:
         logger.exception("mail.failed to=%s subject=%r backend=%s", recipient, subject, backend)
         raise

@@ -9,15 +9,17 @@
     <span class="text-slate-200 font-medium">{{ email }}</span> adresine bir link gönderdik.
     Tıklayınca giriş yapacaksın.
 </p>
-<p class="text-sm text-slate-400 mb-6"> Henüz çalışmıyor.
-</p>
 {% endblock %}
 
 {% block card_content %}
+<div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200 mb-4">
+    <p class="font-medium mb-1">⚠️ Hotmail / Outlook kullanıyorsan</p>
+    <p class="text-amber-200/80">Mail büyük ihtimalle <strong>Junk / Önemsiz</strong> klasörüne düşer. Oraya bakmayı unutma — bulduğunda "Junk değil" olarak işaretlersen sonraki mailler gelen kutusuna düşer.</p>
+</div>
 <div class="space-y-3 text-sm text-slate-400">
-    <p>📨 Link 15 dakika boyunca geçerli.</p>
-    <p>🔍 Spam/junk klasörünü de kontrol et.</p>
-    <p>🚫 Gelmediyse: muhtemelen bu email adresi kayıtlı değil. Hemre'den davet linki iste.</p>
+    <p>📨 Link 15 dakika boyunca geçerli, sadece bir kez kullanılabilir.</p>
+    <p>🔍 Gmail kullanıyorsan da Promotions / Spam sekmesine bir göz at.</p>
+    <p>🚫 Hiç gelmediyse: bu email adresi muhtemelen kayıtlı değil. Hemre'den davet linki iste.</p>
 </div>
 {% endblock %}
 

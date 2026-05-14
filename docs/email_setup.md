@@ -60,10 +60,12 @@ Once the redeploy finishes:
    ```
 3. Expected output:
    ```
-   EMAIL_BACKEND     = django.core.mail.backends.smtp.EmailBackend
-   DEFAULT_FROM_EMAIL = noreply@ekiptahmin.com
-   ...
-   send_mail returned 1 — request accepted by SMTP server.
+   EMAIL_BACKEND      = django.core.mail.backends.smtp.EmailBackend
+   DEFAULT_FROM_EMAIL = "ekiptahmin.com" <noreply@ekiptahmin.com>
+   REPLY_TO_EMAIL     = hello@ekiptahmin.com
+   recipient          = <your-email>
+   ---
+   send returned 1 — request accepted by SMTP server.
    ```
 4. Check the inbox (and spam). If it arrives, magic links are live.
 
