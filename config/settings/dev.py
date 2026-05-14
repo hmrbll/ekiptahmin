@@ -13,11 +13,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
-# File-based email backend for dev — writes to _dev_emails/ as .log files.
+# File-based email backend for dev — writes to _dev_emails/ as .eml files
+# so Windows/Outlook/Thunderbird open them natively.
 # Console backend would crash on Windows with Turkish chars (cp1252 stdout).
 from .base import BASE_DIR  # noqa: E402
 
-EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_BACKEND = "config.email_backends.EmlFileEmailBackend"
 EMAIL_FILE_PATH = BASE_DIR / "_dev_emails"
 EMAIL_FILE_PATH.mkdir(exist_ok=True)
 
