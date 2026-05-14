@@ -18,9 +18,10 @@ ekiptahmin.com/
 │   ├── accounts/               Custom User, Invite, magic-link auth
 │   ├── tournament/             Tournament, Stage, Team, PredictionRound,
 │   │                           BracketSlot, ActualResult + seed command
-│   ├── predictions/            (Phase 4 — empty)
-│   ├── scoring/                (Phase 3 — empty)
-│   └── leaderboard/            (Phase 6 — empty)
+│   ├── predictions/            SlotPrediction + full wizard UI
+│   ├── scoring/                Pure-Python scoring engine
+│   ├── leaderboard/            SlotScore cache + 6-level tiebreaker
+│   └── public/                 Homepage, live data feeds, public views
 ├── config/
 │   ├── settings/{base,dev,prod}.py
 │   ├── middleware.py           AdminLanguageMiddleware
@@ -102,7 +103,7 @@ ruff check . && ruff format .            # lint + format
 
 ### Where do dev emails go?
 
-In dev, `EMAIL_BACKEND` is `filebased` — magic-link mails are written as `.log` files to `_dev_emails/`. Open the latest one to find the click link.
+In dev, a custom file backend writes each email as a `.eml` file to `_dev_emails/`. Double-click the latest one — it opens in the Windows mail viewer (or any mail client) with full HTML rendering, so you can click the magic link directly.
 
 ## Deployment
 

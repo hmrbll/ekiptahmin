@@ -67,6 +67,33 @@ Once the redeploy finishes:
    ```
 4. Check the inbox (and spam). If it arrives, magic links are live.
 
+## Step 6 — Add DMARC (prevents Hotmail/Outlook junk)
+
+Resend's default verification adds SPF + DKIM + bounce MX, but **not DMARC**.
+Without DMARC, Hotmail/Outlook (and increasingly Gmail) will deliver mail
+straight to the spam folder — "delivered but junked" is the textbook symptom.
+
+1. GoDaddy → **DNS → Add New Record**.
+2. Type: **TXT**
+3. Name: `_dmarc`  (GoDaddy auto-appends `.ekiptahmin.com`)
+4. Value: `v=DMARC1; p=none; rua=mailto:you@example.com; pct=100; aspf=r; adkim=r`
+5. TTL: 1 hour. Save.
+
+What this does:
+- `p=none` — receivers report failures but still deliver. Safe starter
+  policy; tighten to `quarantine` or `reject` later once aggregate reports
+  show only legitimate mail being signed.
+- `rua=mailto:...` — daily aggregate reports come here. Useful to see
+  spoofing attempts. Can be removed if you don't want the volume.
+- `aspf=r; adkim=r` — relaxed alignment (matches Resend's setup).
+
+After 5–30 min propagation, verify:
+```powershell
+Resolve-DnsName -Name _dmarc.ekiptahmin.com -Type TXT
+```
+
+Then re-test with `send_test_email`. The mail should now land in the inbox.
+
 ## Troubleshooting
 
 **Test command says `backend is dummy`.**

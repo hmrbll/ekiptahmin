@@ -174,8 +174,7 @@ The match results, entered by an admin once the match is over. Triggers scoring 
 
 ## What's not yet here
 
-These admin sections will appear in later phases:
+A dedicated admin polish phase ("Phase 5 — Admin review") is planned but not yet started. It will add: rich `list_display`/`list_filter`/`search_fields` for every model, inline editing where useful (e.g., `ActualResult` inline on `BracketSlot` — already in), custom actions, a fast match-result entry form, and dashboard widgets. The current admin works but is the Django default UX for most models.
 
-- **Phase 4** — `predictions` app: `SlotPrediction` (each user's per-round per-slot prediction)
-- **Phase 6** — `leaderboard` app: cached leaderboard snapshots
-- **Phase 8** — `scoring` app: simulation results, computed `ScoreEntry` rows
+Pending models for later:
+- **`scoring` simulation** — preview-the-impact-of-scoring-tweaks page (no `ScoreEntry` admin yet; scoring is computed via signals and cached in `SlotScore`).
