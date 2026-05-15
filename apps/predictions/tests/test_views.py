@@ -163,7 +163,8 @@ class TestSlotPredictionSave:
         )
         assert r.status_code == 200
         assert b"slot-row-" in r.content
-        assert b"Kaydedildi" in r.content
+        # The HTMX swap target is the slot row fragment; the prediction must have
+        # been persisted regardless of any UI toast (we no longer render one).
         assert SlotPrediction.objects.filter(user=user, slot=group_slot).exists()
 
     def test_save_with_validation_error_returns_form_fragment(

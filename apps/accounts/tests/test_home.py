@@ -228,7 +228,7 @@ class TestHomeAuthenticated:
         assert "Me" in body
         assert "Rival" in body
         # Own row gets the highlight class.
-        assert "border-emerald-400/20" in body
+        assert "border-primary/20" in body
 
     def test_chips_sort_along_home_to_away_spectrum(
         self, client, t, group_stage, pre_round, tur, bra,
@@ -321,9 +321,9 @@ class TestHomeAuthenticated:
         r = client.get(reverse("home"))
         body = r.content.decode("utf-8")
         # Distinctive Tailwind class fragments per matchup colour.
-        assert "border-emerald-400/30" in body  # me's exact chip
-        assert "border-amber-400/30" in body    # diff chip
-        assert "border-indigo-400/30" in body   # result chip
+        assert "border-primary/30" in body  # me's exact chip
+        assert "border-success/30" in body  # diff chip
+        assert "border-warning/30" in body  # result chip
 
     def test_leaderboard_module_caps_at_twelve(
         self, client, t, group_stage, pre_round, tur, bra,
