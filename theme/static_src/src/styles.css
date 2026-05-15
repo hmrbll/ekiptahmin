@@ -4,8 +4,14 @@
 
 /* Design tokens — Sunday Pitch palette (v01), light-only.
  * Semantic --color-* vars hold space-separated RGB so Tailwind can apply
- * opacity modifiers via rgb(var(--color-x) / <alpha-value>). */
+ * opacity modifiers via rgb(var(--color-x) / <alpha-value>).
+ *
+ * color-scheme: light opts the page out of UA-level forced dark
+ * inversions (Chrome's "Enable automatic dark mode" + Edge's high-contrast
+ * variants) — without this the browser tries to invert the chalk palette
+ * on the user's behalf, which fights the brand. */
 :root {
+  color-scheme: light;
   /* Brand scales (kept as hex for direct CSS use; Tailwind has them too) */
   --pitch-50:  #EEF7F0;  --pitch-100: #D6ECDB;  --pitch-200: #ADD7B7;
   --pitch-300: #82C091;  --pitch-400: #58A86D;  --pitch-500: #2E6B3F;
