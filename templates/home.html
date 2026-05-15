@@ -30,9 +30,9 @@
                     {% if upcoming %}
                     <ul class="space-y-3 flex-1">
                         {% for item in upcoming %}
-                        <li class="rounded-xl border border-line bg-surface p-3">
+                        <li class="rounded-xl border border-line bg-surface p-3" data-slot-position="{{ item.slot.position }}">
                             <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
-                                <span class="font-mono">{{ item.slot.position }}</span>
+                                <span class="font-mono">{{ item.slot.display_position }}</span>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M H:i" }}</span>
                             </div>
                             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
@@ -83,9 +83,9 @@
                     {% if recent %}
                     <ul class="space-y-3 flex-1">
                         {% for item in recent %}
-                        <li class="rounded-xl border border-line bg-surface p-3">
+                        <li class="rounded-xl border border-line bg-surface p-3" data-slot-position="{{ item.slot.position }}">
                             <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
-                                <span class="font-mono">{{ item.slot.position }}</span>
+                                <span class="font-mono">{{ item.slot.display_position }}</span>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M" }}</span>
                             </div>
                             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">

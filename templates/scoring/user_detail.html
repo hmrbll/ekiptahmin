@@ -38,10 +38,10 @@
 
                 <ul class="space-y-2">
                     {% for row in section.rows %}
-                    <li class="rounded-2xl border border-line bg-surface p-4">
+                    <li class="rounded-2xl border border-line bg-surface p-4" data-slot-position="{{ row.slot.position }}">
                         <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-fg-muted mb-3">
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                                <span class="font-mono">{{ row.slot.position }}</span>
+                                <span class="font-mono">{{ row.slot.display_position }}</span>
                                 <span>·</span>
                                 <span>{{ row.slot.scheduled_kickoff|date:"d M H:i" }}</span>
                                 {% if row.slot.venue %}<span>·</span><span class="truncate">{{ row.slot.venue }}</span>{% endif %}

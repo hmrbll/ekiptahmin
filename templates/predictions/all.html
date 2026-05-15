@@ -18,9 +18,9 @@
         {% if matches %}
         <ul class="space-y-3 sm:space-y-4">
             {% for m in matches %}
-            <li class="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+            <li class="rounded-2xl border border-line bg-surface p-4 sm:p-5" data-slot-position="{{ m.slot.position }}">
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted mb-3">
-                    <span class="font-mono">{{ m.slot.position }}</span>
+                    <span class="font-mono">{{ m.slot.display_position }}</span>
                     <span>·</span>
                     <span class="uppercase tracking-wider">{{ m.slot.stage.get_kind_display }}</span>
                     <span>·</span>

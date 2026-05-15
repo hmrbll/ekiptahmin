@@ -339,6 +339,28 @@ class BracketSlot(models.Model):
         """True when both team sides come from earlier knockout slot predictions."""
         return bool(self.home_source_slot_id and self.away_source_slot_id)
 
+    @property
+    def display_position(self) -> str:
+        """Human-friendly TR label, e.g. 'Grup A · İlk Maçlar'.
+
+        Group slots M1..M6 collapse to 3 matchdays (M1,M2 → 1, M3,M4 → 2,
+        M5,M6 → 3). Knockout slots keep their position string verbatim
+        (R32-3, Final, ...) since those are already short and stable.
+        """
+        pos = self.position
+        if pos.startswith("Group") and "-M" in pos:
+            try:
+                letter, m_part = pos[len("Group"):].split("-M", 1)
+                m = int(m_part)
+            except (ValueError, IndexError):
+                return pos
+            matchday_labels = {1: "İlk Maçlar", 2: "İkinci Maçlar", 3: "Üçüncü Maçlar"}
+            matchday = (m - 1) // 2 + 1
+            label = matchday_labels.get(matchday)
+            if label:
+                return f"Grup {letter} · {label}"
+        return pos
+
 
 class ActualResult(models.Model):
     """The actual result for a slot, entered by an admin.

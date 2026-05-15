@@ -2,10 +2,11 @@
 <li id="slot-row-{{ slot.id }}"
     class="rounded-2xl border border-line bg-surface p-4"
     data-slot-row="{{ slot.id }}"
+    data-slot-position="{{ slot.position }}"
     data-stage-kind="{{ slot.stage.kind }}">
 
     <div class="flex flex-wrap items-center gap-3 text-xs text-fg-muted mb-3">
-        <span class="font-mono">{{ slot.position }}</span>
+        <span class="font-mono">{{ slot.display_position }}</span>
         <span>·</span>
         <span>{{ slot.scheduled_kickoff|date:"d M H:i" }}</span>
         {% if slot.venue %}<span>·</span><span class="truncate">{{ slot.venue }}</span>{% endif %}
@@ -144,7 +145,7 @@
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: "tahmin_kaydedildi",
-    slot_position: "{{ slot.position }}",
+    slot_position: "{{ slot.display_position }}",
     stage_kind: "{{ slot.stage.kind }}",
     round_id: {{ round.id }}
   });
