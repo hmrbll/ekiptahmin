@@ -38,7 +38,7 @@
             <div class="min-w-0">
                 {% if slot.stage.kind == "GROUP" %}
                     <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
-                        {% if slot.home_team_actual.flag_svg_path %}<img src="{% static slot.home_team_actual.flag_svg_path %}" alt="{{ slot.home_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                        {% if slot.home_team_actual.flag_svg_path %}<img src="{% static slot.home_team_actual.flag_svg_path %}" alt="{{ slot.home_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0 ring-1 ring-chalk">{% endif %}
                         <span class="text-xs sm:text-sm truncate">{{ slot.home_team_actual.name_tr }}</span>
                     </div>
                 {% else %}
@@ -60,7 +60,7 @@
             <div class="min-w-0">
                 {% if slot.stage.kind == "GROUP" %}
                     <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
-                        {% if slot.away_team_actual.flag_svg_path %}<img src="{% static slot.away_team_actual.flag_svg_path %}" alt="{{ slot.away_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                        {% if slot.away_team_actual.flag_svg_path %}<img src="{% static slot.away_team_actual.flag_svg_path %}" alt="{{ slot.away_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0 ring-1 ring-chalk">{% endif %}
                         <span class="text-xs sm:text-sm truncate">{{ slot.away_team_actual.name_tr }}</span>
                     </div>
                 {% else %}

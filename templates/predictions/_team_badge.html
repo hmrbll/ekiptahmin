@@ -1,1 +1,1 @@
-{% load static %}{% if team %}<span class="inline-flex items-center gap-1.5">{% if team.flag_svg_path %}<img src="{% static team.flag_svg_path %}" alt="{{ team.code }}" class="h-5 aspect-[4/3] rounded-sm">{% endif %}<span>{{ team.name_tr }}</span></span>{% endif %}
+{% load static %}{% if team %}<span class="inline-flex items-center gap-1.5">{% if team.flag_svg_path %}<img src="{% static team.flag_svg_path %}" alt="{{ team.code }}" class="h-5 aspect-[4/3] rounded-sm ring-1 ring-chalk">{% endif %}<span>{{ team.name_tr }}</span></span>{% endif %}
