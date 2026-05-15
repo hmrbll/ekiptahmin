@@ -2,28 +2,18 @@
 {% load static %}
 
 {% block extra_head %}
-<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+{# HTMX is loaded from base.html; this block only adds wizard-specific score-input tweaks. #}
 <style>
+    /* Score inputs (number) want padding + width but keep base brand
+       colours; let @layer base in styles.css drive bg/border/text so
+       the prediction wizard matches the admin result-entry form 1:1. */
     .pred-form input[type=number],
     .pred-form select {
-        background-color: rgb(15 23 42 / 0.7);
-        border: 1px solid rgb(255 255 255 / 0.1);
-        border-radius: 0.5rem;
         padding: 0.45rem 0.55rem;
-        color: rgb(248 250 252);
     }
     .pred-form select { width: 100%; }
-    .pred-form input[type=number]:focus,
-    .pred-form select:focus {
-        outline: none;
-        border-color: rgb(52 211 153 / 0.6);
-        box-shadow: 0 0 0 2px rgb(52 211 153 / 0.2);
-    }
-    .pred-form input:disabled,
-    .pred-form select:disabled {
-        background-color: rgb(15 23 42 / 0.4);
-        color: rgb(148 163 184);
-    }
+    /* Strip the native spinner so the score field is just a clean
+       centred numeric box on every browser. */
     .pred-form input[type=number]::-webkit-outer-spin-button,
     .pred-form input[type=number]::-webkit-inner-spin-button {
         -webkit-appearance: none;

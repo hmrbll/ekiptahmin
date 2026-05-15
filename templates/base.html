@@ -38,6 +38,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+
+    {# HTMX is loaded globally because both the prediction wizard and the admin result-entry form rely on hx-post auto-save. #}
+    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+
     {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full">
