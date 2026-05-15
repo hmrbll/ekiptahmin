@@ -1,26 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 132" width="360" height="132" role="img" aria-label="ekiptahmin.com">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" width="480" height="200" role="img" aria-label="ekiptahmin.com">
   <title>ekiptahmin.com — monochrome</title>
-  <rect x="0" y="0" width="360" height="110" fill="currentColor"></rect>
-  <rect x="0" y="9" width="360" height="4" fill="#fff" opacity="0.9"></rect>
-  <rect x="0" y="17" width="360" height="4" fill="#fff" opacity="0.55"></rect>
-  <rect x="0" y="89" width="360" height="4" fill="#fff" opacity="0.55"></rect>
-  <rect x="0" y="97" width="360" height="4" fill="#fff" opacity="0.9"></rect>
+  <rect x="0" y="0" width="480" height="170" fill="currentColor"></rect>
+  <rect x="0" y="14" width="480" height="3" fill="#fff" opacity="0.92"></rect>
+  <rect x="0" y="23" width="480" height="3" fill="#fff" opacity="0.55"></rect>
+  <rect x="0" y="144" width="480" height="3" fill="#fff" opacity="0.55"></rect>
+  <rect x="0" y="153" width="480" height="3" fill="#fff" opacity="0.92"></rect>
   <g fill="currentColor">
-    <rect x="6" y="110" width="14" height="14"></rect>
-    <rect x="30" y="110" width="14" height="14"></rect>
-    <rect x="54" y="110" width="14" height="14"></rect>
-    <rect x="78" y="110" width="14" height="14"></rect>
-    <rect x="102" y="110" width="14" height="14"></rect>
-    <rect x="126" y="110" width="14" height="14"></rect>
-    <rect x="150" y="110" width="14" height="14"></rect>
-    <rect x="174" y="110" width="14" height="14"></rect>
-    <rect x="198" y="110" width="14" height="14"></rect>
-    <rect x="222" y="110" width="14" height="14"></rect>
-    <rect x="246" y="110" width="14" height="14"></rect>
-    <rect x="270" y="110" width="14" height="14"></rect>
-    <rect x="294" y="110" width="14" height="14"></rect>
-    <rect x="318" y="110" width="14" height="14"></rect>
-    <rect x="342" y="110" width="14" height="14"></rect>
+    <rect x="6" y="170" width="20" height="22"></rect>
+    <rect x="32" y="170" width="20" height="22"></rect>
+    <rect x="58" y="170" width="20" height="22"></rect>
+    <rect x="84" y="170" width="20" height="22"></rect>
+    <rect x="110" y="170" width="20" height="22"></rect>
+    <rect x="136" y="170" width="20" height="22"></rect>
+    <rect x="162" y="170" width="20" height="22"></rect>
+    <rect x="188" y="170" width="20" height="22"></rect>
+    <rect x="214" y="170" width="20" height="22"></rect>
+    <rect x="240" y="170" width="20" height="22"></rect>
+    <rect x="266" y="170" width="20" height="22"></rect>
+    <rect x="292" y="170" width="20" height="22"></rect>
+    <rect x="318" y="170" width="20" height="22"></rect>
+    <rect x="344" y="170" width="20" height="22"></rect>
+    <rect x="370" y="170" width="20" height="22"></rect>
+    <rect x="396" y="170" width="20" height="22"></rect>
+    <rect x="422" y="170" width="20" height="22"></rect>
+    <rect x="448" y="170" width="20" height="22"></rect>
   </g>
-  <text x="180" y="68" text-anchor="middle" font-family="&#39;Bricolage Grotesque&#39;, &#39;Inter Tight&#39;, system-ui, sans-serif" font-weight="800" font-size="36" letter-spacing="-1.4" fill="#fff">ekiptahmin.com</text>
+  <text x="240" y="100" text-anchor="middle" font-family="&#39;Bricolage Grotesque&#39;, &#39;Inter Tight&#39;, system-ui, sans-serif" font-weight="800" font-size="58" letter-spacing="-2.2" dominant-baseline="middle" fill="#fff">ekiptahmin.com</text>
 </svg>
