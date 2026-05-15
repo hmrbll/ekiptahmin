@@ -1,6 +1,6 @@
 {% load static %}
 <li id="slot-row-{{ slot.id }}"
-    class="rounded-2xl border {% if just_saved %}border-primary/40{% else %}border-line{% endif %} bg-surface p-4 transition-colors"
+    class="rounded-2xl border border-line bg-surface p-4"
     data-slot-row="{{ slot.id }}"
     data-stage-kind="{{ slot.stage.kind }}">
 
@@ -33,7 +33,7 @@
           hx-post="{% url 'slot_prediction_save' round.id slot.id %}"
           hx-target="#slot-row-{{ slot.id }}"
           hx-swap="outerHTML"
-          hx-trigger="change from:input delay:400ms, submit"
+          hx-trigger="keyup changed delay:500ms from:input[type=number], change from:input[type=radio], change from:input[type=hidden], submit"
           class="pred-form space-y-3"
           data-pred-form="{{ slot.id }}">
         {% csrf_token %}
@@ -136,20 +136,11 @@
         </div>
         {% endif %}
 
-        {% if pred and just_saved %}
-        <div class="text-xs text-primary">✓ Kaydedildi</div>
-        {% endif %}
     </form>
     {% endif %}
 </li>
-{% if just_saved %}
+{% if just_saved and is_production %}
 <script>
-  // Briefly highlight the row, then fade.
-  setTimeout(() => {
-    const el = document.getElementById("slot-row-{{ slot.id }}");
-    if (el) el.classList.remove("border-primary/40");
-  }, 1500);
-  {% if is_production %}
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: "tahmin_kaydedildi",
@@ -164,7 +155,6 @@
     round_order: {{ round.order }},
     round_name: "{{ round.name|escapejs }}"
   });
-  {% endif %}
   {% endif %}
 </script>
 {% endif %}
