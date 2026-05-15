@@ -4,13 +4,17 @@ matchup_type. `chip` shape: {nickname, home_score, away_score, matchup_type}.
 matchup_type may be one of "exact" / "diff" / "result" / "penalty_loser_bonus"
 / "miss" or null (pre-result match → neutral chip).
 
-Palette: primary (pitch) = tam skor, warning = aynı fark, success = doğru
-sonuç, accent (clay) = penaltı bonusu, danger = yanlış.
+Palette ranked by "how good is the guess":
+  exact (perfect)        → primary (pitch green, brand best)
+  diff (same goal diff)  → success (fresh green, very close)
+  result (winner only)   → warning (gold, partial credit)
+  penalty_loser_bonus    → accent (clay, small bonus)
+  miss (wrong)           → danger (red)
 {% endcomment %}
 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs whitespace-nowrap
     {% if chip.matchup_type == 'exact' %}bg-primary/10 border-primary/30 text-primary
-    {% elif chip.matchup_type == 'diff' %}bg-warning/10 border-warning/30 text-warning
-    {% elif chip.matchup_type == 'result' %}bg-success/10 border-success/30 text-success
+    {% elif chip.matchup_type == 'diff' %}bg-success/10 border-success/30 text-success
+    {% elif chip.matchup_type == 'result' %}bg-warning/10 border-warning/30 text-warning
     {% elif chip.matchup_type == 'penalty_loser_bonus' %}bg-accent/10 border-accent/30 text-accent
     {% elif chip.matchup_type == 'miss' %}bg-danger/10 border-danger/30 text-danger
     {% else %}bg-surface border-line text-fg-muted{% endif %}">
