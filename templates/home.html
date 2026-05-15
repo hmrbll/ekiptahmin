@@ -38,11 +38,11 @@
                             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
                                 <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
                                     <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
-                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
                                 </div>
                                 <span class="text-fg-muted text-xs px-0.5">vs</span>
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
                                     <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
                                 </div>
                             </div>
@@ -91,11 +91,11 @@
                             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
                                 <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
                                     <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
-                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
                                 </div>
                                 <span class="font-mono font-semibold whitespace-nowrap px-0.5">{{ item.actual.home_score }}–{{ item.actual.away_score }}</span>
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
                                     <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
                                 </div>
                             </div>

@@ -51,7 +51,7 @@
                 {% if form.home_team.field.disabled %}
                     {% if display_home %}
                         <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
-                            {% if display_home.flag_svg_path %}<img src="{% static display_home.flag_svg_path %}" alt="{{ display_home.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                            {% if display_home.flag_svg_path %}<img src="{% static display_home.flag_svg_path %}" alt="{{ display_home.code }}" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
                             <span class="text-xs sm:text-sm truncate">{{ display_home.name_tr }}</span>
                         </div>
                     {% endif %}
@@ -76,7 +76,7 @@
                 {% if form.away_team.field.disabled %}
                     {% if display_away %}
                         <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
-                            {% if display_away.flag_svg_path %}<img src="{% static display_away.flag_svg_path %}" alt="{{ display_away.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
+                            {% if display_away.flag_svg_path %}<img src="{% static display_away.flag_svg_path %}" alt="{{ display_away.code }}" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
                             <span class="text-xs sm:text-sm truncate">{{ display_away.name_tr }}</span>
                         </div>
                     {% endif %}
