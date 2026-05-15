@@ -113,4 +113,16 @@
   textarea:focus {
     @apply border-primary outline-none ring-2 ring-primary/30;
   }
+  /* Strip native number-spinners so score cells render as clean centred
+     boxes consistently — predictions wizard and admin result-entry use
+     the same numeric input look. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }
