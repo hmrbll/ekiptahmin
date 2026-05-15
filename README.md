@@ -127,10 +127,10 @@ python manage.py seed_wc2026
 
 ## Theming
 
-Sunday Pitch palette (v01) with **automatic dark mode** via `prefers-color-scheme` — no toggle. Light mode uses chalk (`#F6F1E4`) bg + pitch-500 (`#2E6B3F`) primary; dark mode flips to floodlight bg (`#0E110F`) + light-pitch (`#5BB46E`) primary.
+Sunday Pitch palette (v01), **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500 (`#2E6B3F`) primary, clay-500 (`#C2683E`) accent. No dark mode — see project memory for the rationale.
 
 - Tokens live as CSS variables in [theme/static_src/src/styles.css](theme/static_src/src/styles.css) (RGB triplets so Tailwind opacity modifiers work: `bg-primary/10`).
-- Tailwind config exposes both fixed scales (`pitch`, `clay`, `stone`, `success`, `warning`, `danger`) and semantic auto-swapping aliases (`page`, `surface`, `fg`, `fg-muted`, `line`, `primary`, `accent`, ...). Templates should prefer semantic names.
+- Tailwind config exposes both fixed scales (`pitch`, `clay`, `stone`, `success`, `warning`, `danger`) and semantic aliases (`page`, `surface`, `fg`, `fg-muted`, `line`, `primary`, `accent`, ...). Templates should prefer semantic names.
 - Fonts: Bricolage Grotesque (display), Geist (body), JetBrains Mono (code) — all via Google Fonts.
 
 ## Documentation

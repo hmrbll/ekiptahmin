@@ -1,16 +1,14 @@
 /**
  * ekiptahmin.com - Tailwind config
- * Sunday Pitch palette (v01) - auto dark mode via prefers-color-scheme.
+ * Sunday Pitch palette (v01), light-only.
  *
- * Brand color scales (pitch, clay, stone, success, warning, danger) keep
- * fixed hex values across themes. Semantic tokens (page, surface, fg, line,
- * primary, accent) point at CSS variables defined in src/styles.css and
- * auto-swap under @media (prefers-color-scheme: dark).
+ * Brand color scales (pitch, clay, stone, success, warning, danger) are
+ * fixed hex values; semantic tokens (page, surface, fg, line, primary,
+ * accent) point at the CSS variables defined in src/styles.css.
  */
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-    darkMode: 'media',
     content: [
         '../templates/**/*.html',
         '../../templates/**/*.html',

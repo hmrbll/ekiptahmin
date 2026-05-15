@@ -2,10 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens — Sunday Pitch palette (v01).
+/* Design tokens — Sunday Pitch palette (v01), light-only.
  * Semantic --color-* vars hold space-separated RGB so Tailwind can apply
- * opacity modifiers via rgb(var(--color-x) / <alpha-value>). The same vars
- * auto-swap under @media (prefers-color-scheme: dark). */
+ * opacity modifiers via rgb(var(--color-x) / <alpha-value>). */
 :root {
   /* Brand scales (kept as hex for direct CSS use; Tailwind has them too) */
   --pitch-50:  #EEF7F0;  --pitch-100: #D6ECDB;  --pitch-200: #ADD7B7;
@@ -53,39 +52,9 @@
   --color-danger-bg:  252 238 236;
 }
 
-/* Floodlight (dark) — automatic via OS preference */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-primary:        91 180 110;    /* light-pitch */
-    --color-primary-hover:  111 196 128;
-    --color-primary-active: 130 209 147;
-    --color-primary-fg:     14 17 15;
-
-    --color-bg:             14 17 15;
-    --color-bg-subtle:      26 31 27;
-    --color-surface:        27 32 28;
-    --color-surface-raised: 42 47 43;
-
-    --color-text:           242 238 220;
-    --color-text-muted:     154 163 154;
-    --color-text-soft:      198 205 196;
-    --color-text-inverse:   14 17 15;
-
-    --color-border:         42 47 43;
-    --color-border-strong:  63 69 65;
-    --color-divider:        31 37 32;
-
-    --color-accent:         226 160 58;    /* warmer/lighter clay */
-    --color-accent-hover:   236 180 81;
-    --color-success-bg:     14 36 23;
-    --color-warning-bg:     43 31 8;
-    --color-danger-bg:      44 16 11;
-  }
-}
-
 @layer base {
-  /* Body wires page bg + fg + brand sans font.
-     Auto dark mode flips bg/fg via the CSS vars above. */
+  /* Body wires page bg + fg + brand sans font. Sunday Pitch palette only —
+     no dark mode (see project_pending_features). */
   body {
     @apply bg-page text-fg font-sans antialiased;
   }
