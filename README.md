@@ -21,6 +21,7 @@ ekiptahmin.com/
 │   ├── predictions/            SlotPrediction + full wizard UI
 │   ├── scoring/                Pure-Python scoring engine
 │   ├── leaderboard/            SlotScore cache + 6-level tiebreaker
+│   ├── notifications/          Scheduled/lifecycle emails + staff-only preview
 │   └── public/                 Homepage, live data feeds, public views
 ├── config/
 │   ├── settings/{base,dev,prod}.py
@@ -30,7 +31,8 @@ ekiptahmin.com/
 ├── docs/                       Internal documentation
 ├── templates/                  Django templates
 │   ├── accounts/               Auth pages (signup, login, dashboard, ...)
-│   ├── emails/                 Magic-link email templates
+│   ├── emails/                 Email templates (magic link, invite, round
+│   │                           reminders, daily digest) + shared _footer
 │   ├── base.html
 │   └── home.html
 ├── theme/                      django-tailwind theme app
@@ -106,6 +108,10 @@ ruff check . && ruff format .            # lint + format
 ### Where do dev emails go?
 
 In dev, a custom file backend writes each email as a `.eml` file to `_dev_emails/`. Double-click the latest one — it opens in the Windows mail viewer (or any mail client) with full HTML rendering, so you can click the magic link directly.
+
+### Email previews
+
+Staff users can render every email template with realistic dummy data at `/ops/emails/preview/`. Each variant (round-open kinds, reminder urgency levels, daily digests) is its own slug — see [apps/notifications/views.py](apps/notifications/views.py) for the registry. Production senders pass the same context shape.
 
 ## Deployment
 

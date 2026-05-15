@@ -1,7 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import Group
 from django.utils.html import format_html
+
+from apps.notifications.emails import send_invite_welcome
 
 from .models import Invite, User
 
@@ -60,7 +62,24 @@ class InviteAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" target="_blank">{}</a>', url, url)
     invite_link.short_description = "Invite link"
 
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        # Make email required in admin even though the model allows blank — when
+        # Hemre creates an invite from admin, the welcome email has nowhere to go
+        # without an address.
+        if db_field.name == "email":
+            kwargs["required"] = True
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
     def save_model(self, request, obj, form, change):
-        if not change and not obj.created_by:
+        is_new = not change
+        if is_new and not obj.created_by:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+        # Send the welcome email exactly once, on creation. Edits to note /
+        # expires_at don't re-trigger.
+        if is_new and obj.email:
+            try:
+                send_invite_welcome(obj)
+                messages.success(request, f"Davet maili gönderildi: {obj.email}")
+            except Exception as exc:
+                messages.error(request, f"Davet maili gönderilemedi ({obj.email}): {exc}")

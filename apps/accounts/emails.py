@@ -53,6 +53,7 @@ def send_signup_magic_link(user, *, invite=None) -> None:
         "nickname": user.nickname,
         "confirm_url": confirm_url,
         "invite": invite,
+        "site_url": settings.SITE_URL,
     }
     _send(
         subject="ekiptahmin.com — hesabını aktif et",
@@ -64,7 +65,11 @@ def send_signup_magic_link(user, *, invite=None) -> None:
 
 def send_login_magic_link(user) -> None:
     confirm_url = _confirm_url(user)
-    context = {"nickname": user.nickname, "confirm_url": confirm_url}
+    context = {
+        "nickname": user.nickname,
+        "confirm_url": confirm_url,
+        "site_url": settings.SITE_URL,
+    }
     _send(
         subject="ekiptahmin.com — giriş linkin",
         body=render_to_string("emails/magic_link_login.txt", context),

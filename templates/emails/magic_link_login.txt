@@ -8,4 +8,4 @@ Bu link 15 dakika boyunca geçerli ve sadece bir kez kullanılabilir.
 
 Eğer bu girişi sen talep etmediysen, bu maili görmezden gelebilirsin.
 
-— ekiptahmin.com
+{% include "emails/_footer.txt" %}

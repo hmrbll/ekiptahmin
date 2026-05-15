@@ -10,4 +10,4 @@ Bu link 15 dakika boyunca geçerli ve sadece bir kez kullanılabilir.
 
 Eğer bu kaydı sen yapmadıysan, bu maili görmezden gelebilirsin.
 
-— ekiptahmin.com
+{% include "emails/_footer.txt" %}

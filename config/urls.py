@@ -21,6 +21,7 @@ urlpatterns = [
     path("", include("apps.accounts.urls")),
     path("predictions/", include("apps.predictions.urls")),
     path("", include("apps.scoring.urls")),
+    path("ops/emails/", include("apps.notifications.urls")),
 ]
 
 if settings.DEBUG:

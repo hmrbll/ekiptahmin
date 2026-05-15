@@ -117,6 +117,12 @@ auto-suppress future sends to that address.
 
 ## What's NOT yet hooked up
 
-- Reminder emails (round deadline approaching, etc.) — planned, not built.
+- **Reminder + daily digest cron** — template mocks live in
+  `templates/emails/` (round_opened, round_deadline with 24h/12h/6h/30min
+  variants, daily_morning, daily_evening). Render Cron Job + the
+  `send_reminders` / `send_daily_digest` management commands are not yet
+  written. Preview each template at `/ops/emails/preview/` (staff-only).
+- **Invite welcome auto-send** is wired: creating an Invite in admin
+  triggers `send_invite_welcome` once on creation.
 - Bounce/complaint webhook → no automatic invite-revocation. Manual for
   now via the Resend dashboard.

@@ -1,0 +1,18 @@
+Günün özeti — {{ date|date:"j F l" }}
+
+Selam {{ nickname }},
+{% if daily_points > 0 %}Bugün +{{ daily_points }} puan kazandın.{% else %}Bugün puan kazanamadın — daha çok round var, devam!{% endif %}
+
+BUGÜN BİTEN MAÇLAR
+{% for m in finished_matches %}
+{{ m.home }} {{ m.result }} {{ m.away }}{% for p in m.predictions %}
+  {{ p.nickname }}{% if p.is_self %} (sen){% endif %}: {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %} → +{{ p.points }} ({{ p.chip|default:"miss" }}){% endfor %}
+{% endfor %}
+
+GÜNCEL SIRALAMA
+{% for row in leaderboard %}
+#{{ row.rank }} {{ row.nickname }}{% if row.is_self %} (sen){% endif %} — {{ row.total }} puan{% if row.daily > 0 %} (bugün +{{ row.daily }}){% endif %}{% endfor %}
+
+Sıralamayı sitede gör: {{ leaderboard_url }}
+
+{% include "emails/_footer.txt" %}

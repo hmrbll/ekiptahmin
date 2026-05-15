@@ -1,0 +1,11 @@
+Davetiyen geldi — ekiptahmin.com
+
+Selam! ekiptahmin.com'a davet edildin — 2026 Dünya Kupası boyunca arkadaşlarınla maç tahminleri yapacağın, puan toplayacağın küçük bir yarışma.
+
+Hesabını oluşturmak için aşağıdaki linke tıkla:
+
+{{ invite_url }}
+
+Bu davet 30 gün boyunca geçerli. Linke tıklayıp kısa bir kayıt formu doldurman gerekiyor.
+
+{% include "emails/_footer.txt" %}

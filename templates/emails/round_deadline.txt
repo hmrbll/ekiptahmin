@@ -1,0 +1,13 @@
+{% if urgency == "30min" %}SON 30 DAKİKA ⚠{% elif urgency == "6h" %}SON 6 SAAT 🔥{% elif urgency == "12h" %}12 SAAT KALDI ⚡{% else %}SON 24 SAAT ⏳{% endif %} — {{ round_name }}
+
+Selam {{ nickname }},
+
+{{ round_name }} için {% if urgency == "30min" %}son 30 dakika{% elif urgency == "6h" %}son 6 saat{% elif urgency == "12h" %}son 12 saat{% else %}son 24 saat{% endif %} — ve {{ pending_count }} maç için henüz tahmin yapmadın.
+
+{% if urgency == "30min" %}Birkaç dakika içinde kapanıyor — son hamleni yap.{% elif urgency == "6h" %}Eksik tahminler bitmeden tamamla.{% else %}Eksik maçlar için sonradan puan alamayacaksın.{% endif %}
+
+Tahminlerini tamamla: {{ predict_url }}
+
+Deadline: {{ deadline|date:"j F l" }}, {{ deadline|time:"H:i" }}
+
+{% include "emails/_footer.txt" %}

@@ -5,17 +5,15 @@ User = get_user_model()
 
 
 class SignupForm(forms.Form):
-    email = forms.EmailField(
-        widget=forms.EmailInput(attrs={
-            "autocomplete": "email",
-            "autofocus": True,
-            "placeholder": "ornek@mail.com",
-        }),
-    )
+    """Invite-only sign-up. Email is fixed by the invite (admin-set), so the
+    user only picks a nickname. The email field is rendered read-only in the
+    template and ignored on POST."""
+
     nickname = forms.CharField(
         max_length=40,
         widget=forms.TextInput(attrs={
             "autocomplete": "nickname",
+            "autofocus": True,
             "placeholder": "Ekipte nasıl görünmek istersin?",
         }),
     )
@@ -24,18 +22,18 @@ class SignupForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.invite = invite
 
-    def clean_email(self):
-        email = self.cleaned_data["email"].lower().strip()
+    def clean(self):
+        cleaned = super().clean()
+        if not self.invite or not (self.invite.email or "").strip():
+            raise forms.ValidationError(
+                "Bu davetiyenin email adresi tanımlı değil. Lütfen yöneticiyle iletişime geç."
+            )
+        email = self.invite.email.lower().strip()
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError(
                 "Bu email zaten kayıtlı. Giriş yapmak için login sayfasını kullan."
             )
-        if self.invite and self.invite.email and self.invite.email.lower() != email:
-            raise forms.ValidationError(
-                f"Davet '{self.invite.email}' adresine gönderildi. "
-                "Aynı email ile devam etmen gerekiyor."
-            )
-        return email
+        return cleaned
 
     def clean_nickname(self):
         nick = self.cleaned_data["nickname"].strip()
@@ -44,7 +42,7 @@ class SignupForm(forms.Form):
         return nick
 
     def save(self) -> User:
-        email = self.cleaned_data["email"]
+        email = self.invite.email.lower().strip()
         nickname = self.cleaned_data["nickname"]
         user = User.objects.create(
             email=email,

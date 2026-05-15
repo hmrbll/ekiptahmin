@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #1B201C; background: #F6F1E4;">
+    <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #D5D4CF;">
+        <span style="font-size: 14px; font-weight: 600; color: #2E6B3F; letter-spacing: 0.02em;">ekiptahmin.com</span>
+    </div>
+
+    <h1 style="font-size: 22px; margin: 0 0 8px; color: #1B201C; font-weight: 700;">Bugünün maçları ☀️</h1>
+    <p style="font-size: 13px; color: #6F7670; margin: 0 0 24px; text-transform: uppercase; letter-spacing: 0.04em;">
+        {{ date|date:"j F l" }}
+    </p>
+
+    <p style="font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Selam {{ nickname }} 👋 Bugün <strong>{{ matches|length }} maç</strong> oynanacak. Tüm tahminler kilitlendi — herkes ne demiş, aşağıda:
+    </p>
+
+    {% for m in matches %}
+    <div style="margin: 20px 0; padding: 16px; background: #FFFFFF; border: 1px solid #EAE9E6; border-radius: 12px;">
+        <div style="display: block; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed #EAE9E6;">
+            <span style="font-size: 16px; font-weight: 700; color: #1B201C;">{{ m.home }} — {{ m.away }}</span>
+            <span style="float: right; font-size: 13px; color: #6F7670; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; padding-top: 2px;">{{ m.kickoff|time:"H:i" }}</span>
+        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;">
+            {% for p in m.predictions %}
+            <tr>
+                <td style="padding: 5px 0; font-size: 14px; color: {% if p.is_self %}#2E6B3F{% else %}#3F4541{% endif %}; {% if p.is_self %}font-weight: 700;{% endif %}">
+                    {{ p.nickname }}{% if p.is_self %} <span style="font-size: 11px; color: #6F7670; font-weight: 500;">(sen)</span>{% endif %}
+                </td>
+                <td style="padding: 5px 0; text-align: right; font-size: 14px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; color: {% if p.prediction %}#1B201C{% else %}#C84132{% endif %};">
+                    {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endfor %}
+
+    {% if has_missing %}
+    <div style="background: #FDF6E7; border-left: 4px solid #D89A2A; padding: 14px 16px; border-radius: 6px; margin: 20px 0;">
+        <p style="font-size: 14px; color: #6F4611; margin: 0;">
+            <strong>Eksik tahminin var.</strong> Bir sonraki round için unutma!
+        </p>
+    </div>
+    {% endif %}
+
+    <p style="margin: 24px 0;">
+        <a href="{{ site_url }}" style="display: inline-block; background: #2E6B3F; color: #F6F1E4; font-weight: 600; padding: 12px 20px; border-radius: 10px; text-decoration: none;">
+            Ana sayfaya git →
+        </a>
+    </p>
+
+    <p style="font-size: 13px; color: #6F7670; margin-top: 16px; line-height: 1.5;">
+        İyi maçlar! 🍿
+    </p>
+
+    {% include "emails/_footer.html" %}
+</body>
+</html>

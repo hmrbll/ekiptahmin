@@ -1,0 +1,16 @@
+Bugünün maçları — {{ date|date:"j F l" }}
+
+Selam {{ nickname }}, bugün {{ matches|length }} maç oynanacak. Tüm tahminler kilitlendi:
+
+{% for m in matches %}
+{{ m.home }} — {{ m.away }} ({{ m.kickoff|time:"H:i" }}){% for p in m.predictions %}
+  {{ p.nickname }}{% if p.is_self %} (sen){% endif %}: {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %}{% endfor %}
+
+{% endfor %}
+{% if has_missing %}⚠ Eksik tahminin var. Bir sonraki round için unutma!{% endif %}
+
+Ana sayfa: {{ site_url }}
+
+İyi maçlar!
+
+{% include "emails/_footer.txt" %}

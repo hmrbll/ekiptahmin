@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.predictions",
     "apps.scoring",
     "apps.leaderboard",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [

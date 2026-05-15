@@ -42,7 +42,7 @@ def invite_signup(request: HttpRequest, code: str) -> HttpResponse:
             send_signup_magic_link(user, invite=invite)
             return render(request, "accounts/check_email.html", {"email": user.email})
     else:
-        form = SignupForm(initial={"email": invite.email}, invite=invite)
+        form = SignupForm(invite=invite)
 
     return render(request, "accounts/signup.html", {"form": form, "invite": invite})
 

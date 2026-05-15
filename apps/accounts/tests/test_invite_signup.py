@@ -47,7 +47,7 @@ class TestInviteSignup:
     def test_signup_creates_inactive_user(self, client, invite):
         r = client.post(
             reverse("invite_signup", args=[invite.code]),
-            {"email": "alice@example.com", "nickname": "Alice"},
+            {"nickname": "Alice"},
         )
         assert r.status_code == 200
         user = User.objects.get(email="alice@example.com")
@@ -58,7 +58,7 @@ class TestInviteSignup:
         settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
         client.post(
             reverse("invite_signup", args=[invite.code]),
-            {"email": "alice@example.com", "nickname": "Alice"},
+            {"nickname": "Alice"},
         )
         assert len(mail.outbox) == 1
         assert "alice@example.com" in mail.outbox[0].to
@@ -68,25 +68,24 @@ class TestInviteSignup:
         """Form submit alone shouldn't burn the invite — protection against typos."""
         client.post(
             reverse("invite_signup", args=[invite.code]),
-            {"email": "alice@example.com", "nickname": "Alice"},
+            {"nickname": "Alice"},
         )
         invite.refresh_from_db()
         assert invite.used_at is None
 
-    def test_email_mismatch_with_invite_email_rejected(self, client, invite):
-        """If invite has email, signup form must use the same email."""
-        r = client.post(
+    def test_posted_email_field_is_ignored(self, client, invite):
+        """Form no longer collects email from POST — invite.email is the only source."""
+        client.post(
             reverse("invite_signup", args=[invite.code]),
-            {"email": "different@example.com", "nickname": "Eve"},
+            {"email": "different@example.com", "nickname": "Alice"},
         )
-        assert r.status_code == 200
-        assert b"alice@example.com" in r.content  # error message mentions invite email
+        assert User.objects.filter(email="alice@example.com").exists()
         assert not User.objects.filter(email="different@example.com").exists()
 
     def test_short_nickname_rejected(self, client, invite):
         r = client.post(
             reverse("invite_signup", args=[invite.code]),
-            {"email": "alice@example.com", "nickname": "A"},
+            {"nickname": "A"},
         )
         assert r.status_code == 200
         assert not User.objects.filter(email="alice@example.com").exists()
