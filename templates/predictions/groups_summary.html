@@ -6,7 +6,7 @@
 {% block step_content %}
 <div class="mb-6">
     <h2 class="text-xl font-bold mb-1">Grup Özet</h2>
-    <p class="text-slate-400 text-sm">
+    <p class="text-fg-muted text-sm">
         Tüm grup tahminlerini buradan gözden geçirebilir ve değiştirebilirsin.
     </p>
 </div>
@@ -14,7 +14,7 @@
 {% if next_step %}
 <div class="flex justify-end mb-6">
     <a href="{{ next_step.url }}"
-       class="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-2 text-sm transition">
+       class="rounded-xl bg-primary-hover hover:bg-primary text-ink font-semibold px-5 py-2 text-sm transition">
         {{ next_step.label }} →
     </a>
 </div>
@@ -22,9 +22,9 @@
 
 <div class="grid lg:grid-cols-2 gap-6">
     {% for grp in groups %}
-    <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+    <div class="rounded-2xl border border-line bg-white/[0.02] p-4">
         <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
-            <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 text-sm">{{ grp.letter }}</span>
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 border border-primary/30 text-primary text-sm">{{ grp.letter }}</span>
             Grup {{ grp.letter }}
         </h3>
 

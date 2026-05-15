@@ -1,27 +1,27 @@
 {% load static %}
 <li id="slot-row-{{ slot.id }}"
-    class="rounded-2xl border {% if just_saved %}border-emerald-400/40{% else %}border-white/10{% endif %} bg-white/5 p-4 transition-colors"
+    class="rounded-2xl border {% if just_saved %}border-primary/40{% else %}border-line{% endif %} bg-surface p-4 transition-colors"
     data-slot-row="{{ slot.id }}"
     data-stage-kind="{{ slot.stage.kind }}">
 
-    <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-3">
+    <div class="flex flex-wrap items-center gap-3 text-xs text-fg-muted mb-3">
         <span class="font-mono">{{ slot.position }}</span>
         <span>·</span>
         <span>{{ slot.scheduled_kickoff|date:"d M H:i" }}</span>
         {% if slot.venue %}<span>·</span><span class="truncate">{{ slot.venue }}</span>{% endif %}
-        {% if slot.is_locked %}<span class="text-amber-400">· Kilitli (kickoff geçti)</span>{% endif %}
+        {% if slot.is_locked %}<span class="text-warning">· Kilitli (kickoff geçti)</span>{% endif %}
     </div>
 
     {% if cascade_blocked_on %}
-    <div class="rounded-xl border border-amber-400/30 bg-amber-400/5 p-3 text-sm">
-        <div class="text-amber-300 font-medium mb-1">Önce alttaki tahminleri yap:</div>
+    <div class="rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm">
+        <div class="text-warning-300 font-medium mb-1">Önce alttaki tahminleri yap:</div>
         <ul class="space-y-1">
             {% for blk in cascade_blocked_on %}
             <li>
                 {% if blk.slot %}
-                <a href="#slot-row-{{ blk.slot.id }}" class="text-emerald-300 hover:text-emerald-200">→ {{ blk.label }}</a>
+                <a href="#slot-row-{{ blk.slot.id }}" class="text-primary hover:text-primary">→ {{ blk.label }}</a>
                 {% else %}
-                <span class="text-slate-300">→ {{ blk.label }}</span>
+                <span class="text-fg-soft">→ {{ blk.label }}</span>
                 {% endif %}
             </li>
             {% endfor %}
@@ -39,7 +39,7 @@
         {% csrf_token %}
 
         {% if form.non_field_errors %}
-        <div class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+        <div class="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger-200">
             {{ form.non_field_errors }}
         </div>
         {% endif %}
@@ -49,7 +49,7 @@
             <div class="min-w-0">
                 {% if form.home_team.field.disabled %}
                     {% if display_home %}
-                        <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
+                        <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
                             {% if display_home.flag_svg_path %}<img src="{% static display_home.flag_svg_path %}" alt="{{ display_home.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
                             <span class="text-xs sm:text-sm truncate">{{ display_home.name_tr }}</span>
                         </div>
@@ -58,14 +58,14 @@
                 {% else %}
                     {{ form.home_team }}
                 {% endif %}
-                {% if form.home_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.home_team.errors }}</div>{% endif %}
+                {% if form.home_team.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.home_team.errors }}</div>{% endif %}
             </div>
 
             {# Score #}
             <input type="number" inputmode="numeric" min="0" max="20" name="{{ form.home_score.html_name }}"
                    value="{{ form.home_score.value|default_if_none:'' }}" required
                    class="w-11 sm:w-14 text-center" data-score-input="home" aria-label="Ev skoru">
-            <span class="text-slate-500 text-sm">–</span>
+            <span class="text-fg-muted text-sm">–</span>
             <input type="number" inputmode="numeric" min="0" max="20" name="{{ form.away_score.html_name }}"
                    value="{{ form.away_score.value|default_if_none:'' }}" required
                    class="w-11 sm:w-14 text-center" data-score-input="away" aria-label="Deplasman skoru">
@@ -74,7 +74,7 @@
             <div class="min-w-0">
                 {% if form.away_team.field.disabled %}
                     {% if display_away %}
-                        <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-slate-900/40 border border-white/5">
+                        <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
                             {% if display_away.flag_svg_path %}<img src="{% static display_away.flag_svg_path %}" alt="{{ display_away.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
                             <span class="text-xs sm:text-sm truncate">{{ display_away.name_tr }}</span>
                         </div>
@@ -83,24 +83,24 @@
                 {% else %}
                     {{ form.away_team }}
                 {% endif %}
-                {% if form.away_team.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_team.errors }}</div>{% endif %}
+                {% if form.away_team.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.away_team.errors }}</div>{% endif %}
             </div>
         </div>
 
         {% if slot.stage.kind != "GROUP" %}
-        <div class="penalty-section hidden mt-2 rounded-xl border border-white/5 bg-slate-900/40 p-3"
+        <div class="penalty-section hidden mt-2 rounded-xl border border-line bg-surface/40 p-3"
              data-penalty-section="{{ slot.id }}">
-            <div class="text-xs uppercase tracking-wider text-slate-400 mb-2">Penaltı (berabere tahmininde)</div>
+            <div class="text-xs uppercase tracking-wider text-fg-muted mb-2">Penaltı (berabere tahmininde)</div>
             <div class="space-y-3">
                 <div>
-                    <div class="text-xs text-slate-500 mb-1.5">Penaltıyı kazanan</div>
+                    <div class="text-xs text-fg-muted mb-1.5">Penaltıyı kazanan</div>
                     <div class="grid grid-cols-2 gap-2">
                         {% if display_home %}
                         <label class="cursor-pointer">
                             <input type="radio" name="{{ form.penalty_winner.html_name }}" value="{{ display_home.id }}"
                                    class="sr-only peer"
                                    {% if form.penalty_winner.value|stringformat:"s" == display_home.id|stringformat:"s" %}checked{% endif %}>
-                            <span class="block text-center text-sm rounded-lg border border-white/10 bg-slate-900/40 px-2 py-2 peer-checked:bg-emerald-500/15 peer-checked:border-emerald-400/40 peer-checked:text-emerald-200 transition">
+                            <span class="block text-center text-sm rounded-lg border border-line bg-surface/40 px-2 py-2 peer-checked:bg-primary-hover/15 peer-checked:border-primary/40 peer-checked:text-primary transition">
                                 {{ display_home.name_tr }}
                             </span>
                         </label>
@@ -110,7 +110,7 @@
                             <input type="radio" name="{{ form.penalty_winner.html_name }}" value="{{ display_away.id }}"
                                    class="sr-only peer"
                                    {% if form.penalty_winner.value|stringformat:"s" == display_away.id|stringformat:"s" %}checked{% endif %}>
-                            <span class="block text-center text-sm rounded-lg border border-white/10 bg-slate-900/40 px-2 py-2 peer-checked:bg-emerald-500/15 peer-checked:border-emerald-400/40 peer-checked:text-emerald-200 transition">
+                            <span class="block text-center text-sm rounded-lg border border-line bg-surface/40 px-2 py-2 peer-checked:bg-primary-hover/15 peer-checked:border-primary/40 peer-checked:text-primary transition">
                                 {{ display_away.name_tr }}
                             </span>
                         </label>
@@ -118,26 +118,26 @@
                     </div>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-500 mb-1.5">Penaltı skoru</div>
+                    <div class="text-xs text-fg-muted mb-1.5">Penaltı skoru</div>
                     <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center max-w-xs">
                         <input type="number" min="0" max="30" name="{{ form.home_penalties.html_name }}"
                                value="{{ form.home_penalties.value|default_if_none:'' }}"
                                class="text-center" placeholder="0" aria-label="Ev penaltı">
-                        <span class="text-slate-500 text-sm">–</span>
+                        <span class="text-fg-muted text-sm">–</span>
                         <input type="number" min="0" max="30" name="{{ form.away_penalties.html_name }}"
                                value="{{ form.away_penalties.value|default_if_none:'' }}"
                                class="text-center" placeholder="0" aria-label="Deplasman penaltı">
                     </div>
                 </div>
             </div>
-            {% if form.penalty_winner.errors %}<div class="text-xs text-red-300 mt-1">{{ form.penalty_winner.errors }}</div>{% endif %}
-            {% if form.home_penalties.errors %}<div class="text-xs text-red-300 mt-1">{{ form.home_penalties.errors }}</div>{% endif %}
-            {% if form.away_penalties.errors %}<div class="text-xs text-red-300 mt-1">{{ form.away_penalties.errors }}</div>{% endif %}
+            {% if form.penalty_winner.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.penalty_winner.errors }}</div>{% endif %}
+            {% if form.home_penalties.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.home_penalties.errors }}</div>{% endif %}
+            {% if form.away_penalties.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.away_penalties.errors }}</div>{% endif %}
         </div>
         {% endif %}
 
         {% if pred and just_saved %}
-        <div class="text-xs text-emerald-400">✓ Kaydedildi</div>
+        <div class="text-xs text-primary">✓ Kaydedildi</div>
         {% endif %}
     </form>
     {% endif %}
@@ -147,7 +147,7 @@
   // Briefly highlight the row, then fade.
   setTimeout(() => {
     const el = document.getElementById("slot-row-{{ slot.id }}");
-    if (el) el.classList.remove("border-emerald-400/40");
+    if (el) el.classList.remove("border-primary/40");
   }, 1500);
   {% if is_production %}
   window.dataLayer = window.dataLayer || [];

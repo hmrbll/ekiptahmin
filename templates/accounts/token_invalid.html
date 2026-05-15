@@ -5,19 +5,19 @@
 {% block card_title %}
 <div class="text-5xl mb-4">⏰</div>
 <h1 class="text-2xl font-bold mb-1">Link geçersiz</h1>
-<p class="text-sm text-slate-400 mb-6">
+<p class="text-sm text-fg-muted mb-6">
     Linkin süresi dolmuş veya zaten bir kez kullanılmış.
 </p>
 {% endblock %}
 
 {% block card_content %}
-<p class="text-sm text-slate-400">
+<p class="text-sm text-fg-muted">
     Sorun değil — yeni bir link talep edebilirsin.
 </p>
 {% endblock %}
 
 {% block card_footer %}
-<p class="mt-4 text-center text-sm text-slate-400">
-    <a href="{% url 'login' %}" class="text-emerald-400 hover:text-emerald-300">Yeni link al</a>
+<p class="mt-4 text-center text-sm text-fg-muted">
+    <a href="{% url 'login' %}" class="text-primary hover:text-primary">Yeni link al</a>
 </p>
 {% endblock %}

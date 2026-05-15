@@ -6,7 +6,7 @@
 {% block step_content %}
 <div class="mb-6">
     <h2 class="text-xl font-bold mb-1">Eleme Özet</h2>
-    <p class="text-slate-400 text-sm">
+    <p class="text-fg-muted text-sm">
         Tüm eleme tahminlerini buradan gözden geçirebilir ve değiştirebilirsin.
     </p>
 </div>
@@ -14,8 +14,8 @@
 {% for stage, items in sections %}
 <section class="mb-10">
     <div class="flex items-baseline gap-3 mb-4">
-        <h3 class="text-sm uppercase tracking-wider text-slate-500">{{ stage.get_kind_display }}</h3>
-        <span class="text-xs text-slate-600">{{ items|length }} maç</span>
+        <h3 class="text-sm uppercase tracking-wider text-fg-muted">{{ stage.get_kind_display }}</h3>
+        <span class="text-xs text-fg-soft">{{ items|length }} maç</span>
     </div>
 
     <ul class="grid gap-2
@@ -31,6 +31,6 @@
     </ul>
 </section>
 {% empty %}
-<p class="text-slate-500">Bu round'da eleme slotu yok.</p>
+<p class="text-fg-muted">Bu round'da eleme slotu yok.</p>
 {% endfor %}
 {% endblock %}

@@ -8,53 +8,53 @@
 
     <main class="px-4 sm:px-6 py-8 sm:py-12 max-w-3xl mx-auto">
         <h1 class="text-2xl sm:text-3xl font-bold mb-2">Tahmin Round'ları</h1>
-        <p class="text-slate-400 mb-6 sm:mb-8">{{ tournament.name }}</p>
+        <p class="text-fg-muted mb-6 sm:mb-8">{{ tournament.name }}</p>
 
         <ul class="space-y-3">
             {% for r in rounds %}
-            <li class="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+            <li class="rounded-2xl border border-line bg-surface p-4 sm:p-5">
                 <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                     <div class="flex-1 min-w-0">
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-                            <span class="text-xs font-mono text-slate-500">#{{ r.order|add:1 }}</span>
+                            <span class="text-xs font-mono text-fg-muted">#{{ r.order|add:1 }}</span>
                             <h2 class="font-semibold text-base sm:text-lg break-words">{{ r.name }}</h2>
                             {% if r.is_open %}
-                                <span class="text-xs rounded-full bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 px-2 py-0.5">Açık</span>
+                                <span class="text-xs rounded-full bg-primary/10 border border-primary/30 text-primary px-2 py-0.5">Açık</span>
                             {% elif r.is_pending_results %}
-                                <span class="text-xs rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 px-2 py-0.5">Sonuç bekleniyor</span>
+                                <span class="text-xs rounded-full bg-warning/10 border border-warning/30 text-warning-300 px-2 py-0.5">Sonuç bekleniyor</span>
                             {% elif r.is_passed %}
-                                <span class="text-xs rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 px-2 py-0.5">Aşama geçti</span>
+                                <span class="text-xs rounded-full bg-danger/10 border border-danger/30 text-danger-300 px-2 py-0.5">Aşama geçti</span>
                             {% else %}
-                                <span class="text-xs rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 px-2 py-0.5">Kapalı</span>
+                                <span class="text-xs rounded-full bg-warning/10 border border-warning/30 text-warning-300 px-2 py-0.5">Kapalı</span>
                             {% endif %}
                         </div>
-                        <div class="text-xs sm:text-sm text-slate-400">
-                            {% if r.opens_at %}Açılış: <span class="text-slate-200">{{ r.opens_at|date:"d M Y H:i" }}</span><span class="mx-1.5 text-slate-600">·</span>{% endif %}
-                            Bitiş: <span class="text-slate-200">{{ r.deadline|date:"d M Y H:i" }}</span>
-                            <span class="mx-1.5 text-slate-600">·</span>
-                            Ağırlık: <span class="text-slate-200">×{{ r.weight }}</span>
+                        <div class="text-xs sm:text-sm text-fg-muted">
+                            {% if r.opens_at %}Açılış: <span class="text-fg-soft">{{ r.opens_at|date:"d M Y H:i" }}</span><span class="mx-1.5 text-fg-soft">·</span>{% endif %}
+                            Bitiş: <span class="text-fg-soft">{{ r.deadline|date:"d M Y H:i" }}</span>
+                            <span class="mx-1.5 text-fg-soft">·</span>
+                            Ağırlık: <span class="text-fg-soft">×{{ r.weight }}</span>
                         </div>
                         {% if r.depends_on_stage %}
-                        <div class="text-xs text-slate-500 mt-2">
-                            Açılma şartı: <span class="text-slate-300">{{ r.depends_on_stage.get_kind_display }}</span> sonuçları girilmeli
+                        <div class="text-xs text-fg-muted mt-2">
+                            Açılma şartı: <span class="text-fg-soft">{{ r.depends_on_stage.get_kind_display }}</span> sonuçları girilmeli
                         </div>
                         {% endif %}
                     </div>
                     {% if r.is_open %}
                     <a href="{% url 'prediction_round_detail' r.id %}"
-                       class="shrink-0 rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-400/20 transition text-center sm:text-left">
+                       class="shrink-0 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 transition text-center sm:text-left">
                         Tahmin yap →
                     </a>
                     {% else %}
                     <a href="{% url 'prediction_round_detail' r.id %}"
-                       class="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 hover:bg-white/10 transition text-center sm:text-left">
+                       class="shrink-0 rounded-xl border border-line bg-surface px-4 py-2 text-sm text-fg-muted hover:bg-surface transition text-center sm:text-left">
                         Görüntüle
                     </a>
                     {% endif %}
                 </div>
             </li>
             {% empty %}
-            <li class="text-slate-500">Henüz round tanımlanmamış.</li>
+            <li class="text-fg-muted">Henüz round tanımlanmamış.</li>
             {% endfor %}
         </ul>
     </main>

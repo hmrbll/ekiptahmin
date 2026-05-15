@@ -4,8 +4,8 @@
 
 {% block card_title %}
 <h1 class="text-2xl font-bold mb-1">Giriş yap</h1>
-<p class="text-sm text-slate-400 mb-6">Mailine giriş linki göndereceğiz.</p>
-<p class="text-sm text-slate-400 mb-6">Henüz çalışmıyor.</p>
+<p class="text-sm text-fg-muted mb-6">Mailine giriş linki göndereceğiz.</p>
+<p class="text-sm text-fg-muted mb-6">Henüz çalışmıyor.</p>
 {% endblock %}
 
 {% block card_content %}
@@ -13,26 +13,26 @@
     {% csrf_token %}
 
     <div>
-        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
+        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-fg-soft mb-1.5">Email</label>
         <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
                value="{{ form.email.value|default:'' }}"
                placeholder="ornek@mail.com"
                autocomplete="email" autofocus required
-               class="w-full rounded-lg bg-slate-900/50 border border-white/10 px-3 py-2.5 text-sm placeholder:text-slate-500 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition">
+               class="w-full rounded-lg bg-surface/50 border border-line px-3 py-2.5 text-sm placeholder:text-fg-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition">
         {% for error in form.email.errors %}
-            <p class="mt-1.5 text-xs text-rose-400">{{ error }}</p>
+            <p class="mt-1.5 text-xs text-danger">{{ error }}</p>
         {% endfor %}
     </div>
 
     <button type="submit"
-            class="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold py-2.5 text-sm transition">
+            class="w-full rounded-lg bg-primary-hover hover:bg-primary text-ink font-semibold py-2.5 text-sm transition">
         Giriş linki gönder
     </button>
 </form>
 {% endblock %}
 
 {% block card_footer %}
-<p class="mt-4 text-center text-sm text-slate-400">
+<p class="mt-4 text-center text-sm text-fg-muted">
     Davet linkin var mı? Direkt o linke tıkla.
 </p>
 {% endblock %}

@@ -8,30 +8,30 @@
 
     <main class="px-4 sm:px-6 py-8 sm:py-12 max-w-5xl mx-auto">
         <h1 class="text-2xl sm:text-3xl font-bold mb-2">Puan Durumu</h1>
-        <p class="text-slate-400 mb-6 sm:mb-8">{{ tournament.name }}</p>
+        <p class="text-fg-muted mb-6 sm:mb-8">{{ tournament.name }}</p>
 
         {% if rows %}
         {# Mobile: compact card list with expandable breakdown (<md) #}
         <ul class="md:hidden space-y-2">
             {% for row in rows %}
-            <li class="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+            <li class="rounded-2xl border border-line bg-surface overflow-hidden">
                 <details class="group">
                     <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 flex items-center gap-3">
-                        <span class="font-mono text-xs text-slate-400 w-6 text-right shrink-0">{{ row.rank }}</span>
-                        <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-slate-200 hover:text-emerald-300 transition truncate flex-1 min-w-0">{{ row.nickname }}</a>
-                        <span class="font-mono font-semibold text-slate-100 shrink-0">{{ row.total|floatformat:2 }}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-slate-500 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true">
+                        <span class="font-mono text-xs text-fg-muted w-6 text-right shrink-0">{{ row.rank }}</span>
+                        <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-fg-soft hover:text-primary transition truncate flex-1 min-w-0">{{ row.nickname }}</a>
+                        <span class="font-mono font-semibold text-fg shrink-0">{{ row.total|floatformat:2 }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-fg-muted shrink-0 transition-transform group-open:rotate-180" aria-hidden="true">
                             <polyline points="6 9 12 15 18 9" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </summary>
-                    <div class="px-3 pb-3 pt-1 border-t border-white/5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-                        <div class="flex items-center justify-between"><span class="text-emerald-300/80">Doğru Skor</span><span class="font-mono text-slate-300">{{ row.exact }}</span></div>
-                        <div class="flex items-center justify-between"><span class="text-sky-300/80">Doğru Fark</span><span class="font-mono text-slate-300">{{ row.diff }}</span></div>
-                        <div class="flex items-center justify-between"><span class="text-indigo-300/80">Doğru Sonuç</span><span class="font-mono text-slate-300">{{ row.result }}</span></div>
-                        <div class="flex items-center justify-between"><span class="text-amber-300/80">Penaltı Bonus</span><span class="font-mono text-slate-300">{{ row.penalty_bonus }}</span></div>
-                        <div class="flex items-center justify-between"><span class="text-rose-300/80">Yanlış</span><span class="font-mono text-slate-300">{{ row.wrong }}</span></div>
-                        <div class="flex items-center justify-between"><span class="text-slate-500">Tahmin Yok</span><span class="font-mono text-slate-300">{{ row.no_prediction }}</span></div>
-                        <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="col-span-2 mt-1 text-center text-emerald-300/90 hover:text-emerald-200 transition py-1 rounded-lg border border-emerald-400/20 bg-emerald-400/5">Detaylı kırılım →</a>
+                    <div class="px-3 pb-3 pt-1 border-t border-line grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                        <div class="flex items-center justify-between"><span class="text-primary/80">Doğru Skor</span><span class="font-mono text-fg-soft">{{ row.exact }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-clay-300/80">Doğru Fark</span><span class="font-mono text-fg-soft">{{ row.diff }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-clay-300/80">Doğru Sonuç</span><span class="font-mono text-fg-soft">{{ row.result }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-warning-300/80">Penaltı Bonus</span><span class="font-mono text-fg-soft">{{ row.penalty_bonus }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-danger-300/80">Yanlış</span><span class="font-mono text-fg-soft">{{ row.wrong }}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-fg-muted">Tahmin Yok</span><span class="font-mono text-fg-soft">{{ row.no_prediction }}</span></div>
+                        <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="col-span-2 mt-1 text-center text-primary/90 hover:text-primary transition py-1 rounded-lg border border-primary/20 bg-primary/5">Detaylı kırılım →</a>
                     </div>
                 </details>
             </li>
@@ -39,35 +39,35 @@
         </ul>
 
         {# Desktop/tablet: full table (>=md) #}
-        <div class="hidden md:block overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
+        <div class="hidden md:block overflow-x-auto rounded-2xl border border-line bg-surface">
             <table class="w-full text-sm">
-                <thead class="text-xs uppercase tracking-wider text-slate-400 border-b border-white/5">
+                <thead class="text-xs uppercase tracking-wider text-fg-muted border-b border-line">
                     <tr>
                         <th class="text-left px-4 py-3 font-medium">#</th>
                         <th class="text-left px-4 py-3 font-medium">Oyuncu</th>
                         <th class="text-right px-4 py-3 font-medium">Toplam Puan</th>
-                        <th class="text-right px-4 py-3 font-medium text-emerald-300/80">Doğru Skor</th>
-                        <th class="text-right px-4 py-3 font-medium text-sky-300/80">Doğru Fark</th>
-                        <th class="text-right px-4 py-3 font-medium text-indigo-300/80">Doğru Sonuç</th>
-                        <th class="text-right px-4 py-3 font-medium text-amber-300/80">Penaltı Bonus</th>
-                        <th class="text-right px-4 py-3 font-medium text-rose-300/80">Yanlış</th>
-                        <th class="text-right px-4 py-3 font-medium text-slate-500">Tahmin Yapmadı</th>
+                        <th class="text-right px-4 py-3 font-medium text-primary/80">Doğru Skor</th>
+                        <th class="text-right px-4 py-3 font-medium text-clay-300/80">Doğru Fark</th>
+                        <th class="text-right px-4 py-3 font-medium text-clay-300/80">Doğru Sonuç</th>
+                        <th class="text-right px-4 py-3 font-medium text-warning-300/80">Penaltı Bonus</th>
+                        <th class="text-right px-4 py-3 font-medium text-danger-300/80">Yanlış</th>
+                        <th class="text-right px-4 py-3 font-medium text-fg-muted">Tahmin Yapmadı</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in rows %}
-                    <tr class="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition">
-                        <td class="px-4 py-3 font-mono text-slate-400">{{ row.rank }}</td>
+                    <tr class="border-b border-line last:border-b-0 hover:bg-surface transition">
+                        <td class="px-4 py-3 font-mono text-fg-muted">{{ row.rank }}</td>
                         <td class="px-4 py-3">
-                            <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-slate-200 hover:text-emerald-300 transition">{{ row.nickname }}</a>
+                            <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-fg-soft hover:text-primary transition">{{ row.nickname }}</a>
                         </td>
                         <td class="px-4 py-3 text-right font-semibold">{{ row.total|floatformat:2 }}</td>
-                        <td class="px-4 py-3 text-right text-slate-300">{{ row.exact }}</td>
-                        <td class="px-4 py-3 text-right text-slate-300">{{ row.diff }}</td>
-                        <td class="px-4 py-3 text-right text-slate-300">{{ row.result }}</td>
-                        <td class="px-4 py-3 text-right text-slate-300">{{ row.penalty_bonus }}</td>
-                        <td class="px-4 py-3 text-right text-slate-300">{{ row.wrong }}</td>
-                        <td class="px-4 py-3 text-right text-slate-300">{{ row.no_prediction }}</td>
+                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.exact }}</td>
+                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.diff }}</td>
+                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.result }}</td>
+                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.penalty_bonus }}</td>
+                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.wrong }}</td>
+                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.no_prediction }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -75,9 +75,9 @@
         </div>
 
         {% if tie_notes %}
-        <div class="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
-            <div class="text-xs uppercase tracking-wider text-amber-300 mb-2">Eşitlik açıklaması</div>
-            <ul class="space-y-1 text-sm text-slate-300">
+        <div class="mt-6 rounded-2xl border border-warning/20 bg-warning/5 p-4">
+            <div class="text-xs uppercase tracking-wider text-warning-300 mb-2">Eşitlik açıklaması</div>
+            <ul class="space-y-1 text-sm text-fg-soft">
                 {% for note in tie_notes %}
                 <li>{{ note }}</li>
                 {% endfor %}
@@ -86,9 +86,9 @@
         {% endif %}
 
         {% else %}
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
-            <p class="text-slate-400">Henüz puan kaydedilmedi.</p>
-            <p class="text-slate-500 text-sm mt-2">Maç sonuçları girildikçe puan durumu burada görünecek.</p>
+        <div class="rounded-2xl border border-line bg-surface p-8 text-center">
+            <p class="text-fg-muted">Henüz puan kaydedilmedi.</p>
+            <p class="text-fg-muted text-sm mt-2">Maç sonuçları girildikçe puan durumu burada görünecek.</p>
         </div>
         {% endif %}
     </main>

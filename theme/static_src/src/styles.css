@@ -2,11 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens — Sunday Pitch palette (v01).
+ * Semantic --color-* vars hold space-separated RGB so Tailwind can apply
+ * opacity modifiers via rgb(var(--color-x) / <alpha-value>). The same vars
+ * auto-swap under @media (prefers-color-scheme: dark). */
+:root {
+  /* Brand scales (kept as hex for direct CSS use; Tailwind has them too) */
+  --pitch-50:  #EEF7F0;  --pitch-100: #D6ECDB;  --pitch-200: #ADD7B7;
+  --pitch-300: #82C091;  --pitch-400: #58A86D;  --pitch-500: #2E6B3F;
+  --pitch-600: #265A35;  --pitch-700: #1F4A2D;  --pitch-800: #183A24;
+  --pitch-900: #112B1B;  --pitch-950: #091610;
+
+  --clay-50:  #FBF1EB;   --clay-100: #F4DDCC;   --clay-200: #E9BB9C;
+  --clay-300: #DD986B;   --clay-400: #D17F4F;   --clay-500: #C2683E;
+  --clay-600: #A35630;   --clay-700: #844425;   --clay-800: #65331B;
+  --clay-900: #4A2614;   --clay-950: #2A150B;
+
+  --chalk: #F6F1E4;
+  --cream: #EFE7D2;
+
+  /* Semantic — light mode (space-separated RGB for Tailwind opacity) */
+  --color-primary:        46 107 63;     /* pitch-500 */
+  --color-primary-hover:  38 90 53;      /* pitch-600 */
+  --color-primary-active: 31 74 45;      /* pitch-700 */
+  --color-primary-fg:     246 241 228;   /* chalk */
+
+  --color-accent:         194 104 62;    /* clay-500 */
+  --color-accent-hover:   163 86 48;     /* clay-600 */
+  --color-accent-fg:      246 241 228;   /* chalk */
+
+  --color-bg:             246 241 228;   /* chalk */
+  --color-bg-subtle:      239 231 210;   /* cream */
+  --color-surface:        255 255 255;
+  --color-surface-raised: 255 255 255;
+
+  --color-text:           27 32 28;      /* stone-900 / ink */
+  --color-text-muted:     111 118 112;   /* stone-500 */
+  --color-text-soft:      63 69 65;      /* stone-700 */
+  --color-text-inverse:   246 241 228;   /* chalk */
+
+  --color-border:         213 212 207;   /* stone-200 */
+  --color-border-strong:  186 185 179;   /* stone-300 */
+  --color-divider:        234 233 230;   /* stone-100 */
+
+  --color-success:    63 164 94;
+  --color-success-bg: 236 248 239;
+  --color-warning:    216 154 42;
+  --color-warning-bg: 253 246 231;
+  --color-danger:     200 65 50;
+  --color-danger-bg:  252 238 236;
+}
+
+/* Floodlight (dark) — automatic via OS preference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary:        91 180 110;    /* light-pitch */
+    --color-primary-hover:  111 196 128;
+    --color-primary-active: 130 209 147;
+    --color-primary-fg:     14 17 15;
+
+    --color-bg:             14 17 15;
+    --color-bg-subtle:      26 31 27;
+    --color-surface:        27 32 28;
+    --color-surface-raised: 42 47 43;
+
+    --color-text:           242 238 220;
+    --color-text-muted:     154 163 154;
+    --color-text-soft:      198 205 196;
+    --color-text-inverse:   14 17 15;
+
+    --color-border:         42 47 43;
+    --color-border-strong:  63 69 65;
+    --color-divider:        31 37 32;
+
+    --color-accent:         226 160 58;    /* warmer/lighter clay */
+    --color-accent-hover:   236 180 81;
+    --color-success-bg:     14 36 23;
+    --color-warning-bg:     43 31 8;
+    --color-danger-bg:      44 16 11;
+  }
+}
+
 @layer base {
-  /* @tailwindcss/forms paints form controls white by default. Override to
-     fit the dark slate theme used throughout the app. Inputs that supply
-     their own bg/border utility classes still win because the utilities
-     layer comes after base. */
+  /* Body wires page bg + fg + brand sans font.
+     Auto dark mode flips bg/fg via the CSS vars above. */
+  body {
+    @apply bg-page text-fg font-sans antialiased;
+  }
+
+  /* @tailwindcss/forms paints inputs white by default. Match brand surface
+     + line + fg tokens instead. Inputs with explicit utility classes still
+     win because utilities layer comes after base. */
   input[type="number"],
   input[type="text"],
   input[type="email"],
@@ -16,19 +102,15 @@
   input[type="url"],
   select,
   textarea {
-    @apply bg-slate-900/40 border-white/10 rounded-lg text-slate-100;
+    @apply bg-surface border-line text-fg rounded-md;
   }
-  input[type="number"]::placeholder,
-  input[type="text"]::placeholder,
+  input::placeholder,
   textarea::placeholder {
-    @apply text-slate-500;
+    @apply text-fg-muted;
   }
-  input[type="number"]:focus,
-  input[type="text"]:focus,
-  input[type="email"]:focus,
-  input[type="password"]:focus,
+  input:focus,
   select:focus,
   textarea:focus {
-    @apply border-emerald-400/40;
+    @apply border-primary outline-none ring-2 ring-primary/30;
   }
 }

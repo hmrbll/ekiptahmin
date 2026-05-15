@@ -1,15 +1,15 @@
 {# Prev/next buttons at the bottom of each wizard page. #}
-<div class="flex items-center justify-between mt-10 pt-6 border-t border-white/10">
+<div class="flex items-center justify-between mt-10 pt-6 border-t border-line">
     <div>
         {% if prev_step %}
-        <a href="{{ prev_step.url }}" class="text-sm text-slate-400 hover:text-white inline-flex items-center gap-2 transition">
+        <a href="{{ prev_step.url }}" class="text-sm text-fg-muted hover:text-white inline-flex items-center gap-2 transition">
             ← {{ prev_step.label }}
         </a>
         {% endif %}
     </div>
     <div>
         {% if next_step %}
-        <a href="{{ next_step.url }}" class="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-2 text-sm transition">
+        <a href="{{ next_step.url }}" class="rounded-xl bg-primary-hover hover:bg-primary text-ink font-semibold px-5 py-2 text-sm transition">
             {{ next_step.label }} →
         </a>
         {% endif %}

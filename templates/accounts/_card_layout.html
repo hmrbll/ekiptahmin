@@ -3,16 +3,16 @@
 {% block content %}
 <main class="relative isolate min-h-full flex items-center justify-center px-6 py-16">
     <div class="absolute inset-0 -z-10 overflow-hidden">
-        <div class="absolute -top-40 -right-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl"></div>
-        <div class="absolute bottom-0 -left-32 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl"></div>
+        <div class="absolute -top-40 -right-32 w-96 h-96 rounded-full bg-primary-hover/10 blur-3xl"></div>
+        <div class="absolute bottom-0 -left-32 w-96 h-96 rounded-full bg-accent-hover/10 blur-3xl"></div>
     </div>
 
     <div class="w-full max-w-md">
-        <a href="{% url 'home' %}" class="inline-block mb-8 text-sm font-semibold text-slate-300 hover:text-white transition">
-            ekiptahmin<span class="text-emerald-400">.com</span>
+        <a href="{% url 'home' %}" class="inline-block mb-8 text-sm font-semibold text-fg-soft hover:text-white transition">
+            ekiptahmin<span class="text-primary">.com</span>
         </a>
 
-        <div class="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 sm:p-8">
+        <div class="rounded-2xl border border-line bg-surface backdrop-blur-xl p-6 sm:p-8">
             {% block card_title %}{% endblock %}
             {% block card_content %}{% endblock %}
         </div>

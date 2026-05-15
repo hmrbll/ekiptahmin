@@ -7,11 +7,11 @@
     {% include "predictions/_header.html" %}
 
     <main class="px-6 py-12 max-w-3xl mx-auto">
-        <a href="{% url 'admin_results_entry' %}" class="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1 mb-3">
+        <a href="{% url 'admin_results_entry' %}" class="text-sm text-fg-muted hover:text-white inline-flex items-center gap-1 mb-3">
             ← Sonuç giriş ekranı
         </a>
         <h1 class="text-3xl font-bold mb-1">Grup {{ letter }} — Sonuçlar</h1>
-        <p class="text-slate-400 text-sm mb-6">{{ tournament.name }}</p>
+        <p class="text-fg-muted text-sm mb-6">{{ tournament.name }}</p>
 
         {% include "admin_results/_step_nav.html" %}
 

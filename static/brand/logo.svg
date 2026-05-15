@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 132" width="360" height="132" role="img" aria-label="ekiptahmin.com">
+  <title>ekiptahmin.com — primary lockup</title>
+  
+  <rect x="0" y="0" width="360" height="110" fill="#2E6B3F"></rect>
+  
+  <rect x="0" y="9" width="360" height="4" fill="#F6F1E4"></rect>
+  <rect x="0" y="17" width="360" height="4" fill="#C2683E"></rect>
+  
+  <rect x="0" y="89" width="360" height="4" fill="#C2683E"></rect>
+  <rect x="0" y="97" width="360" height="4" fill="#F6F1E4"></rect>
+  
+  <g fill="#2E6B3F">
+    <rect x="6" y="110" width="14" height="14"></rect>
+    <rect x="30" y="110" width="14" height="14"></rect>
+    <rect x="54" y="110" width="14" height="14"></rect>
+    <rect x="78" y="110" width="14" height="14"></rect>
+    <rect x="102" y="110" width="14" height="14"></rect>
+    <rect x="126" y="110" width="14" height="14"></rect>
+    <rect x="150" y="110" width="14" height="14"></rect>
+    <rect x="174" y="110" width="14" height="14"></rect>
+    <rect x="198" y="110" width="14" height="14"></rect>
+    <rect x="222" y="110" width="14" height="14"></rect>
+    <rect x="246" y="110" width="14" height="14"></rect>
+    <rect x="270" y="110" width="14" height="14"></rect>
+    <rect x="294" y="110" width="14" height="14"></rect>
+    <rect x="318" y="110" width="14" height="14"></rect>
+    <rect x="342" y="110" width="14" height="14"></rect>
+  </g>
+  
+  <text x="180" y="68" text-anchor="middle" font-family="&#39;Bricolage Grotesque&#39;, &#39;Inter Tight&#39;, system-ui, sans-serif" font-weight="800" font-size="36" letter-spacing="-1.4" fill="#F6F1E4">ekiptahmin<tspan fill="#C2683E">.</tspan><tspan fill="#F6F1E4" opacity="0.7">com</tspan></text>
+</svg>

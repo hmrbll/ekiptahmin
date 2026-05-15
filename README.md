@@ -34,8 +34,10 @@ ekiptahmin.com/
 │   ├── base.html
 │   └── home.html
 ├── theme/                      django-tailwind theme app
-│   └── static_src/             Tailwind source + npm config
+│   └── static_src/             Tailwind source + npm config (brand palette)
 ├── static/                     Project static assets
+│   ├── brand/                  Logo/favicon/OG image set (Sunday Pitch v01)
+│   └── flags/                  Country flag SVGs
 ├── build.sh                    Render build script
 ├── render.yaml                 Render Blueprint
 └── manage.py                   (sets UTF-8 stdout for Windows)
@@ -122,6 +124,14 @@ python manage.py seed_wc2026
 ```
 
 `RESEND_API_KEY` must be set manually in Render dashboard → Environment. Without it, the prod email backend is `dummy` (sign-up forms succeed but no mail is delivered).
+
+## Theming
+
+Sunday Pitch palette (v01) with **automatic dark mode** via `prefers-color-scheme` — no toggle. Light mode uses chalk (`#F6F1E4`) bg + pitch-500 (`#2E6B3F`) primary; dark mode flips to floodlight bg (`#0E110F`) + light-pitch (`#5BB46E`) primary.
+
+- Tokens live as CSS variables in [theme/static_src/src/styles.css](theme/static_src/src/styles.css) (RGB triplets so Tailwind opacity modifiers work: `bg-primary/10`).
+- Tailwind config exposes both fixed scales (`pitch`, `clay`, `stone`, `success`, `warning`, `danger`) and semantic auto-swapping aliases (`page`, `surface`, `fg`, `fg-muted`, `line`, `primary`, `accent`, ...). Templates should prefer semantic names.
+- Fonts: Bricolage Grotesque (display), Geist (body), JetBrains Mono (code) — all via Google Fonts.
 
 ## Documentation
 

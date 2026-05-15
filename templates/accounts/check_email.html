@@ -5,18 +5,18 @@
 {% block card_title %}
 <div class="text-5xl mb-4">📬</div>
 <h1 class="text-2xl font-bold mb-1">Mailini kontrol et</h1>
-<p class="text-sm text-slate-400 mb-6">
-    <span class="text-slate-200 font-medium">{{ email }}</span> adresine bir link gönderdik.
+<p class="text-sm text-fg-muted mb-6">
+    <span class="text-fg-soft font-medium">{{ email }}</span> adresine bir link gönderdik.
     Tıklayınca giriş yapacaksın.
 </p>
 {% endblock %}
 
 {% block card_content %}
-<div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200 mb-4">
+<div class="rounded-lg border border-warning/30 bg-warning-600/10 p-3 text-sm text-warning-200 mb-4">
     <p class="font-medium mb-1">⚠️ Hotmail / Outlook kullanıyorsan</p>
-    <p class="text-amber-200/80">Mail büyük ihtimalle <strong>Junk / Önemsiz</strong> klasörüne düşer. Oraya bakmayı unutma — bulduğunda "Junk değil" olarak işaretlersen sonraki mailler gelen kutusuna düşer.</p>
+    <p class="text-warning-200/80">Mail büyük ihtimalle <strong>Junk / Önemsiz</strong> klasörüne düşer. Oraya bakmayı unutma — bulduğunda "Junk değil" olarak işaretlersen sonraki mailler gelen kutusuna düşer.</p>
 </div>
-<div class="space-y-3 text-sm text-slate-400">
+<div class="space-y-3 text-sm text-fg-muted">
     <p>📨 Link 15 dakika boyunca geçerli, sadece bir kez kullanılabilir.</p>
     <p>🔍 Gmail kullanıyorsan da Promotions / Spam sekmesine bir göz at.</p>
     <p>🚫 Hiç gelmediyse: bu email adresi muhtemelen kayıtlı değil. Hemre'den davet linki iste.</p>
@@ -24,7 +24,7 @@
 {% endblock %}
 
 {% block card_footer %}
-<p class="mt-4 text-center text-sm text-slate-400">
-    Yanlış mı yazdın? <a href="{% url 'login' %}" class="text-emerald-400 hover:text-emerald-300">Tekrar dene</a>
+<p class="mt-4 text-center text-sm text-fg-muted">
+    Yanlış mı yazdın? <a href="{% url 'login' %}" class="text-primary hover:text-primary">Tekrar dene</a>
 </p>
 {% endblock %}

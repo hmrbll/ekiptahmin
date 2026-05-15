@@ -7,9 +7,9 @@ wizard's nav but routes to admin_results URLs.
     <a href="{{ step.url }}"
        class="px-3 py-1.5 rounded-full border transition
               {% if forloop.counter0 == current_step_idx %}
-                border-emerald-400/40 bg-emerald-400/10 text-emerald-200
+                border-primary/40 bg-primary/10 text-primary
               {% else %}
-                border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200
+                border-line bg-surface text-fg-muted hover:bg-surface hover:text-fg-soft
               {% endif %}">
         {{ step.label }}
     </a>
@@ -18,9 +18,9 @@ wizard's nav but routes to admin_results URLs.
 
 <div class="flex items-center justify-between text-xs mb-6">
     {% if prev_step %}
-    <a href="{{ prev_step.url }}" class="text-slate-400 hover:text-white transition">← {{ prev_step.label }}</a>
+    <a href="{{ prev_step.url }}" class="text-fg-muted hover:text-white transition">← {{ prev_step.label }}</a>
     {% else %}<span></span>{% endif %}
     {% if next_step %}
-    <a href="{{ next_step.url }}" class="text-emerald-300 hover:text-emerald-200 transition">{{ next_step.label }} →</a>
+    <a href="{{ next_step.url }}" class="text-primary hover:text-primary transition">{{ next_step.label }} →</a>
     {% else %}<span></span>{% endif %}
 </div>

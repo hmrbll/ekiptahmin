@@ -7,17 +7,17 @@
     {% include "predictions/_header.html" %}
 
     <main class="px-6 py-12 max-w-3xl mx-auto">
-        <a href="{% url 'admin_results_entry' %}" class="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1 mb-3">
+        <a href="{% url 'admin_results_entry' %}" class="text-sm text-fg-muted hover:text-white inline-flex items-center gap-1 mb-3">
             ← Sonuç giriş ekranı
         </a>
         <h1 class="text-3xl font-bold mb-1">Grup Özet — Sonuçlar</h1>
-        <p class="text-slate-400 text-sm mb-6">{{ tournament.name }}</p>
+        <p class="text-fg-muted text-sm mb-6">{{ tournament.name }}</p>
 
         {% include "admin_results/_step_nav.html" %}
 
         {% for group in groups %}
         <section class="mb-8">
-            <h2 class="text-xl font-semibold text-slate-200 mb-3">Grup {{ group.letter }}</h2>
+            <h2 class="text-xl font-semibold text-fg-soft mb-3">Grup {{ group.letter }}</h2>
             <ul class="space-y-3">
                 {% for item in group.items %}
                 {% include "admin_results/_slot_row.html" with slot=item.slot actual=item.actual result_form=item.result_form teams_form=item.teams_form %}

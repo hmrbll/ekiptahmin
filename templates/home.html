@@ -9,35 +9,35 @@
 
     <main class="relative isolate flex-1 flex flex-col">
         <div class="absolute inset-0 -z-10 overflow-hidden">
-            <div class="absolute -top-40 -right-32 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl"></div>
-            <div class="absolute top-1/3 -left-32 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl"></div>
-            <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-rose-500/10 blur-3xl"></div>
+            <div class="absolute -top-40 -right-32 w-96 h-96 rounded-full bg-primary-hover/20 blur-3xl"></div>
+            <div class="absolute top-1/3 -left-32 w-96 h-96 rounded-full bg-accent-hover/20 blur-3xl"></div>
+            <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-danger/10 blur-3xl"></div>
         </div>
 
         <section class="px-4 sm:px-6 py-8 sm:py-10 max-w-6xl mx-auto w-full">
             {% if user.is_authenticated %}
             <h1 class="text-2xl sm:text-3xl font-bold mb-1 break-words">Merhaba {{ user.nickname|default:user.email }} 👋</h1>
-            <p class="text-slate-400 text-sm mb-6 sm:mb-8">{{ tournament.name|default:"" }}</p>
+            <p class="text-fg-muted text-sm mb-6 sm:mb-8">{{ tournament.name|default:"" }}</p>
             {% else %}
             <h1 class="text-2xl sm:text-3xl font-bold mb-1">
-                <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">ekiptahmin</span><span class="text-emerald-400">.com</span>
+                <span class="text-fg">ekiptahmin</span><span class="text-primary">.com</span>
             </h1>
-            <p class="text-slate-400 text-sm mb-6 sm:mb-8">{{ tournament.name|default:"2026 FIFA Dünya Kupası tahmin oyunu" }}</p>
+            <p class="text-fg-muted text-sm mb-6 sm:mb-8">{{ tournament.name|default:"2026 FIFA Dünya Kupası tahmin oyunu" }}</p>
             {% endif %}
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
                 {# Upcoming matches #}
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col">
+                <div class="rounded-2xl border border-line bg-surface p-5 flex flex-col">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-sm font-semibold text-slate-200">Sıradaki maçlar</h2>
-                        <span class="text-xs text-slate-500">{{ upcoming|length }} maç</span>
+                        <h2 class="text-sm font-semibold text-fg-soft">Sıradaki maçlar</h2>
+                        <span class="text-xs text-fg-muted">{{ upcoming|length }} maç</span>
                     </div>
                     {% if upcoming %}
                     <ul class="space-y-3 flex-1">
                         {% for item in upcoming %}
-                        <li class="rounded-xl border border-white/5 bg-white/5 p-3">
-                            <div class="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                        <li class="rounded-xl border border-line bg-surface p-3">
+                            <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
                                 <span class="font-mono">{{ item.slot.position }}</span>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M H:i" }}</span>
                             </div>
@@ -46,7 +46,7 @@
                                     <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
                                     {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
                                 </div>
-                                <span class="text-slate-500 text-xs px-0.5">vs</span>
+                                <span class="text-fg-muted text-xs px-0.5">vs</span>
                                 <div class="flex items-center gap-1.5 min-w-0">
                                     {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="w-5 h-3.5 rounded-sm object-cover shrink-0">{% endif %}
                                     <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
@@ -55,10 +55,10 @@
                             {% if user.is_authenticated %}
                             <div class="mt-1.5 text-xs">
                                 {% if item.prediction %}
-                                <span class="text-slate-500">Tahminin:</span>
-                                <span class="font-mono text-emerald-300">{{ item.prediction.home_score }}–{{ item.prediction.away_score }}</span>
+                                <span class="text-fg-muted">Tahminin:</span>
+                                <span class="font-mono text-primary">{{ item.prediction.home_score }}–{{ item.prediction.away_score }}</span>
                                 {% else %}
-                                <span class="text-amber-300">— tahmin yok</span>
+                                <span class="text-warning-300">— tahmin yok</span>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -71,26 +71,26 @@
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="flex-1 flex items-center justify-center text-sm text-slate-500">
+                    <div class="flex-1 flex items-center justify-center text-sm text-fg-muted">
                         Yaklaşan maç yok.
                     </div>
                     {% endif %}
-                    <a href="{% url 'predictions_all' %}" class="mt-4 text-xs text-emerald-300 hover:text-emerald-200 transition">
+                    <a href="{% url 'predictions_all' %}" class="mt-4 text-xs text-primary hover:text-primary transition">
                         Tüm tahminler →
                     </a>
                 </div>
 
                 {# Recent results #}
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col">
+                <div class="rounded-2xl border border-line bg-surface p-5 flex flex-col">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-sm font-semibold text-slate-200">Son sonuçlar</h2>
-                        <span class="text-xs text-slate-500">{{ recent|length }} maç</span>
+                        <h2 class="text-sm font-semibold text-fg-soft">Son sonuçlar</h2>
+                        <span class="text-xs text-fg-muted">{{ recent|length }} maç</span>
                     </div>
                     {% if recent %}
                     <ul class="space-y-3 flex-1">
                         {% for item in recent %}
-                        <li class="rounded-xl border border-white/5 bg-white/5 p-3">
-                            <div class="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                        <li class="rounded-xl border border-line bg-surface p-3">
+                            <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
                                 <span class="font-mono">{{ item.slot.position }}</span>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M" }}</span>
                             </div>
@@ -108,12 +108,12 @@
                             {% if user.is_authenticated %}
                             <div class="mt-1.5 text-xs">
                                 {% if item.viewer_score %}
-                                <span class="text-slate-500">Aldığın:</span>
-                                <span class="font-mono font-semibold {% if item.viewer_score.total > 0 %}text-emerald-300{% else %}text-slate-400{% endif %}">
+                                <span class="text-fg-muted">Aldığın:</span>
+                                <span class="font-mono font-semibold {% if item.viewer_score.total > 0 %}text-primary{% else %}text-fg-muted{% endif %}">
                                     {{ item.viewer_score.total|floatformat:2 }}
                                 </span>
                                 {% else %}
-                                <span class="text-slate-500">— puan yok</span>
+                                <span class="text-fg-muted">— puan yok</span>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -126,41 +126,41 @@
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="flex-1 flex items-center justify-center text-sm text-slate-500">
+                    <div class="flex-1 flex items-center justify-center text-sm text-fg-muted">
                         Henüz sonuç girilmedi.
                     </div>
                     {% endif %}
-                    <a href="{% url 'results' %}" class="mt-4 text-xs text-emerald-300 hover:text-emerald-200 transition">
+                    <a href="{% url 'results' %}" class="mt-4 text-xs text-primary hover:text-primary transition">
                         Tüm sonuçlar →
                     </a>
                 </div>
 
                 {# Leaderboard top #}
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col">
+                <div class="rounded-2xl border border-line bg-surface p-5 flex flex-col">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-sm font-semibold text-slate-200">Puan durumu</h2>
-                        <span class="text-xs text-slate-500">İlk {{ leaderboard_top|length }}</span>
+                        <h2 class="text-sm font-semibold text-fg-soft">Puan durumu</h2>
+                        <span class="text-xs text-fg-muted">İlk {{ leaderboard_top|length }}</span>
                     </div>
                     {% if leaderboard_top %}
                     <ul class="space-y-1 flex-1 text-sm">
                         {% for entry in leaderboard_top %}
-                        <li class="flex items-center justify-between py-1.5 px-2 rounded-lg {% if user.is_authenticated and entry.user.id == user.id %}bg-emerald-400/5 border border-emerald-400/20{% endif %}">
+                        <li class="flex items-center justify-between py-1.5 px-2 rounded-lg {% if user.is_authenticated and entry.user.id == user.id %}bg-primary/5 border border-primary/20{% endif %}">
                             <div class="flex items-center gap-2 min-w-0">
-                                <span class="font-mono text-xs text-slate-500 w-5 text-right">{{ entry.rank }}</span>
-                                <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="truncate text-slate-200 hover:text-emerald-300 transition">
+                                <span class="font-mono text-xs text-fg-muted w-5 text-right">{{ entry.rank }}</span>
+                                <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="truncate text-fg-soft hover:text-primary transition">
                                     {{ entry.nickname }}
                                 </a>
                             </div>
-                            <span class="font-mono font-semibold text-slate-200 ml-2">{{ entry.total|floatformat:2 }}</span>
+                            <span class="font-mono font-semibold text-fg-soft ml-2">{{ entry.total|floatformat:2 }}</span>
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="flex-1 flex items-center justify-center text-sm text-slate-500">
+                    <div class="flex-1 flex items-center justify-center text-sm text-fg-muted">
                         Henüz puan kaydedilmedi.
                     </div>
                     {% endif %}
-                    <a href="{% url 'leaderboard' %}" class="mt-4 text-xs text-emerald-300 hover:text-emerald-200 transition">
+                    <a href="{% url 'leaderboard' %}" class="mt-4 text-xs text-primary hover:text-primary transition">
                         Detaylar →
                     </a>
                 </div>
@@ -168,7 +168,7 @@
             </div>
         </section>
 
-        <footer class="mt-auto py-6 px-6 text-center text-xs text-slate-500 border-t border-white/5">
+        <footer class="mt-auto py-6 px-6 text-center text-xs text-fg-muted border-t border-line">
             ekiptahmin.com — Bir Hemre Ballı markasıdır.
         </footer>
     </main>
