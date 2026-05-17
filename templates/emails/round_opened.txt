@@ -9,6 +9,4 @@ Son tarih: {{ deadline|date:"j F l" }}, {{ deadline|time:"H:i" }}
 
 Tahminlerini yap: {{ predict_url }}
 
-Bir tahmin kaçırırsan o eşleşmeden puan alamazsın — küçük bir tur kafi.
-
 {% include "emails/_footer.txt" %}

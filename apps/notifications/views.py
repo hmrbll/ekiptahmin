@@ -3,7 +3,7 @@
 Each preview renders a real template with realistic sample data so the
 production cron jobs (Dalga 1.3) can use the same templates without rework.
 """
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import Http404
@@ -15,10 +15,12 @@ EMAIL_PREVIEWS = [
     ("invite_welcome", "emails/invite_welcome.html", "Davet — hoş geldin"),
     ("magic_link_signup", "emails/magic_link_signup.html", "Magic link — kayıt"),
     ("magic_link_login", "emails/magic_link_login.html", "Magic link — giriş"),
-    ("round_opened_pre", "emails/round_opened.html", "Round açıldı — pre-turnuva"),
-    ("round_opened_group", "emails/round_opened.html", "Round açıldı — grup aşaması"),
-    ("round_opened_knockout", "emails/round_opened.html", "Round açıldı — eleme"),
-    ("round_opened_final", "emails/round_opened.html", "Round açıldı — final"),
+    ("round_opened_pre",          "emails/round_opened.html", "Round açıldı — Pre-turnuva"),
+    ("round_opened_grup_sonrasi", "emails/round_opened.html", "Round açıldı — Grup sonrası"),
+    ("round_opened_r32_sonrasi",  "emails/round_opened.html", "Round açıldı — R32 sonrası"),
+    ("round_opened_r16_sonrasi",  "emails/round_opened.html", "Round açıldı — R16 sonrası"),
+    ("round_opened_qf_sonrasi",   "emails/round_opened.html", "Round açıldı — QF sonrası"),
+    ("round_opened_sf_sonrasi",   "emails/round_opened.html", "Round açıldı — SF sonrası"),
     ("round_deadline_24h", "emails/round_deadline.html", "Reminder — son 24 saat"),
     ("round_deadline_12h", "emails/round_deadline.html", "Reminder — son 12 saat"),
     ("round_deadline_6h", "emails/round_deadline.html", "Reminder — son 6 saat"),
@@ -32,42 +34,71 @@ EMAIL_PREVIEWS = [
 _SAMPLE_ROSTER = ["Hemre", "Ali", "Zeynep", "Emre", "Selin", "Cem", "Defne"]
 
 
-def _round_opened_variant(kind: str, now) -> dict:
+_ROUND_DEADLINES_UTC = {
+    "pre":          datetime(2026, 6, 11, 19, 0, tzinfo=dt_timezone.utc),
+    "grup_sonrasi": datetime(2026, 6, 28, 19, 0, tzinfo=dt_timezone.utc),
+    "r32_sonrasi":  datetime(2026, 7,  4, 17, 0, tzinfo=dt_timezone.utc),
+    "r16_sonrasi":  datetime(2026, 7,  9, 20, 0, tzinfo=dt_timezone.utc),
+    "qf_sonrasi":   datetime(2026, 7, 14, 19, 0, tzinfo=dt_timezone.utc),
+    "sf_sonrasi":   datetime(2026, 7, 18, 21, 0, tzinfo=dt_timezone.utc),
+}
+
+
+def _round_opened_variant(kind: str) -> dict:
     """Map a round kind to its display attributes. Production senders map
     real Round model objects (group_stage, ko_round_of_16, ...) to the same
-    shape — this preview hardcodes one per variant for design review."""
-    deadline = now + timedelta(hours=26)
+    shape — this preview hardcodes one per variant for design review.
+
+    Deadline = first kickoff among the round's editable stages, taken from
+    data/wc2026/group_matches.csv and knockout_slots.csv (all UTC)."""
+    deadline = _ROUND_DEADLINES_UTC[kind]
     variants = {
         "pre": {
-            "round_kicker": "Pre-turnuva",
+            "round_kicker": "Başlıyoruz",
             "round_emoji": "🏆",
-            "round_title": "Turnuva öncesi büyük tahminler",
-            "round_tagline": "Şampiyon kim? Gol kralı kim? En sürpriz takım hangisi?",
-            "prediction_count": 5,
+            "round_title": "Turnuva başlıyor — bütün bracket için tahminler",
+            "round_tagline": "104 maç. En fazla puan alacağın ve en keyifli olacak tahmin turu.",
+            "prediction_count": 104,
             "deadline": deadline,
         },
-        "group": {
-            "round_kicker": "Grup aşaması · 1. tur",
+        "grup_sonrasi": {
+            "round_kicker": "R32 tahminleri",
             "round_emoji": "⚽",
-            "round_title": "Grup aşaması başlıyor",
-            "round_tagline": "İlk düdük çalmadan tahminlerini gönder. 32 takım, 16 maç.",
+            "round_title": "Gruplar bitti, eleme açıldı",
+            "round_tagline": "32 takım belli. Grup öncesi yanlış tahminlerle kaçırdıkların için ikinci şans — R32'den finale, hepsini tekrar yaz.",
+            "prediction_count": 32,
+            "deadline": deadline,
+        },
+        "r32_sonrasi": {
+            "round_kicker": "R16 tahminleri",
+            "round_emoji": "🎯",
+            "round_title": "Son 16 netleşti",
+            "round_tagline": "16 takım kaldı. R16'dan finale 16 slot, üzerinde bir daha düşün.",
             "prediction_count": 16,
             "deadline": deadline,
         },
-        "knockout": {
-            "round_kicker": "Son 16 · eleme",
-            "round_emoji": "🔥",
-            "round_title": "Eleme başladı",
-            "round_tagline": "Bir hata, eve dönüş. Tahminlerini iyi düşün.",
+        "r16_sonrasi": {
+            "round_kicker": "Çeyrek final ve sonrası",
+            "round_emoji": "🥇",
+            "round_title": "Çeyrek finalistler hazır",
+            "round_tagline": "QF, SF, üçüncülük ve final — 8 slot kaldı.",
             "prediction_count": 8,
             "deadline": deadline,
         },
-        "final": {
-            "round_kicker": "Final",
+        "qf_sonrasi": {
+            "round_kicker": "Yarı final ve sonrası",
+            "round_emoji": "🔥",
+            "round_title": "Yarı final dörtlüsü belli",
+            "round_tagline": "SF + üçüncülük + final, 4 tahmin. Ağırlık yarıya indi ama final tahminin hâlâ kıymetli.",
+            "prediction_count": 4,
+            "deadline": deadline,
+        },
+        "sf_sonrasi": {
+            "round_kicker": "Son tahminler",
             "round_emoji": "👑",
-            "round_title": "Final günü",
-            "round_tagline": "Şampiyon kim olacak? Son bir tahmin kaldı.",
-            "prediction_count": 1,
+            "round_title": "Grand Finale",
+            "round_tagline": "Şampiyon kim, üçüncü kim — 2 tahmin. Son round ama büyük puanlar burada.",
+            "prediction_count": 2,
             "deadline": deadline,
         },
     }
@@ -76,7 +107,6 @@ def _round_opened_variant(kind: str, now) -> dict:
 
 def _sample_context(slug: str, request=None) -> dict:
     now = timezone.now()
-    deadline = now + timedelta(hours=26)
     nickname = "Hemre"
     confirm_url = "https://ekiptahmin.com/auth/confirm/?t=sample-token"
     site_url = (
@@ -95,7 +125,7 @@ def _sample_context(slug: str, request=None) -> dict:
         kind = slug.removeprefix("round_opened_")
         return {
             **base,
-            **_round_opened_variant(kind, now),
+            **_round_opened_variant(kind),
             "predict_url": f"{site_url}/predictions/",
         }
 

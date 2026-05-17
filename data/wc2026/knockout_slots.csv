@@ -1,25 +1,25 @@
 position,stage_kind,kickoff_iso,venue,home_source,away_source
 R32-1,R32,2026-06-28T19:00:00+00:00,"SoFi Stadium, Inglewood",A Grubu 2.si,B Grubu 2.si
-R32-2,R32,2026-06-29T17:00:00+00:00,"Gillette Stadium, Foxborough",E Grubu 1.si,3.lerden biri (A/B/C/D/F)
-R32-3,R32,2026-06-29T20:30:00+00:00,"Estadio BBVA, Guadalupe",F Grubu 1.si,C Grubu 2.si
-R32-4,R32,2026-06-30T00:00:00+00:00,"NRG Stadium, Houston",C Grubu 1.si,F Grubu 2.si
-R32-5,R32,2026-06-30T16:00:00+00:00,"AT&T Stadium, Arlington",E Grubu 2.si,I Grubu 2.si
+R32-2,R32,2026-06-29T20:30:00+00:00,"Gillette Stadium, Foxborough",E Grubu 1.si,3.lerden biri (A/B/C/D/F)
+R32-3,R32,2026-06-30T01:00:00+00:00,"Estadio BBVA, Guadalupe",F Grubu 1.si,C Grubu 2.si
+R32-4,R32,2026-06-29T17:00:00+00:00,"NRG Stadium, Houston",C Grubu 1.si,F Grubu 2.si
+R32-5,R32,2026-06-30T17:00:00+00:00,"AT&T Stadium, Arlington",E Grubu 2.si,I Grubu 2.si
 R32-6,R32,2026-06-30T21:00:00+00:00,"MetLife Stadium, East Rutherford",I Grubu 1.si,3.lerden biri (C/D/F/G/H)
-R32-7,R32,2026-07-01T00:00:00+00:00,"Estadio Azteca, Mexico City",A Grubu 1.si,3.lerden biri (C/E/F/H/I)
+R32-7,R32,2026-07-01T01:00:00+00:00,"Estadio Azteca, Mexico City",A Grubu 1.si,3.lerden biri (C/E/F/H/I)
 R32-8,R32,2026-07-01T16:00:00+00:00,"Mercedes-Benz Stadium, Atlanta",L Grubu 1.si,3.lerden biri (E/H/I/J/K)
 R32-9,R32,2026-07-01T20:00:00+00:00,"Lumen Field, Seattle",G Grubu 1.si,3.lerden biri (A/E/H/I/J)
 R32-10,R32,2026-07-02T00:00:00+00:00,"Levi's Stadium, Santa Clara",D Grubu 1.si,3.lerden biri (B/E/F/I/J)
 R32-11,R32,2026-07-02T19:00:00+00:00,"SoFi Stadium, Inglewood",H Grubu 1.si,J Grubu 2.si
 R32-12,R32,2026-07-02T23:00:00+00:00,"BMO Field, Toronto",K Grubu 2.si,L Grubu 2.si
 R32-13,R32,2026-07-03T03:00:00+00:00,"BC Place, Vancouver",B Grubu 1.si,3.lerden biri (E/F/G/I/J)
-R32-14,R32,2026-07-03T17:00:00+00:00,"AT&T Stadium, Arlington",D Grubu 2.si,G Grubu 2.si
+R32-14,R32,2026-07-03T18:00:00+00:00,"AT&T Stadium, Arlington",D Grubu 2.si,G Grubu 2.si
 R32-15,R32,2026-07-03T22:00:00+00:00,"Hard Rock Stadium, Miami Gardens",J Grubu 1.si,H Grubu 2.si
 R32-16,R32,2026-07-04T01:30:00+00:00,"Arrowhead Stadium, Kansas City",K Grubu 1.si,3.lerden biri (D/E/I/J/L)
-R16-1,R16,2026-07-04T16:00:00+00:00,"NRG Stadium, Houston",R32-1 Kazananı,R32-3 Kazananı
+R16-1,R16,2026-07-04T17:00:00+00:00,"NRG Stadium, Houston",R32-1 Kazananı,R32-3 Kazananı
 R16-2,R16,2026-07-04T21:00:00+00:00,"Lincoln Financial Field, Philadelphia",R32-2 Kazananı,R32-6 Kazananı
 R16-3,R16,2026-07-05T20:00:00+00:00,"MetLife Stadium, East Rutherford",R32-4 Kazananı,R32-5 Kazananı
-R16-4,R16,2026-07-05T23:00:00+00:00,"Estadio Azteca, Mexico City",R32-7 Kazananı,R32-8 Kazananı
-R16-5,R16,2026-07-06T18:00:00+00:00,"AT&T Stadium, Arlington",R32-12 Kazananı,R32-11 Kazananı
+R16-4,R16,2026-07-06T00:00:00+00:00,"Estadio Azteca, Mexico City",R32-7 Kazananı,R32-8 Kazananı
+R16-5,R16,2026-07-06T19:00:00+00:00,"AT&T Stadium, Arlington",R32-12 Kazananı,R32-11 Kazananı
 R16-6,R16,2026-07-07T00:00:00+00:00,"Lumen Field, Seattle",R32-10 Kazananı,R32-9 Kazananı
 R16-7,R16,2026-07-07T16:00:00+00:00,"Mercedes-Benz Stadium, Atlanta",R32-15 Kazananı,R32-14 Kazananı
 R16-8,R16,2026-07-07T20:00:00+00:00,"BC Place, Vancouver",R32-13 Kazananı,R32-16 Kazananı
@@ -27,7 +27,7 @@ QF-1,QF,2026-07-09T20:00:00+00:00,"Gillette Stadium, Foxborough",R16-2 Kazananı
 QF-2,QF,2026-07-10T19:00:00+00:00,"SoFi Stadium, Inglewood",R16-5 Kazananı,R16-6 Kazananı
 QF-3,QF,2026-07-11T21:00:00+00:00,"Hard Rock Stadium, Miami Gardens",R16-3 Kazananı,R16-4 Kazananı
 QF-4,QF,2026-07-12T01:00:00+00:00,"Arrowhead Stadium, Kansas City",R16-7 Kazananı,R16-8 Kazananı
-SF-1,SF,2026-07-14T18:00:00+00:00,"AT&T Stadium, Arlington",QF-1 Kazananı,QF-2 Kazananı
+SF-1,SF,2026-07-14T19:00:00+00:00,"AT&T Stadium, Arlington",QF-1 Kazananı,QF-2 Kazananı
 SF-2,SF,2026-07-15T19:00:00+00:00,"Mercedes-Benz Stadium, Atlanta",QF-3 Kazananı,QF-4 Kazananı
 Third,THIRD,2026-07-18T21:00:00+00:00,"Hard Rock Stadium, Miami Gardens",SF-1 Mağlubu,SF-2 Mağlubu
 Final,FINAL,2026-07-19T19:00:00+00:00,"MetLife Stadium, East Rutherford",SF-1 Kazananı,SF-2 Kazananı
