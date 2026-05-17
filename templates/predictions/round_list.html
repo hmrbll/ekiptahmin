@@ -8,7 +8,8 @@
 
     <main class="px-4 sm:px-6 py-8 sm:py-12 max-w-3xl mx-auto">
         <h1 class="text-2xl sm:text-3xl font-bold mb-2">Tahmin Round'ları</h1>
-        <p class="text-fg-muted mb-6 sm:mb-8">{{ tournament.name }}</p>
+        <p class="text-fg-muted mb-1">{{ tournament.name }}</p>
+        <p class="text-xs mb-6 sm:mb-8"><a href="{% url 'rules' %}" class="text-primary hover:underline">Nasıl puanlanır, hangi tur ne ağırlıkta? →</a></p>
 
         <ul class="space-y-3">
             {% for r in rounds %}

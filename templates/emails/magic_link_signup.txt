@@ -10,4 +10,6 @@ Bu link 15 dakika boyunca geçerli ve sadece bir kez kullanılabilir.
 
 Eğer bu kaydı sen yapmadıysan, bu maili görmezden gelebilirsin.
 
+Başlamadan kurallara göz at: {{ site_url }}/rules/
+
 {% include "emails/_footer.txt" %}

@@ -8,4 +8,6 @@ Hesabını oluşturmak için aşağıdaki linke tıkla:
 
 Bu davet 30 gün boyunca geçerli. Linke tıklayıp kısa bir kayıt formu doldurman gerekiyor.
 
+Kurallar ve puanlama: {{ site_url }}/rules/
+
 {% include "emails/_footer.txt" %}

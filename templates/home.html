@@ -11,12 +11,14 @@
         <section class="px-4 sm:px-6 py-8 sm:py-10 max-w-6xl mx-auto w-full">
             {% if user.is_authenticated %}
             <h1 class="text-2xl sm:text-3xl font-bold mb-1 break-words">Merhaba {{ user.nickname|default:user.email }} 👋</h1>
-            <p class="text-fg-muted text-sm mb-6 sm:mb-8">{{ tournament.name|default:"" }}</p>
+            <p class="text-fg-muted text-sm mb-1">{{ tournament.name|default:"" }}</p>
+            <p class="text-xs mb-6 sm:mb-8"><a href="{% url 'rules' %}" class="text-primary hover:underline">Kurallar ve puanlama →</a></p>
             {% else %}
             <h1 class="text-2xl sm:text-3xl font-bold mb-1">
                 <span class="text-fg">ekiptahmin</span><span class="text-primary">.com</span>
             </h1>
-            <p class="text-fg-muted text-sm mb-6 sm:mb-8">{{ tournament.name|default:"2026 FIFA Dünya Kupası tahmin oyunu" }}</p>
+            <p class="text-fg-muted text-sm mb-1">{{ tournament.name|default:"2026 FIFA Dünya Kupası tahmin oyunu" }}</p>
+            <p class="text-xs mb-6 sm:mb-8"><a href="{% url 'rules' %}" class="text-primary hover:underline">Nasıl oynanıyor? →</a></p>
             {% endif %}
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -163,6 +165,8 @@
         </section>
 
         <footer class="mt-auto py-6 px-6 text-center text-xs text-fg-muted border-t border-line">
+            <a href="{% url 'rules' %}" class="hover:text-primary transition">Kurallar ve puanlama</a>
+            <span class="mx-2">·</span>
             ekiptahmin.com — Bir Hemre Ballı markasıdır.
         </footer>
     </main>

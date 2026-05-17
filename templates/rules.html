@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Kurallar ve Puanlama — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full flex flex-col">
+    {% include "predictions/_header.html" %}
+
+    <main class="flex-1">
+        <section class="px-4 sm:px-6 py-8 sm:py-12 max-w-3xl mx-auto w-full">
+            <h1 class="text-2xl sm:text-3xl font-bold mb-2">Kurallar ve Puanlama</h1>
+            <p class="text-fg-muted mb-8 sm:mb-10">{{ tournament.name|default:"2026 FIFA Dünya Kupası" }} · Tek sayfa, hepsi burada.</p>
+
+            <div class="space-y-10 text-sm sm:text-base leading-relaxed">
+
+                {# ============ 1. Genel ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">1. Nasıl oynanır?</h2>
+                    <p class="text-fg-soft mb-3">
+                        Klasik "her maç tek tahmin" değil — turnuvanın <strong>bracket</strong>'ini tahmin ediyorsun.
+                        Yani gruplardaki tüm maç skorlarını <em>ve</em> son 32'den finale kadar
+                        kim kimi eler, kim üçüncü olur, finalde skor ne olur — hepsini.
+                    </p>
+                    <p class="text-fg-soft">
+                        Toplam tahmin: 72 grup maçı + 32 eleme slot'u = <strong>104 slot</strong>.
+                        Her tahmin turunda gerçek sonuçlar üzerine kalan bracket'i baştan yazıyorsun.
+                    </p>
+                </section>
+
+                {# ============ 2. Tahmin turları ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">2. Tahmin turları</h2>
+                    <p class="text-fg-soft mb-4">
+                        Toplam <strong>{{ rounds|length }} tur</strong>. Her tur, ilgili aşamadaki ilk maçın başlamasıyla
+                        kilitlenir. Sonrasında o turdaki tahminlerin görüntüleme modunda kalır — değiştiremezsin.
+                    </p>
+
+                    <div class="overflow-x-auto rounded-xl border border-line bg-surface">
+                        <table class="w-full text-xs sm:text-sm">
+                            <thead class="bg-surface/50">
+                                <tr class="border-b border-line text-left">
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted">#</th>
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted">Tur</th>
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted">Bitiş</th>
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Ağırlık</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in rounds %}
+                                <tr class="border-b border-line/50 last:border-0">
+                                    <td class="py-2.5 px-3 font-mono text-fg-muted">{{ r.order|add:1 }}</td>
+                                    <td class="py-2.5 px-3">
+                                        <div class="font-semibold text-fg">{{ r.name }}</div>
+                                        <div class="text-xs text-fg-muted mt-0.5">
+                                            Düzenleyebileceğin: {% for s in r.editable_tr %}{{ s }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                                        </div>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-fg-soft whitespace-nowrap">{{ r.deadline|date:"d M H:i" }}</td>
+                                    <td class="py-2.5 px-3 font-mono text-fg-soft text-right">×{{ r.weight }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="text-fg-muted text-xs sm:text-sm mt-3">
+                        Saatler İstanbul zamanı. "Bitiş", ilgili aşamadaki ilk maçın kickoff anıdır — o ana
+                        kadar tahminini gönder, sonrası mümkün değil.
+                    </p>
+                </section>
+
+                {# ============ 3. "Erken bilen kazanır" ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">3. Erken bilen kazanır</h2>
+                    <p class="text-fg-soft mb-3">
+                        Bir maç oynandığında (örn. Brezilya–Arjantin Yarı Final 1), sistem o eşleşmeyi
+                        <strong>doğru tahmin ettiğin en erken tura</strong> bakar ve <strong>o turun ağırlığıyla</strong> puanlar.
+                    </p>
+                    <p class="text-fg-soft mb-3">
+                        Yani Pre-turnuva'da "Brezilya–Arjantin SF1" yazdıysan ve sonra oynandıysa,
+                        aldığın puan <code class="text-xs bg-surface px-1.5 py-0.5 rounded">aşama puanı × 1.00</code>.
+                        Aynı maçı doğru ama sadece Grup sonrasında yazdıysan, aynı puan × 0.85.
+                        Yani erken cesur tahminler ödüllendirilir, geç kalan az puan alır.
+                    </p>
+                    <div class="rounded-xl border border-warning/30 bg-warning/5 p-4">
+                        <p class="text-fg-soft">
+                            <strong>Yanlış slot kuralı:</strong> Doğru eşleşme yanlış pozisyonda tahmin
+                            edilmişse (örn. SF1 yerine SF2'ye Brezilya–Arjantin) puan <strong>0</strong>.
+                            Slot pozisyonu önemli.
+                        </p>
+                    </div>
+                </section>
+
+                {# ============ 4. Aşama puanları ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">4. Aşama puanları</h2>
+                    <p class="text-fg-soft mb-3">
+                        Her aşama farklı puana sahiptir. Tahmininin türü puanı belirler:
+                    </p>
+                    <ul class="space-y-1.5 text-fg-soft mb-4 ml-1">
+                        <li><strong>Tam skor:</strong> 2-1 yazdın, 2-1 oldu</li>
+                        <li><strong>Doğru fark:</strong> 3-2 yazdın, 4-3 oldu — kazanan ve gol farkı doğru, skorlar değil</li>
+                        <li><strong>Doğru sonuç:</strong> 2-1 yazdın, 3-0 oldu — sadece kazanan tarafı bildin</li>
+                    </ul>
+
+                    <div class="overflow-x-auto rounded-xl border border-line bg-surface">
+                        <table class="w-full text-xs sm:text-sm">
+                            <thead class="bg-surface/50">
+                                <tr class="border-b border-line text-left">
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted">Aşama</th>
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Tam skor</th>
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Doğru fark</th>
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Doğru sonuç</th>
+                                </tr>
+                            </thead>
+                            <tbody class="font-mono">
+                                {% for s in stages %}
+                                <tr class="border-b border-line/50 last:border-0">
+                                    <td class="py-2.5 px-3 font-sans">{{ s.name_tr }}</td>
+                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.points_exact }}</td>
+                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.points_diff }}</td>
+                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.points_result }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="text-fg-muted text-xs sm:text-sm mt-3">
+                        Kazandığın puan: <code class="text-xs bg-surface px-1.5 py-0.5 rounded">aşama puanı × tur ağırlığı</code>.
+                        Ondalıklı çıkabilir — yuvarlama yapılmaz (final toplama hariç penaltı bonusunda).
+                    </p>
+                </section>
+
+                {# ============ 5. Penaltılar ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">5. Penaltılar</h2>
+                    <p class="text-fg-soft mb-3">
+                        Eleme maçları normal süre + uzatma + penaltıyla biter. Tahminin penaltıya gittiği
+                        durumla iki şekilde etkileşir:
+                    </p>
+                    <div class="space-y-3">
+                        <div class="rounded-xl border border-line bg-surface p-4">
+                            <p class="font-semibold text-fg mb-1.5">Berabere tahmin etmedin ama tur atlayan takımı bildin</p>
+                            <p class="text-fg-soft">
+                                İlgili aşamanın <em>doğru sonuç</em> puanının <strong>%60</strong>'ı × tur ağırlığı,
+                                en yakın tam sayıya yuvarlanır. Yani 90 dakikada beraberlik olmayacak demişsin
+                                ama kazananı bildiysen, taban puanın %60'ını kurtarırsın.
+                            </p>
+                        </div>
+                        <div class="rounded-xl border border-line bg-surface p-4">
+                            <p class="font-semibold text-fg mb-1.5">Berabere tahmin ettin</p>
+                            <p class="text-fg-soft">
+                                Normal skor puanını alırsın. Üstüne penaltı tahminin için ek puan kazanma
+                                şansı — sadece penaltı atışları ayrı bir maç gibi <strong>grup aşaması</strong>
+                                puan sistemiyle puanlanır.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                {# ============ 6. Sıralama ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">6. Sıralama eşitlik kırıcıları</h2>
+                    <p class="text-fg-soft mb-3">
+                        İki kişinin toplam puanı eşitse şu sırayla bakılır:
+                    </p>
+                    <ol class="list-decimal list-inside text-fg-soft space-y-1 ml-1">
+                        <li>Toplam puan</li>
+                        <li>Doğru tahmin edilen maç sayısı (ağırlıklı)</li>
+                        <li>Sadece maç tahminlerinden kazanılan puan (penaltı bonusu hariç)</li>
+                        <li>İlk turdaki toplam puan</li>
+                        <li>İlk turdaki doğru tahmin edilen maç sayısı</li>
+                        <li>İlk turdaki sadece maç tahminlerinden kazanılan puan</li>
+                    </ol>
+                </section>
+
+                {# ============ 7. Gizlilik ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">7. Tahmin gizliliği</h2>
+                    <p class="text-fg-soft">
+                        Tahminlerin, ilgili slot oynamaya başlayana kadar (kickoff anı) sadece sana
+                        görünür. Maç başlar başlamaz o slot için tüm tahminler herkese açılır.
+                        Bu sayede kimse başkasının tahminini görüp kopyalayamaz — turnuva yarışıyla başlar.
+                    </p>
+                </section>
+
+                {# ============ 8. Hesap ve giriş ============ #}
+                <section>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">8. Hesap ve giriş</h2>
+                    <p class="text-fg-soft mb-3">
+                        Şifre yok — her girişte e-posta adresine tek seferlik bir "magic link" gönderilir.
+                        Linke tıkla, giriş açıldı. 15 dakika sonra geçersiz olur.
+                    </p>
+                    <p class="text-fg-soft">
+                        Hesap aramıza katılım davetle. Davet linki için Hemre'ye söyle.
+                    </p>
+                </section>
+
+            </div>
+
+            <div class="mt-12 pt-6 border-t border-line text-xs sm:text-sm text-fg-muted">
+                Bir kural belirsiz veya hatalı görünüyorsa Hemre'ye söyle, gerekirse güncelleriz.
+            </div>
+        </section>
+
+        <footer class="mt-auto py-6 px-6 text-center text-xs text-fg-muted border-t border-line">
+            <a href="{% url 'home' %}" class="hover:text-primary transition">← Anasayfa</a>
+            <span class="mx-2">·</span>
+            ekiptahmin.com — Bir Hemre Ballı markasıdır.
+        </footer>
+    </main>
+</div>
+{% endblock %}

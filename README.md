@@ -34,7 +34,8 @@ ekiptahmin.com/
 │   ├── emails/                 Email templates (magic link, invite, round
 │   │                           reminders, daily digest) + shared _footer
 │   ├── base.html
-│   └── home.html
+│   ├── home.html
+│   └── rules.html             Public rules + scoring reference
 ├── theme/                      django-tailwind theme app
 │   └── static_src/             Tailwind source + npm config (brand palette)
 ├── static/                     Project static assets

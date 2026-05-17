@@ -13,6 +13,7 @@ def healthz(request):
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("rules/", views.rules, name="rules"),
     path("healthz/", healthz, name="healthz"),
     # /admin/results/... must come BEFORE Django admin so it doesn't fall
     # through to admin.site.urls.

@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.predictions.models import SlotPrediction
 from apps.scoring.leaderboard import leaderboard_for_tournament
 from apps.scoring.models import SlotScore
-from apps.tournament.models import ActualResult, BracketSlot, Tournament
+from apps.tournament.models import ActualResult, BracketSlot, PredictionRound, Stage, Tournament
 
 # How many items each home-page module shows when there's enough data.
 UPCOMING_LIMIT = 4
@@ -184,4 +184,66 @@ def home(request: HttpRequest) -> HttpResponse:
         "upcoming": upcoming,
         "recent": recent,
         "leaderboard_top": top,
+    })
+
+
+_STAGE_TR = {
+    Stage.GROUP: "Grup aşaması",
+    Stage.R32: "Son 32",
+    Stage.R16: "Son 16",
+    Stage.QF: "Çeyrek final",
+    Stage.SF: "Yarı final",
+    Stage.THIRD: "Üçüncülük maçı",
+    Stage.FINAL: "Final",
+}
+
+
+def rules(request: HttpRequest) -> HttpResponse:
+    """Static-content page explaining the prediction format, rounds, scoring,
+    penalties, and tiebreakers. Data is pulled from the active tournament so
+    admin edits to stage points or round weights are reflected automatically.
+    """
+    tournament = Tournament.objects.filter(is_active=True).first()
+    stages_view: list[dict] = []
+    rounds_view: list[dict] = []
+    if tournament is not None:
+        stages = list(Stage.objects.filter(tournament=tournament).order_by("order"))
+        stages_view = [
+            {
+                "name_tr": _STAGE_TR.get(s.kind, s.get_kind_display()),
+                "points_exact": s.points_exact,
+                "points_diff": s.points_diff,
+                "points_result": s.points_result,
+                "penalty_loser_pct": s.penalty_loser_pct,
+            }
+            for s in stages
+        ]
+        rounds_qs = (
+            PredictionRound.objects
+            .filter(tournament=tournament)
+            .prefetch_related("editable_stages")
+            .select_related("depends_on_stage")
+            .order_by("order")
+        )
+        rounds_view = [
+            {
+                "order": r.order,
+                "name": r.name,
+                "deadline": r.deadline,
+                "weight": r.weight,
+                "depends_on_tr": (
+                    _STAGE_TR.get(r.depends_on_stage.kind, r.depends_on_stage.get_kind_display())
+                    if r.depends_on_stage else None
+                ),
+                "editable_tr": [
+                    _STAGE_TR.get(s.kind, s.get_kind_display())
+                    for s in r.editable_stages.all()
+                ],
+            }
+            for r in rounds_qs
+        ]
+    return render(request, "rules.html", {
+        "tournament": tournament,
+        "stages": stages_view,
+        "rounds": rounds_view,
     })
