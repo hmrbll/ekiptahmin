@@ -201,7 +201,7 @@ class Command(BaseCommand):
         self, tournament: Tournament, editable_stages: list[Stage],
         manual_iso: str | None, tournament_start: str,
     ):
-        """30 minutes before the earliest kickoff among editable stages.
+        """The earliest kickoff among editable stages.
 
         If a manual_iso is provided in JSON it overrides the auto-computed value.
         Falls back to tournament start - 1 day if no slots are seeded yet.
@@ -220,7 +220,7 @@ class Command(BaseCommand):
         )
         if first_kickoff is None:
             return datetime.fromisoformat(f"{tournament_start}T00:00:00+00:00") - timedelta(days=1)
-        return first_kickoff - timedelta(minutes=30)
+        return first_kickoff
 
     # ---- Teams (from CSV) ----
 
