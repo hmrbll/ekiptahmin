@@ -3,8 +3,8 @@
 Two write paths trigger recompute:
 1. ActualResult save/delete  → every user × that slot
 2. SlotPrediction save/delete → that user × that slot (across all rounds —
-   the engine picks the earliest correct prediction, so any round-edit can
-   change the verdict)
+   the engine picks the highest-scoring correct prediction across rounds,
+   so any round-edit can change the verdict)
 
 Recompute is synchronous (small friend-group scale; ~30 users). If this gets
 heavy later, swap in a worker queue here without changing callers.

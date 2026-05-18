@@ -143,4 +143,4 @@ Sunday Pitch palette (v01), **light theme only**. Chalk (`#F6F1E4`) page bg, pit
 ## Documentation
 
 - [docs/admin.md](docs/admin.md) — Django admin module reference
-- Scoring mechanic and project decisions live in private `memory/` (gitignored). High level: bracket-based multi-round predictions with earliest-correct-matchup scoring.
+- Scoring mechanic and project decisions live in private `memory/` (gitignored). High level: bracket-based multi-round predictions; for each (user, slot) the engine picks the round that yields the highest weighted total among rounds where the matchup is correct (ties → earlier round).

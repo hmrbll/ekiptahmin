@@ -18,9 +18,8 @@
                 <section>
                     <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">1. Nasıl oynanır?</h2>
                     <p class="text-fg-soft mb-3">
-                        Klasik "her maç tek tahmin" değil — turnuvanın <strong>bracket</strong>'ini tahmin ediyorsun.
-                        Yani gruplardaki tüm maç skorlarını <em>ve</em> son 32'den finale kadar
-                        kim kimi eler, kim üçüncü olur, finalde skor ne olur — hepsini.
+                        Her turda tüm turnuva bracketini tahmin ediyorsun. Klasik, maç başlayana kadar değil, tur başlayana kadar tahminleri yapmak gerekli.
+                        Yani gruplardaki tüm maç skorlarını ve son 32'den finale kadar kim kimi eler, kim üçüncü olur, finalde skor ne olur — hepsini.
                     </p>
                     <p class="text-fg-soft">
                         Toplam tahmin: 72 grup maçı + 32 eleme slot'u = <strong>104 slot</strong>.
@@ -65,23 +64,28 @@
                     </div>
 
                     <p class="text-fg-muted text-xs sm:text-sm mt-3">
-                        Saatler İstanbul zamanı. "Bitiş", ilgili aşamadaki ilk maçın kickoff anıdır — o ana
+                        Saatler Türkiye saati. "Bitiş", ilgili aşamadaki ilk maçın başlama zamanı — o ana
                         kadar tahminini gönder, sonrası mümkün değil.
                     </p>
                 </section>
 
-                {# ============ 3. "Erken bilen kazanır" ============ #}
+                {# ============ 3. Hangi tahmin sayılır ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">3. Erken bilen kazanır</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">3. Hangi tahmin sayılır</h2>
                     <p class="text-fg-soft mb-3">
                         Bir maç oynandığında (örn. Brezilya–Arjantin Yarı Final 1), sistem o eşleşmeyi
-                        <strong>doğru tahmin ettiğin en erken tura</strong> bakar ve <strong>o turun ağırlığıyla</strong> puanlar.
+                        doğru tahmin ettiğin <strong>tüm turlara</strong> bakar — her biri için ne kadar
+                        puan alacağını hesaplar (aşama puanı × o turun ağırlığı). Sonra
+                        <strong>sana en çok puanı kazandıran turu</strong> seçer ve o puanı yazar.
                     </p>
                     <p class="text-fg-soft mb-3">
-                        Yani Pre-turnuva'da "Brezilya–Arjantin SF1" yazdıysan ve sonra oynandıysa,
-                        aldığın puan <code class="text-xs bg-surface px-1.5 py-0.5 rounded">aşama puanı × 1.00</code>.
-                        Aynı maçı doğru ama sadece Grup sonrasında yazdıysan, aynı puan × 0.85.
-                        Yani erken cesur tahminler ödüllendirilir, geç kalan az puan alır.
+                        Ağırlıklar erken turlarda daha yüksek olduğu için, erken doğru tahmin çoğu zaman kazanır.
+                        Ama erken turda eşleşmeyi bilip skoru tutturamadıysan ve sonraki bir turda skoru düzelttiysen,
+                        düzelttiğin tur seni daha fazla puana götürüyorsa o tur sayılır — eski tur seni kilitlemez.
+                    </p>
+                    <p class="text-fg-soft mb-3">
+                        İki tur aynı puanı veriyorsa <strong>erken tur kazanır</strong> — eşitlikte
+                        cesur erken tahminin önceliği vardır.
                     </p>
                     <div class="rounded-xl border border-warning/30 bg-warning/5 p-4">
                         <p class="text-fg-soft">

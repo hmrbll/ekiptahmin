@@ -159,11 +159,11 @@ class TestScoreSlotForUser:
         assert breakdown.points_match == Decimal("6")  # GROUP exact × 1.00
         assert breakdown.earning_round_order == 0
 
-    def test_earliest_correct_round_wins(
+    def test_only_correct_matchup_round_wins(
         self, player, pre_round, after_group_round, r16_slot, tur, arg,
     ):
-        # Wrong in pre-round, correct in after-group — pre-round was wrong
-        # matchup, so the after-group prediction earns at weight 0.85.
+        # Wrong matchup in pre-round, correct in after-group — only the
+        # after-group prediction is a candidate, so it earns at weight 0.85.
         wrong = Team.objects.create(tournament=r16_slot.tournament, code="XYZ", name_tr="X")
         SlotPrediction.objects.create(
             user=player, prediction_round=pre_round, slot=r16_slot,

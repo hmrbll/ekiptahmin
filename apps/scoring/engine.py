@@ -4,14 +4,19 @@ Operates on plain dataclasses — no Django/ORM dependency. Exists in apps/scori
 for namespacing only; can be imported and used from anywhere (Phase 4 prediction
 flow, Phase 6 leaderboard rebuilds, Phase 8 simulation).
 
-The mechanic (inherited from the 2022 World Cup Excel game):
+The mechanic (adapted from the 2022 World Cup Excel game):
 
 For each (user, slot) the engine looks at all of the user's predictions for that
-slot across every prediction round. It locates the EARLIEST round in which the
-user predicted the matchup correctly (same home + same away team), then scores
-that prediction against the actual result and applies the round's weight
-multiplier. Predictions made in later rounds are ignored once an earlier-round
-match has been found — early correct calls are rewarded.
+slot across every prediction round. Among the rounds where the user predicted
+the matchup correctly (same home + same away team), the engine picks the round
+that yields the HIGHEST weighted total (match points + any penalty bonus) and
+records that as the earning round. Ties go to the earlier round, keeping the
+"early bold predictions" spirit alive when nothing else separates two rounds.
+
+Note: weights decrease with later rounds, so early correct calls usually still
+win — but a user who got the matchup right early with a wrong score and then
+fixed the score in a later round still earns from the later round instead of
+being locked out of points.
 
 Special cases:
 - "Penalty loser bonus": if the user predicted a non-draw on a correct matchup
@@ -220,37 +225,18 @@ def _penalty_shootout_bonus_base(
 # ---------- Public API ----------
 
 
-def score_slot(
-    user_predictions: Iterable[Prediction],
+def _score_single_prediction(
+    pred: Prediction,
     actual: Result,
     stage: StageConfig,
     group_stage: StageConfig,
 ) -> ScoreBreakdown:
-    """Compute the score for one user on one slot.
+    """Score one prediction assuming its matchup is already correct.
 
-    `user_predictions` may be empty (returns "no_prediction" breakdown). When
-    multiple predictions exist for the same round.order, the iteration order is
-    preserved among those — callers should pass at most one prediction per round
-    (the latest one if there were edits).
+    Returns a full breakdown with the round's weight already applied.
     """
-    sorted_preds = sorted(user_predictions, key=lambda p: p.round.order)
-    if not sorted_preds:
-        return _ZERO_BREAKDOWN_NO_PRED
-
-    earning_pred: Optional[Prediction] = None
-    matchup_type = "miss"
-    base_unrounded = Decimal("0")
-
-    for pred in sorted_preds:
-        if _matchup_correct(pred, actual):
-            matchup_type, base_unrounded = _classify_correct_matchup(pred, actual, stage)
-            earning_pred = pred
-            break
-
-    if earning_pred is None:
-        return _ZERO_BREAKDOWN_MISS
-
-    weight = earning_pred.round.weight
+    matchup_type, base_unrounded = _classify_correct_matchup(pred, actual, stage)
+    weight = pred.round.weight
 
     if matchup_type == "penalty_loser_bonus":
         # Spec: ROUND(points_result × penalty_loser_pct × weight) → integer
@@ -258,10 +244,9 @@ def score_slot(
     else:
         points_match = base_unrounded * weight
 
-    # Penalty shootout bonus (only when user predicted a draw and got points for it)
     points_penalty = Decimal("0")
     if matchup_type in {"exact", "diff", "result"}:
-        bonus_base = _penalty_shootout_bonus_base(earning_pred, actual, group_stage)
+        bonus_base = _penalty_shootout_bonus_base(pred, actual, group_stage)
         if bonus_base > 0:
             points_penalty = Decimal(bonus_base) * weight
 
@@ -270,5 +255,40 @@ def score_slot(
         points_match=points_match,
         points_penalty=points_penalty,
         total=points_match + points_penalty,
-        earning_round_order=earning_pred.round.order,
+        earning_round_order=pred.round.order,
     )
+
+
+def score_slot(
+    user_predictions: Iterable[Prediction],
+    actual: Result,
+    stage: StageConfig,
+    group_stage: StageConfig,
+) -> ScoreBreakdown:
+    """Compute the score for one user on one slot.
+
+    Picks the round that yields the highest total among all rounds where the
+    matchup is correct. Ties go to the earliest round (smaller `round.order`).
+
+    `user_predictions` may be empty (returns "no_prediction" breakdown). Callers
+    should pass at most one prediction per round (the latest one if there were
+    edits); when duplicates exist for the same `round.order`, the engine still
+    picks the highest-scoring candidate among them.
+    """
+    sorted_preds = sorted(user_predictions, key=lambda p: p.round.order)
+    if not sorted_preds:
+        return _ZERO_BREAKDOWN_NO_PRED
+
+    best: Optional[ScoreBreakdown] = None
+    for pred in sorted_preds:
+        if not _matchup_correct(pred, actual):
+            continue
+        candidate = _score_single_prediction(pred, actual, stage, group_stage)
+        if best is None or candidate.total > best.total:
+            # First correct candidate, OR strictly better total.
+            # Equal totals leave `best` untouched → earlier round wins on ties.
+            best = candidate
+
+    if best is None:
+        return _ZERO_BREAKDOWN_MISS
+    return best
