@@ -69,23 +69,39 @@
                     </p>
                 </section>
 
-                {# ============ 3. Hangi tahmin sayılır ============ #}
+                {# ============ 3. Ganyan puanlama (yeni) ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">3. Hangi tahmin sayılır</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">3. Puanlama — Ganyan sistemi</h2>
                     <p class="text-fg-soft mb-3">
-                        Bir maç oynandığında (örn. Brezilya–Arjantin Yarı Final 1), sistem o eşleşmeyi
-                        doğru tahmin ettiğin <strong>tüm turlara</strong> bakar — her biri için ne kadar
-                        puan alacağını hesaplar (aşama puanı × o turun ağırlığı). Sonra
-                        <strong>sana en çok puanı kazandıran turu</strong> seçer ve o puanı yazar.
+                        Her maç için her kriterin (tam skor, doğru fark, doğru sonuç) sabit bir
+                        <strong>havuzu</strong> vardır. Havuz, o kriteri doğru tutturan oyuncular
+                        arasında <strong>eşit bölüşülür</strong>. Aynı tahmini yapan ne kadar çoksa
+                        kişi başı puan o kadar düşük — at yarışı ganyan mantığı.
+                    </p>
+                    <div class="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-4">
+                        <p class="font-mono text-xs sm:text-sm text-fg-soft">
+                            kişi başı puan = HAVUZ ÷ kriteri doğru tutturanların sayısı
+                        </p>
+                        <p class="text-xs text-fg-muted mt-2">
+                            Örnek: havuz 100, 4 kişi doğru skoru bildi → her biri 25 puan.
+                            5 kişi bildiyse → her biri 20.
+                            Tek kişi bildiyse → 100. Kimse bilemediyse → havuz yanar, kimseye gitmez.
+                        </p>
+                    </div>
+                    <ul class="space-y-1.5 text-fg-soft mb-4 ml-1">
+                        <li><strong>Tam skor:</strong> 2-1 yazdın, 2-1 oldu</li>
+                        <li><strong>Doğru fark:</strong> 3-2 yazdın, 4-3 oldu — kazanan ve gol farkı doğru, skorlar değil</li>
+                        <li><strong>Doğru sonuç:</strong> 2-1 yazdın, 3-0 oldu — sadece kazanan tarafı bildin</li>
+                    </ul>
+                    <p class="text-fg-soft mb-3">
+                        Tam skoru tutturan kişi otomatik olarak fark ve sonuç havuzlarından da pay alır.
+                        Yani üç havuzdan birden kazanabilirsin. Toplam puanın bu üçünün toplamı, sonra
+                        tur ağırlığıyla çarpılır.
                     </p>
                     <p class="text-fg-soft mb-3">
-                        Ağırlıklar erken turlarda daha yüksek olduğu için, erken doğru tahmin çoğu zaman kazanır.
-                        Ama erken turda eşleşmeyi bilip skoru tutturamadıysan ve sonraki bir turda skoru düzelttiysen,
-                        düzelttiğin tur seni daha fazla puana götürüyorsa o tur sayılır — eski tur seni kilitlemez.
-                    </p>
-                    <p class="text-fg-soft mb-3">
-                        İki tur aynı puanı veriyorsa <strong>erken tur kazanır</strong> — eşitlikte
-                        cesur erken tahminin önceliği vardır.
+                        Bir maçı birden fazla turda tahmin ettiysen (cesur erken tahmin + güncellemeler),
+                        sistem sana <strong>en çok puan veren turu</strong> seçer. O turun tahmini sayılır,
+                        diğer turlar görmezden gelinir.
                     </p>
                     <div class="rounded-xl border border-warning/30 bg-warning/5 p-4">
                         <p class="text-fg-soft">
@@ -96,17 +112,13 @@
                     </div>
                 </section>
 
-                {# ============ 4. Aşama puanları ============ #}
+                {# ============ 4. Aşama havuzları ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">4. Aşama puanları</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">4. Aşama havuzları</h2>
                     <p class="text-fg-soft mb-3">
-                        Her aşama farklı puana sahiptir. Tahmininin türü puanı belirler:
+                        Aşama ilerledikçe havuzlar büyür — final maçı grup maçından daha kıymetli.
+                        Penaltı havuzu sadece eleme maçlarında, penaltılara giden maçlarda aktif.
                     </p>
-                    <ul class="space-y-1.5 text-fg-soft mb-4 ml-1">
-                        <li><strong>Tam skor:</strong> 2-1 yazdın, 2-1 oldu</li>
-                        <li><strong>Doğru fark:</strong> 3-2 yazdın, 4-3 oldu — kazanan ve gol farkı doğru, skorlar değil</li>
-                        <li><strong>Doğru sonuç:</strong> 2-1 yazdın, 3-0 oldu — sadece kazanan tarafı bildin</li>
-                    </ul>
 
                     <div class="overflow-x-auto rounded-xl border border-line bg-surface">
                         <table class="w-full text-xs sm:text-sm">
@@ -116,15 +128,19 @@
                                     <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Tam skor</th>
                                     <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Doğru fark</th>
                                     <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Doğru sonuç</th>
+                                    <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Pen. turlatan</th>
                                 </tr>
                             </thead>
                             <tbody class="font-mono">
                                 {% for s in stages %}
                                 <tr class="border-b border-line/50 last:border-0">
                                     <td class="py-2.5 px-3 font-sans">{{ s.name_tr }}</td>
-                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.points_exact }}</td>
-                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.points_diff }}</td>
-                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.points_result }}</td>
+                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.pool_exact }}</td>
+                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.pool_diff }}</td>
+                                    <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.pool_result }}</td>
+                                    <td class="py-2.5 px-3 text-right {% if s.kind == 'GROUP' %}text-fg-muted{% else %}text-fg-soft{% endif %}">
+                                        {% if s.kind == 'GROUP' %}—{% else %}{{ s.pool_penalty_pass }}{% endif %}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -132,8 +148,9 @@
                     </div>
 
                     <p class="text-fg-muted text-xs sm:text-sm mt-3">
-                        Kazandığın puan: <code class="text-xs bg-surface px-1.5 py-0.5 rounded">aşama puanı × tur ağırlığı</code>.
-                        Ondalıklı çıkabilir — yuvarlama yapılmaz (final toplama hariç penaltı bonusunda).
+                        Her bir tablo satırı, o aşamadaki her maç için ayrı havuz. Yani Final
+                        maçındaki "tam skor" havuzu, sadece o maç için. Senin payın = havuz ÷ Final
+                        skorunu bilen oyuncu sayısı × turun ağırlığı.
                     </p>
                 </section>
 
@@ -141,26 +158,17 @@
                 <section>
                     <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">5. Penaltılar</h2>
                     <p class="text-fg-soft mb-3">
-                        Eleme maçları normal süre + uzatma + penaltıyla biter. Tahminin penaltıya gittiği
-                        durumla iki şekilde etkileşir:
+                        Eleme maçları normal süre + uzatma + penaltıyla biter. Penaltıya giden maçlarda
+                        ek bir kriter aktif olur: <strong>tur atlatan takım</strong>.
                     </p>
-                    <div class="space-y-3">
-                        <div class="rounded-xl border border-line bg-surface p-4">
-                            <p class="font-semibold text-fg mb-1.5">Berabere tahmin etmedin ama tur atlayan takımı bildin</p>
-                            <p class="text-fg-soft">
-                                İlgili aşamanın <em>doğru sonuç</em> puanının <strong>%60</strong>'ı × tur ağırlığı,
-                                en yakın tam sayıya yuvarlanır. Yani 90 dakikada beraberlik olmayacak demişsin
-                                ama kazananı bildiysen, taban puanın %60'ını kurtarırsın.
-                            </p>
-                        </div>
-                        <div class="rounded-xl border border-line bg-surface p-4">
-                            <p class="font-semibold text-fg mb-1.5">Berabere tahmin ettin</p>
-                            <p class="text-fg-soft">
-                                Normal skor puanını alırsın. Üstüne penaltı tahminin için ek puan kazanma
-                                şansı — sadece penaltı atışları ayrı bir maç gibi <strong>grup aşaması</strong>
-                                puan sistemiyle puanlanır.
-                            </p>
-                        </div>
+                    <div class="rounded-xl border border-line bg-surface p-4">
+                        <p class="font-semibold text-fg mb-1.5">Tur atlatan takım kriteri</p>
+                        <p class="text-fg-soft">
+                            Yukardaki "Pen. turlatan" havuzu, penaltılarla tur atlayan takımı doğru
+                            bilen oyuncular arasında bölüşülür. Beraberlik tahmin edip-etmemen önemli
+                            değil — sadece tur atlatan takımı doğru bil. (Normal süredeki skoru
+                            tutturduysan zaten skor/fark/sonuç havuzlarından da pay alıyorsun.)
+                        </p>
                     </div>
                 </section>
 
@@ -172,11 +180,11 @@
                     </p>
                     <ol class="list-decimal list-inside text-fg-soft space-y-1 ml-1">
                         <li>Toplam puan</li>
-                        <li>Doğru tahmin edilen maç sayısı (ağırlıklı)</li>
-                        <li>Sadece maç tahminlerinden kazanılan puan (penaltı bonusu hariç)</li>
-                        <li>İlk turdaki toplam puan</li>
-                        <li>İlk turdaki doğru tahmin edilen maç sayısı</li>
-                        <li>İlk turdaki sadece maç tahminlerinden kazanılan puan</li>
+                        <li>Tam skor sayısı (ağırlıklı)</li>
+                        <li>Doğru fark sayısı (ağırlıklı)</li>
+                        <li>Doğru sonuç sayısı (ağırlıklı)</li>
+                        <li><strong>Az yanlış</strong> — tahmin yaptığı ama sıfır puan aldığı maç sayısı (az olan üstte)</li>
+                        <li>Erken tahmin (önce tahmin yapan üstte)</li>
                     </ol>
                 </section>
 

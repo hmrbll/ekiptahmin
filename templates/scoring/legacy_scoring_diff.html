@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Legacy vs Ganyan — Skor Karşılaştırması — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="px-4 sm:px-6 py-8 sm:py-12 max-w-5xl mx-auto">
+        <div class="mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold mb-2">Skor Karşılaştırması (staff)</h1>
+            <p class="text-fg-muted text-sm">
+                {{ tournament.name }} · Eski bracket motoru (SlotScore) ile yeni ganyan motoru (GanyanScore) yan yana.
+                Kalibrasyon ve sanity-check için.
+            </p>
+            <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                <a href="{% url 'legacy_leaderboard' %}" class="px-3 py-1.5 rounded-full border border-line bg-surface text-fg-soft hover:text-white">Eski leaderboard</a>
+                <a href="{% url 'legacy_results' %}" class="px-3 py-1.5 rounded-full border border-line bg-surface text-fg-soft hover:text-white">Eski sonuçlar</a>
+                <a href="{% url 'leaderboard' %}" class="px-3 py-1.5 rounded-full border border-line bg-surface text-fg-soft hover:text-white">Public (ganyan) leaderboard</a>
+            </div>
+        </div>
+
+        {% if rows %}
+        <div class="overflow-x-auto rounded-2xl border border-line bg-surface">
+            <table class="w-full text-sm">
+                <thead class="text-xs uppercase tracking-wider text-fg-muted border-b border-line">
+                    <tr>
+                        <th class="text-left px-4 py-3 font-medium">Oyuncu</th>
+                        <th class="text-right px-4 py-3 font-medium">Eski toplam</th>
+                        <th class="text-right px-4 py-3 font-medium">Eski sıra</th>
+                        <th class="text-right px-4 py-3 font-medium">Ganyan toplam</th>
+                        <th class="text-right px-4 py-3 font-medium">Ganyan sıra</th>
+                        <th class="text-right px-4 py-3 font-medium">Δ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr class="border-b border-line last:border-b-0">
+                        <td class="px-4 py-3">{{ r.nickname }}</td>
+                        <td class="px-4 py-3 text-right font-mono">{{ r.legacy_total|floatformat:2 }}</td>
+                        <td class="px-4 py-3 text-right font-mono text-fg-muted">{{ r.legacy_rank|default:"—" }}</td>
+                        <td class="px-4 py-3 text-right font-mono font-semibold">{{ r.ganyan_total|floatformat:2 }}</td>
+                        <td class="px-4 py-3 text-right font-mono text-fg-muted">{{ r.ganyan_rank|default:"—" }}</td>
+                        <td class="px-4 py-3 text-right font-mono {% if r.delta > 0 %}text-success{% elif r.delta < 0 %}text-danger{% else %}text-fg-muted{% endif %}">
+                            {{ r.delta|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="rounded-2xl border border-line bg-surface p-8 text-center">
+            <p class="text-fg-muted">Henüz hesaplanmış puan yok.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

@@ -8,7 +8,11 @@ from .models import BracketSlot, PredictionRound, Stage, Team, Tournament
 class StageInline(admin.TabularInline):
     model = Stage
     extra = 0
-    fields = ("order", "kind", "points_exact", "points_diff", "points_result", "penalty_loser_pct")
+    fields = (
+        "order", "kind",
+        "pool_exact", "pool_diff", "pool_result", "pool_penalty_pass",
+        "points_exact", "points_diff", "points_result", "penalty_loser_pct",
+    )
     ordering = ("order",)
 
 
@@ -30,10 +34,32 @@ class TournamentAdmin(admin.ModelAdmin):
 
 @admin.register(Stage)
 class StageAdmin(admin.ModelAdmin):
-    list_display = ("tournament", "order", "kind", "points_exact", "points_diff", "points_result", "penalty_loser_pct")
+    list_display = (
+        "tournament", "order", "kind",
+        "pool_exact", "pool_diff", "pool_result", "pool_penalty_pass",
+        "points_exact", "points_diff", "points_result", "penalty_loser_pct",
+    )
     list_filter = ("tournament", "kind")
-    list_editable = ("points_exact", "points_diff", "points_result", "penalty_loser_pct")
+    list_editable = (
+        "pool_exact", "pool_diff", "pool_result", "pool_penalty_pass",
+        "points_exact", "points_diff", "points_result", "penalty_loser_pct",
+    )
     ordering = ("tournament", "order")
+    fieldsets = (
+        (None, {"fields": ("tournament", "order", "kind")}),
+        ("Ganyan pools (active engine)", {
+            "fields": ("pool_exact", "pool_diff", "pool_result", "pool_penalty_pass"),
+            "description": (
+                "Pool sizes split equally among users who get each criterion right. "
+                "Penalty pool only applies on knockout stages."
+            ),
+        }),
+        ("Legacy bracket scoring (staff-only views)", {
+            "fields": ("points_exact", "points_diff", "points_result", "penalty_loser_pct"),
+            "classes": ("collapse",),
+            "description": "Powers /legacy/* views. Public site no longer uses these.",
+        }),
+    )
 
 
 @admin.register(Team)

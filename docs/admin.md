@@ -77,20 +77,28 @@ The Tournament edit page shows **Stages** and **Prediction rounds** as inlines �
 
 ### Stages
 
-Tournament phases. Each stage holds the **scoring configuration** for matches in that phase.
+Tournament phases. Each stage holds **two scoring configurations** — ganyan pools (active) and legacy bracket points (staff-only `/legacy/*` views).
 
 | Field | What it does |
 |-------|--------------|
 | `kind` | Enum: GROUP, R32, R16, QF, SF, THIRD, FINAL |
 | `order` | 0 = Group, 6 = Final. Drives sorting. |
-| `points_exact` | Points awarded when the predicted exact score is correct. |
-| `points_diff` | Points for correct outcome AND correct goal difference (but wrong exact score). |
-| `points_result` | Points for correct outcome only (winner or draw). |
-| `penalty_loser_pct` | Special-case: when a user predicted a non-draw and correctly named the team that won via penalties. They get this percentage of `points_result` (rounded to nearest integer, then × round weight). |
+| **Ganyan pools (active engine)** | |
+| `pool_exact` | Pool size for the "exact score" criterion. Split equally among users who get it right. Default 100. |
+| `pool_diff` | Pool size for "goal difference". Default 100. |
+| `pool_result` | Pool size for "outcome (1X2)". Default 100. |
+| `pool_penalty_pass` | Pool for "named the team that advanced via penalties" (KO only). Default 50. |
+| **Legacy bracket scoring (staff-only views)** | |
+| `points_exact` | LEGACY. Points for correct exact score. |
+| `points_diff` | LEGACY. Points for correct outcome + goal difference. |
+| `points_result` | LEGACY. Points for correct outcome only. |
+| `penalty_loser_pct` | LEGACY. Percentage bonus when user named the penalty advancer despite predicting a non-draw. |
 
-The list view exposes `points_exact`, `points_diff`, `points_result`, and `penalty_loser_pct` as **inline-editable** — tweak scoring across stages quickly.
+All ten scoring fields are inline-editable in the Stage list view. The Stage detail page collapses the legacy section so the active pools are the foreground.
 
-> All scoring values are admin-tunable on purpose. There's no hardcoded scoring anywhere in Python code. The Phase 8 simulation page will let you preview the impact of changes before applying them.
+> All scoring values are admin-tunable on purpose. There's no hardcoded scoring anywhere in Python code. After editing pool sizes, run `python manage.py recompute_ganyan` to refresh the cache (signals don't fire on Stage saves).
+
+The two engines run side by side on every `ActualResult` write. Pool sizes drive the public site; the legacy points drive `/legacy/scoring-diff/` for calibration.
 
 ### Teams
 
@@ -161,7 +169,7 @@ The match results, entered by an admin once the match is over. Triggers scoring 
 | `slot` | Link to the BracketSlot this is the result for (one-to-one). |
 | `home_score`, `away_score` | 90-minute regulation score. This is the canonical scoring basis (matches the 2022 group rules). |
 | `went_to_extra_time` | Informational flag. |
-| `went_to_penalties` | When True, the penalty fields below populate, and the scoring engine applies the special "penalty loser bonus" rule. |
+| `went_to_penalties` | When True, the penalty fields below populate. Ganyan engine activates `pool_penalty_pass`; legacy engine applies the "penalty loser bonus" rule. |
 | `penalty_winner`, `home_penalties`, `away_penalties` | Penalty shootout details (only when `went_to_penalties` is True). |
 | `entered_at` | Auto-stamped on save. |
 | `entered_by` | Auto-filled to the admin user who saved the row. |
@@ -177,4 +185,18 @@ The match results, entered by an admin once the match is over. Triggers scoring 
 A dedicated admin polish phase ("Phase 5 — Admin review") is planned but not yet started. It will add: rich `list_display`/`list_filter`/`search_fields` for every model, inline editing where useful (e.g., `ActualResult` inline on `BracketSlot` — already in), custom actions, a fast match-result entry form, and dashboard widgets. The current admin works but is the Django default UX for most models.
 
 Pending models for later:
-- **`scoring` simulation** — preview-the-impact-of-scoring-tweaks page (no `ScoreEntry` admin yet; scoring is computed via signals and cached in `SlotScore`).
+- **`scoring` simulation** — preview-the-impact-of-pool-tweaks page (no `ScoreEntry` admin; scoring is computed via signals and cached in `GanyanScore` + `MatchPool`). After editing pool sizes, run `python manage.py recompute_ganyan` to refresh the cache.
+
+## SCORING
+
+### Ganyan scores (`GanyanScore`)
+
+Materialized per-(user, slot) cache from the active parimutuel engine. Read-only listing for staff investigation — rebuilds happen via signals on `ActualResult` and `SlotPrediction` writes.
+
+### Match pools (`MatchPool`)
+
+One row per (slot, criterion). Stores pool size snapshot, predictor/winner counts, base payout, and the breakdown JSON used by the ganyan tablosu UI. Read-only.
+
+### Slot scores (`SlotScore`)
+
+LEGACY bracket engine cache. Still updated alongside `GanyanScore` so the staff-only `/legacy/leaderboard/` and `/legacy/scoring-diff/` views work.

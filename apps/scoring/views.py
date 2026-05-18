@@ -1,9 +1,15 @@
-"""Leaderboard views — read-only aggregations over SlotScore.
+"""Public scoring views (active ganyan engine).
 
-All three views (leaderboard list, per-user score sheet, played-results
-log) are public. `user_detail` redacts pre-lock predictions for visitors
-who aren't the row's owner so the cascade game isn't ruined by peeking.
+Three routes:
+- `/leaderboard/`              — overall ranked board (GanyanScore + new tiebreakers)
+- `/leaderboard/<user_id>/`    — per-user score sheet
+- `/results/`                  — played-matches log with ganyan payouts
+- `/matches/<slot_id>/`        — single-match detail + ganyan tablosu
+
+Legacy bracket views (SlotScore) live under /legacy/ — see `legacy_views.py`.
 """
+
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.http import HttpRequest, HttpResponse
@@ -17,8 +23,21 @@ from apps.tournament.models import (
     Tournament,
 )
 
-from .leaderboard import describe_ties, leaderboard_for_tournament
-from .models import SlotScore
+from .ganyan_leaderboard import describe_ties, leaderboard_for_tournament
+from .models import GanyanScore, MatchPool
+
+
+_STAGE_ORDER = ["GROUP", "R32", "R16", "QF", "SF", "THIRD", "FINAL"]
+
+# Outcome → (TR label, Tailwind badge classes) for chip/badge rendering.
+_OUTCOME_BADGE = {
+    GanyanScore.EXACT: ("Tam skor", "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"),
+    GanyanScore.DIFF: ("Aynı fark", "bg-sky-400/10 border-sky-400/30 text-sky-300"),
+    GanyanScore.RESULT: ("Doğru sonuç", "bg-indigo-400/10 border-indigo-400/30 text-indigo-300"),
+    GanyanScore.PENALTY_PASS: ("Penaltı turlatan", "bg-amber-400/10 border-amber-400/30 text-amber-300"),
+    GanyanScore.MISS: ("Yanlış", "bg-rose-500/10 border-rose-500/30 text-rose-300"),
+    GanyanScore.NO_PREDICTION: ("Tahmin yok", "bg-white/5 border-white/10 text-slate-500"),
+}
 
 
 def leaderboard(request: HttpRequest) -> HttpResponse:
@@ -27,10 +46,6 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
         return render(request, "scoring/no_tournament.html", status=200)
 
     entries = leaderboard_for_tournament(tournament)
-
-    # Per-matchup-type counts (Hemre's column spec). `wrong` is `miss` only;
-    # `no_prediction` gets its own column so the two failure modes (predicted
-    # wrong vs. didn't predict at all) stay distinguishable.
     rows = []
     for e in entries:
         c = e.counts
@@ -39,12 +54,12 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
             "user_id": e.user.id,
             "nickname": e.nickname,
             "total": e.total,
-            "exact": c.get(SlotScore.EXACT, 0),
-            "diff": c.get(SlotScore.DIFF, 0),
-            "result": c.get(SlotScore.RESULT, 0),
-            "penalty_bonus": c.get(SlotScore.PENALTY_LOSER_BONUS, 0),
-            "wrong": c.get(SlotScore.MISS, 0),
-            "no_prediction": c.get(SlotScore.NO_PREDICTION, 0),
+            "exact": c.get(GanyanScore.EXACT, 0),
+            "diff": c.get(GanyanScore.DIFF, 0),
+            "result": c.get(GanyanScore.RESULT, 0),
+            "penalty": c.get(GanyanScore.PENALTY_PASS, 0),
+            "wrong": c.get(GanyanScore.MISS, 0),
+            "score_breakdown": e.score_breakdown,
         })
 
     return render(request, "scoring/leaderboard.html", {
@@ -54,28 +69,24 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
     })
 
 
-# Stages, in tournament progression order. Used to group the user detail page.
-_STAGE_ORDER = ["GROUP", "R32", "R16", "QF", "SF", "THIRD", "FINAL"]
+def _earning_or_latest_prediction(user, slot, effective_round_id):
+    """Find the SlotPrediction whose ganyan score is being shown.
 
-
-def _earning_or_latest_prediction(user, slot, earning_round_order):
-    """Find the SlotPrediction whose score is reflected in the SlotScore row.
-
-    If `earning_round_order` is set, that's the one. Otherwise (miss /
-    no-result / no-prediction) we surface the user's latest prediction so
-    the detail page shows what they were predicting — even if it didn't
-    earn points.
+    If `effective_round_id` is set, that's the one. Otherwise (miss /
+    no-result / no-prediction) we surface the user's latest prediction.
     """
     qs = SlotPrediction.objects.filter(user=user, slot=slot).select_related(
         "home_team", "away_team", "penalty_winner", "prediction_round",
     )
-    if earning_round_order is not None:
-        return qs.filter(prediction_round__order=earning_round_order).first()
+    if effective_round_id is not None:
+        result = qs.filter(prediction_round_id=effective_round_id).first()
+        if result is not None:
+            return result
     return qs.order_by("-prediction_round__order").first()
 
 
 def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
-    """Per-slot score sheet for one user."""
+    """Per-slot ganyan score sheet for one user."""
     User = get_user_model()
     target = get_object_or_404(User, pk=user_id)
     tournament = Tournament.objects.filter(is_active=True).first()
@@ -83,13 +94,12 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
         return render(request, "scoring/no_tournament.html", status=200)
 
     scores = (
-        SlotScore.objects
+        GanyanScore.objects
         .filter(user=target, slot__tournament=tournament)
-        .select_related("slot__stage", "slot__home_team_actual", "slot__away_team_actual")
+        .select_related("slot__stage", "slot__home_team_actual", "slot__away_team_actual", "effective_round")
         .order_by("slot__stage__order", "slot__scheduled_kickoff")
     )
 
-    # Fetch actuals + earning predictions in bulk to avoid N+1.
     slot_ids = [s.slot_id for s in scores]
     actuals_by_slot = {
         a.slot_id: a for a in ActualResult.objects.filter(slot_id__in=slot_ids).select_related(
@@ -97,28 +107,25 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
         )
     }
 
-    # Lock rule: a target's pre-lock prediction is hidden from everyone but
-    # the owner. Once kickoff passes or an actual result is entered, the
-    # prediction becomes public.
     is_self = request.user.is_authenticated and request.user.id == target.id
 
     sections_by_kind: dict[str, list[dict]] = {}
-    total_points = 0
+    total_points = Decimal("0")
     for score in scores:
         slot = score.slot
         actual = actuals_by_slot.get(slot.id)
         is_locked = slot.is_locked or actual is not None
-        raw_prediction = _earning_or_latest_prediction(target, slot, score.earning_round_order)
-        # Hide pre-lock predictions from non-owners — but remember whether
-        # one existed so the template can render "kilit sonrası görünür"
-        # instead of the regular "tahmin yok" fallback.
+        raw_prediction = _earning_or_latest_prediction(target, slot, score.effective_round_id)
         prediction_visible = is_self or is_locked
+        label, badge_cls = _OUTCOME_BADGE.get(score.outcome, ("", ""))
         sections_by_kind.setdefault(slot.stage.kind, []).append({
             "slot": slot,
             "actual": actual,
             "prediction": raw_prediction if prediction_visible else None,
             "prediction_hidden": (not prediction_visible) and raw_prediction is not None,
             "score": score,
+            "outcome_label": label,
+            "outcome_badge_cls": badge_cls,
         })
         total_points += score.total
 
@@ -134,21 +141,8 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
     })
 
 
-# Matchup-type → (Turkish label, Tailwind badge classes) for the results page.
-_MATCHUP_BADGE = {
-    SlotScore.EXACT: ("Tam skor", "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"),
-    SlotScore.DIFF: ("Aynı fark", "bg-sky-400/10 border-sky-400/30 text-sky-300"),
-    SlotScore.RESULT: ("Doğru sonuç", "bg-indigo-400/10 border-indigo-400/30 text-indigo-300"),
-    SlotScore.PENALTY_LOSER_BONUS: ("Penaltı bonusu", "bg-amber-400/10 border-amber-400/30 text-amber-300"),
-    SlotScore.MISS: ("Yanlış", "bg-rose-500/10 border-rose-500/30 text-rose-300"),
-    SlotScore.NO_PREDICTION: ("Tahmin yok", "bg-white/5 border-white/10 text-slate-500"),
-}
-
-
 def results_list(request: HttpRequest) -> HttpResponse:
-    """Played matches (those with an ActualResult) ordered by kickoff,
-    each with the per-user point breakdown.
-    """
+    """Played matches log with ganyan payouts and per-user breakdowns."""
     tournament = Tournament.objects.filter(is_active=True).first()
     if tournament is None:
         return render(request, "scoring/no_tournament.html", status=200)
@@ -165,17 +159,13 @@ def results_list(request: HttpRequest) -> HttpResponse:
 
     slot_ids = [a.slot_id for a in actuals]
     score_rows = (
-        SlotScore.objects
+        GanyanScore.objects
         .filter(slot_id__in=slot_ids)
-        # `no_result` rows shouldn't exist when ActualResult is present, but
-        # filter defensively so a stale row doesn't sneak in.
-        .exclude(matchup_type=SlotScore.NO_RESULT)
-        .select_related("user")
+        .exclude(outcome=GanyanScore.NO_RESULT)
+        .select_related("user", "effective_round")
         .order_by("-total", "user__nickname")
     )
 
-    # Pre-fetch the earning (or latest) prediction for every (user, slot) row
-    # we're about to render so the template can show what each user predicted.
     user_slot_pairs = {(s.user_id, s.slot_id): s for s in score_rows}
     all_preds = (
         SlotPrediction.objects
@@ -187,25 +177,25 @@ def results_list(request: HttpRequest) -> HttpResponse:
     for p in all_preds:
         preds_by_user_slot.setdefault((p.user_id, p.slot_id), []).append(p)
 
-    def _pick_prediction(user_id, slot_id, earning_order):
+    def _pick_prediction(user_id, slot_id, effective_round_id):
         bucket = preds_by_user_slot.get((user_id, slot_id), [])
         if not bucket:
             return None
-        if earning_order is not None:
+        if effective_round_id is not None:
             for p in bucket:
-                if p.prediction_round.order == earning_order:
+                if p.prediction_round_id == effective_round_id:
                     return p
-        return bucket[0]  # latest (queryset is desc-ordered)
+        return bucket[0]
 
     scores_by_slot: dict[int, list] = {}
     for s in score_rows:
-        label, badge_cls = _MATCHUP_BADGE.get(s.matchup_type, ("", ""))
+        label, badge_cls = _OUTCOME_BADGE.get(s.outcome, ("", ""))
         scores_by_slot.setdefault(s.slot_id, []).append({
             "score": s,
             "user": s.user,
             "label": label,
             "badge_cls": badge_cls,
-            "prediction": _pick_prediction(s.user_id, s.slot_id, s.earning_round_order),
+            "prediction": _pick_prediction(s.user_id, s.slot_id, s.effective_round_id),
         })
 
     matches = []
@@ -220,3 +210,120 @@ def results_list(request: HttpRequest) -> HttpResponse:
         "tournament": tournament,
         "matches": matches,
     })
+
+
+# Criterion → TR label for the ganyan tablosu.
+_CRITERION_LABEL_TR = {
+    MatchPool.EXACT: "Tam skor",
+    MatchPool.DIFF: "Doğru fark",
+    MatchPool.RESULT: "Doğru sonuç",
+    MatchPool.PENALTY_PASS: "Penaltı turlatan",
+}
+
+# Result direction key → TR label for the "result" criterion breakdown.
+_RESULT_KEY_TR = {"H": "Ev sahibi kazanır", "A": "Deplasman kazanır", "D": "Berabere"}
+
+
+def _format_breakdown(pool: MatchPool, slot: BracketSlot) -> list[dict]:
+    """Build the per-prediction-value rows of the ganyan tablosu."""
+    rows = []
+    pool_size = pool.pool_size
+    for key, count in sorted(pool.breakdown.items(), key=lambda kv: (-kv[1], kv[0])):
+        # Pre-result rows have winner_count = 0 but breakdown filled in;
+        # show "if this is correct → X puan" as the potential payout.
+        # Post-result rows have winner_count set; only the winning key pays.
+        potential = (Decimal(pool_size) / count) if count else None
+        if pool.criterion == MatchPool.RESULT:
+            display_key = _RESULT_KEY_TR.get(key, key)
+        else:
+            display_key = key
+        rows.append({
+            "key": key,
+            "display_key": display_key,
+            "count": count,
+            "potential_payout": potential,
+        })
+    return rows
+
+
+def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
+    """Single-match detail page with the full ganyan tablosu.
+
+    Visible to anyone but the ganyan tablosu only renders after lock.
+    """
+    slot = get_object_or_404(
+        BracketSlot.objects.select_related(
+            "tournament", "stage", "home_team_actual", "away_team_actual",
+        ),
+        pk=slot_id,
+    )
+    actual = ActualResult.objects.filter(slot=slot).select_related("penalty_winner").first()
+    pools = list(
+        MatchPool.objects.filter(slot=slot)
+    )
+    # Sort criteria in the order we display them.
+    criterion_order = [MatchPool.EXACT, MatchPool.DIFF, MatchPool.RESULT, MatchPool.PENALTY_PASS]
+    pools_by_criterion = {p.criterion: p for p in pools}
+
+    pools_view = []
+    for c in criterion_order:
+        p = pools_by_criterion.get(c)
+        if p is None:
+            continue
+        # Penalty pool only relevant on KO matches that went to penalties.
+        if c == MatchPool.PENALTY_PASS and (
+            slot.stage.kind == "GROUP" or (actual is not None and not actual.went_to_penalties)
+        ):
+            continue
+        pools_view.append({
+            "criterion": c,
+            "label": _CRITERION_LABEL_TR.get(c, c),
+            "pool": p,
+            "rows": _format_breakdown(p, slot),
+            "winning_key": _winning_breakdown_key(c, slot, actual) if actual else None,
+        })
+
+    # Per-user payouts (only when actual result exists).
+    user_payouts = []
+    if actual is not None:
+        scores = (
+            GanyanScore.objects
+            .filter(slot=slot)
+            .exclude(outcome=GanyanScore.NO_RESULT)
+            .select_related("user", "effective_round")
+            .order_by("-total", "user__nickname")
+        )
+        for s in scores:
+            label, badge_cls = _OUTCOME_BADGE.get(s.outcome, ("", ""))
+            user_payouts.append({
+                "score": s,
+                "user": s.user,
+                "label": label,
+                "badge_cls": badge_cls,
+            })
+
+    return render(request, "scoring/match_detail.html", {
+        "tournament": slot.tournament,
+        "slot": slot,
+        "actual": actual,
+        "is_locked": slot.is_locked or actual is not None,
+        "pools": pools_view,
+        "user_payouts": user_payouts,
+    })
+
+
+def _winning_breakdown_key(criterion: str, slot: BracketSlot, actual: ActualResult) -> str:
+    """Which breakdown key is the 'winner' for this criterion + result."""
+    if criterion == MatchPool.EXACT:
+        return f"{actual.home_score}-{actual.away_score}"
+    if criterion == MatchPool.DIFF:
+        return str(actual.home_score - actual.away_score)
+    if criterion == MatchPool.RESULT:
+        if actual.home_score > actual.away_score:
+            return "H"
+        if actual.home_score < actual.away_score:
+            return "A"
+        return "D"
+    if criterion == MatchPool.PENALTY_PASS:
+        return actual.penalty_winner.code if actual.penalty_winner_id else ""
+    return ""

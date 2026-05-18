@@ -1,14 +1,13 @@
-"""Materialized per-(user, slot) score rows.
+"""Materialized score caches for the two scoring engines.
 
-The pure-Python engine in apps/scoring/engine.py computes the breakdown;
-this model caches its output so the leaderboard view can sum points without
-re-walking every user's predictions on every page load.
+`SlotScore`  → legacy bracket engine (`apps/scoring/engine.py`). Stays alive
+               for staff-only /legacy/* views; not used by the public site.
 
-Cache invalidation lives in apps/scoring/signals.py — ActualResult and
-SlotPrediction writes both trigger a recompute of the affected (user, slot)
-rows. A row with `matchup_type = "no_result"` means the slot has no actual
-result yet (no points awarded, but we still keep the row so the leaderboard
-query can join cleanly).
+`GanyanScore` + `MatchPool` → active parimutuel engine (`apps/scoring/ganyan.py`).
+                              Computed alongside SlotScore on `ActualResult` save
+                              via `apps/scoring/signals.py`.
+
+See docs/scoring-ganyan.md for the formula and design rationale.
 """
 
 from django.conf import settings
@@ -16,7 +15,7 @@ from django.db import models
 
 
 class SlotScore(models.Model):
-    """One materialized score row per (user, slot)."""
+    """LEGACY: one materialized score row per (user, slot), bracket engine."""
 
     EXACT = "exact"
     DIFF = "diff"
@@ -73,3 +72,155 @@ class SlotScore(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} | {self.slot.position} | {self.total} ({self.matchup_type})"
+
+
+class GanyanScore(models.Model):
+    """Parimutuel score per (user, slot). Active engine — drives public leaderboard.
+
+    `score` = sum of payouts from each criterion the user satisfied in their
+    effective round, multiplied by that round's weight. The effective round is
+    the one maximizing the user's weighted total across all of their rounds
+    for this slot — same single-round-per-(user, slot) semantics as the legacy
+    engine, but with payouts coming from shared pools rather than fixed values.
+    """
+
+    # Outcome of the user-vs-slot pairing — drives UI labelling.
+    EXACT = "exact"
+    DIFF = "diff"
+    RESULT = "result"
+    PENALTY_PASS = "penalty_pass"
+    MISS = "miss"                  # predicted, scored zero
+    NO_PREDICTION = "no_prediction"
+    NO_RESULT = "no_result"
+    OUTCOME_CHOICES = [
+        (EXACT, "Exact score"),
+        (DIFF, "Correct goal difference"),
+        (RESULT, "Correct outcome"),
+        (PENALTY_PASS, "Penalty advancer (KO only)"),
+        (MISS, "Wrong / no points"),
+        (NO_PREDICTION, "No prediction"),
+        (NO_RESULT, "Actual result not entered"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ganyan_scores",
+    )
+    slot = models.ForeignKey(
+        "tournament.BracketSlot",
+        on_delete=models.CASCADE,
+        related_name="ganyan_scores",
+    )
+
+    # Per-criterion payouts (already weighted by effective round weight).
+    score_exact = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    score_diff = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    score_result = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    score_penalty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # The single round the user "earns from" for this slot — the one whose
+    # weighted criterion sum was highest. Null when user didn't predict or
+    # nothing scored.
+    effective_round = models.ForeignKey(
+        "tournament.PredictionRound",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="ganyan_scores",
+    )
+
+    # Best matchup-type the user achieved (highest tier among criteria they
+    # satisfied). Drives UI badges + tiebreaker counts.
+    outcome = models.CharField(
+        max_length=16,
+        choices=OUTCOME_CHOICES,
+        default=NO_PREDICTION,
+    )
+
+    # Tiebreaker 5 contribution: 1 if user predicted this slot and scored 0,
+    # else 0. Summed across slots for the "az yanlış" tiebreaker.
+    wrong_count_contribution = models.PositiveSmallIntegerField(default=0)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (("user", "slot"),)
+        indexes = [
+            models.Index(fields=("user",)),
+            models.Index(fields=("slot",)),
+            models.Index(fields=("outcome",)),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} | {self.slot.position} | {self.total} ({self.outcome})"
+
+
+class MatchPool(models.Model):
+    """Per (slot, criterion) pool snapshot. Drives the public ganyan tablosu UI.
+
+    Rebuilt from scratch whenever a slot's ActualResult is written. Pre-result
+    pools (just predictor counts, no winners) are also computed at lock time
+    so the tablosu can show what each prediction would pay before the match ends.
+    """
+
+    EXACT = "exact"
+    DIFF = "diff"
+    RESULT = "result"
+    PENALTY_PASS = "penalty_pass"
+    CRITERION_CHOICES = [
+        (EXACT, "Exact score"),
+        (DIFF, "Goal difference"),
+        (RESULT, "Outcome (1X2)"),
+        (PENALTY_PASS, "Penalty advancer"),
+    ]
+
+    slot = models.ForeignKey(
+        "tournament.BracketSlot",
+        on_delete=models.CASCADE,
+        related_name="pools",
+    )
+    criterion = models.CharField(max_length=16, choices=CRITERION_CHOICES)
+
+    pool_size = models.PositiveIntegerField(
+        help_text="Snapshot of Stage.pool_<criterion> at compute time.",
+    )
+    predictor_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Total unique users who predicted this slot in any round (= N).",
+    )
+    winner_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Users whose at-least-one round prediction satisfied this criterion.",
+    )
+    base_payout = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        help_text="pool_size / winner_count, before round weight. Null when winner_count = 0 (pool burned).",
+    )
+
+    # JSON shape: {"1-0": 7, "2-1": 3, "2-0": 2} for EXACT;
+    # {"1": 12, "2": 3, "0": 1} for DIFF (signed diff: home - away);
+    # {"H": 9, "A": 4, "D": 1} for RESULT;
+    # {"BRA": 5, "ARG": 3} for PENALTY_PASS.
+    breakdown = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Per-prediction-value counts for the ganyan tablosu UI.",
+    )
+
+    computed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (("slot", "criterion"),)
+        indexes = [
+            models.Index(fields=("slot",)),
+        ]
+
+    def __str__(self) -> str:
+        n = self.winner_count
+        return f"{self.slot.position} | {self.criterion} | {self.pool_size}/{n}"
+
+    @property
+    def is_burned(self) -> bool:
+        return self.winner_count == 0

@@ -22,6 +22,9 @@
                     <span>·</span>
                     <span>{{ m.slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
                     {% if m.slot.venue %}<span>·</span><span class="truncate">{{ m.slot.venue }}</span>{% endif %}
+                    <span class="ml-auto">
+                        <a href="{% url 'match_detail' m.slot.id %}" class="text-primary hover:text-primary-hover underline decoration-primary/40 underline-offset-2">Ganyan tablosu →</a>
+                    </span>
                 </div>
 
                 <div class="mb-4">

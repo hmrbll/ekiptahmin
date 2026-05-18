@@ -15,6 +15,7 @@
             {% endif %}
             {% if user.is_staff %}
             <a href="{% url 'admin_results_entry' %}" class="text-warning-300/80 hover:text-warning-200 transition">Sonuç Gir</a>
+            <a href="{% url 'legacy_scoring_diff' %}" class="text-warning-300/80 hover:text-warning-200 transition">Legacy</a>
             {% endif %}
             {% if user.is_authenticated %}
             <span class="text-fg-muted">·</span>
@@ -53,6 +54,7 @@
                 {% endif %}
                 {% if user.is_staff %}
                 <a href="{% url 'admin_results_entry' %}" class="block px-3 py-2 rounded-lg text-sm text-warning-300 hover:bg-warning/10 transition">Sonuç Gir</a>
+                <a href="{% url 'legacy_scoring_diff' %}" class="block px-3 py-2 rounded-lg text-sm text-warning-300 hover:bg-warning/10 transition">Legacy</a>
                 {% endif %}
                 <div class="border-t border-line mt-1 pt-1">
                     {% if user.is_authenticated %}

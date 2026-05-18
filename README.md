@@ -19,8 +19,10 @@ ekiptahmin.com/
 │   ├── tournament/             Tournament, Stage, Team, PredictionRound,
 │   │                           BracketSlot, ActualResult + seed command
 │   ├── predictions/            SlotPrediction + full wizard UI
-│   ├── scoring/                Pure-Python scoring engine
-│   ├── leaderboard/            SlotScore cache + 6-level tiebreaker
+│   ├── scoring/                Two engines in parallel:
+│   │                           - ganyan.py  (active: parimutuel pool)
+│   │                           - engine.py  (legacy bracket, staff-only)
+│   ├── leaderboard/            (placeholder app, scoring app owns aggregation)
 │   ├── notifications/          Scheduled/lifecycle emails + staff-only preview
 │   └── public/                 Homepage, live data feeds, public views
 ├── config/
@@ -142,5 +144,22 @@ Sunday Pitch palette (v01), **light theme only**. Chalk (`#F6F1E4`) page bg, pit
 
 ## Documentation
 
+- [docs/scoring-ganyan.md](docs/scoring-ganyan.md) — Active scoring mechanic: parimutuel pool model with per-stage pool sizes and round-weight effective-round picking.
 - [docs/admin.md](docs/admin.md) — Django admin module reference
-- Scoring mechanic and project decisions live in private `memory/` (gitignored). High level: bracket-based multi-round predictions; for each (user, slot) the engine picks the round that yields the highest weighted total among rounds where the matchup is correct (ties → earlier round).
+- [docs/email_setup.md](docs/email_setup.md) — Email infrastructure (Resend SMTP + DNS)
+- Project decisions and session-to-session context live in private `memory/` (gitignored).
+
+### Scoring at a glance
+
+Each match has fixed pools per criterion (exact / diff / result / penalty_pass). Pools split equally among users who get that criterion right — single-prediction wins pay the full pool, consensus picks pay a thin slice. For each `(user, match)` the engine picks ONE **effective round** (the round whose prediction + weight maximises the user's payout); criteria are paid from that round only. Pools that no one hits **burn**.
+
+Legacy bracket scoring (`apps/scoring/engine.py`, `SlotScore`) still runs in parallel for staff comparison at `/legacy/leaderboard/`, `/legacy/results/`, `/legacy/scoring-diff/` — see [docs/scoring-ganyan.md](docs/scoring-ganyan.md) for the full spec and rationale.
+
+### Common commands (scoring-specific)
+
+```powershell
+python manage.py recompute_scores     # rebuild legacy SlotScore cache
+python manage.py recompute_ganyan     # rebuild GanyanScore + MatchPool cache
+```
+
+Both are idempotent; trigger after Stage pool edits in admin (signals don't fire on Stage saves).

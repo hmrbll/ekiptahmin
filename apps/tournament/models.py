@@ -61,22 +61,46 @@ class Stage(models.Model):
     kind = models.CharField(max_length=10, choices=KIND_CHOICES)
     order = models.PositiveSmallIntegerField(help_text="0 = Group, 6 = Final (defines progression)")
 
+    # Legacy bracket-scoring fields — drive apps/scoring/engine.py (SlotScore).
+    # Public site uses the ganyan engine and reads pool_* fields below.
+    # Legacy stays alive for staff-only /legacy/* views.
     points_exact = models.PositiveSmallIntegerField(
-        help_text="Points awarded when the predicted score exactly matches the actual score.",
+        help_text="LEGACY engine only. Points awarded when the predicted score exactly matches the actual score.",
     )
     points_diff = models.PositiveSmallIntegerField(
-        help_text="Points for correct outcome AND correct goal difference (but wrong exact score).",
+        help_text="LEGACY engine only. Points for correct outcome AND correct goal difference (but wrong exact score).",
     )
     points_result = models.PositiveSmallIntegerField(
-        help_text="Points for correct outcome only (winner or draw).",
+        help_text="LEGACY engine only. Points for correct outcome only (winner or draw).",
     )
     penalty_loser_pct = models.DecimalField(
         max_digits=4,
         decimal_places=2,
         default=Decimal("0.60"),
-        help_text="When a user did NOT predict a draw but correctly named the team that "
+        help_text="LEGACY engine only. When a user did NOT predict a draw but correctly named the team that "
                   "advanced through penalties: percentage of `points_result` they receive "
                   "(rounded to nearest integer, then multiplied by round weight).",
+    )
+
+    # Ganyan pool sizes (parimutuel scoring). Each match has a fixed pool per
+    # criterion; the pool is split equally among users who got that criterion
+    # right. If no one got it right, the pool burns. See docs/scoring-ganyan.md.
+    pool_exact = models.PositiveIntegerField(
+        default=100,
+        help_text="Ganyan pool size for exact-score winners. Split equally; burns if no one is correct.",
+    )
+    pool_diff = models.PositiveIntegerField(
+        default=100,
+        help_text="Ganyan pool size for goal-difference winners.",
+    )
+    pool_result = models.PositiveIntegerField(
+        default=100,
+        help_text="Ganyan pool size for outcome (1X2) winners.",
+    )
+    pool_penalty_pass = models.PositiveIntegerField(
+        default=50,
+        help_text="Ganyan pool size for the 'predicted the team that advanced via penalties' "
+                  "criterion. Only relevant on knockout stages.",
     )
 
     class Meta:

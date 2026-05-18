@@ -131,6 +131,12 @@ class Command(BaseCommand):
                 kind=sd["kind"],
                 defaults={
                     "order": sd["order"],
+                    # Ganyan pools (active engine).
+                    "pool_exact": sd.get("pool_exact", 100),
+                    "pool_diff": sd.get("pool_diff", 100),
+                    "pool_result": sd.get("pool_result", 100),
+                    "pool_penalty_pass": sd.get("pool_penalty_pass", 50),
+                    # Legacy bracket scoring.
                     "points_exact": sd["points_exact"],
                     "points_diff": sd["points_diff"],
                     "points_result": sd["points_result"],

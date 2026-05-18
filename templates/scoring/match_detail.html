@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ slot.display_position }} — Maç — ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="px-4 sm:px-6 py-8 sm:py-12 max-w-4xl mx-auto">
+        <a href="{% url 'results' %}" class="text-sm text-fg-muted hover:text-white inline-flex items-center gap-1 mb-3">
+            ← Sonuçlar
+        </a>
+
+        <div class="mb-6">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted mb-3">
+                <span class="font-mono">{{ slot.display_position }}</span>
+                <span>·</span>
+                <span class="uppercase tracking-wider">{{ slot.stage.get_kind_display }}</span>
+                <span>·</span>
+                <span>{{ slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
+                {% if slot.venue %}<span>·</span><span class="truncate">{{ slot.venue }}</span>{% endif %}
+            </div>
+
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 sm:gap-3 items-center text-base sm:text-xl">
+                <div class="flex items-center gap-2 justify-end min-w-0 text-right">
+                    <span class="text-fg truncate font-semibold">{{ slot.home_team_actual.name_tr|default:slot.home_source|default:"?" }}</span>
+                    {% if slot.home_team_actual.flag_svg_path %}<img src="{% static slot.home_team_actual.flag_svg_path %}" alt="{{ slot.home_team_actual.code }}" class="h-7 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                </div>
+                <span class="font-mono font-bold text-fg-soft whitespace-nowrap px-1">
+                    {% if actual %}{{ actual.home_score }}–{{ actual.away_score }}{% else %}—{% endif %}
+                </span>
+                <div class="flex items-center gap-2 min-w-0">
+                    {% if slot.away_team_actual.flag_svg_path %}<img src="{% static slot.away_team_actual.flag_svg_path %}" alt="{{ slot.away_team_actual.code }}" class="h-7 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                    <span class="text-fg truncate font-semibold">{{ slot.away_team_actual.name_tr|default:slot.away_source|default:"?" }}</span>
+                </div>
+            </div>
+            {% if actual.went_to_penalties %}
+            <div class="mt-2 text-xs text-fg-muted text-center">
+                Penaltılarla: {{ actual.penalty_winner.code }} kazandı ({{ actual.home_penalties }}–{{ actual.away_penalties }})
+            </div>
+            {% endif %}
+        </div>
+
+        {% if not is_locked %}
+        <div class="rounded-2xl border border-line bg-surface p-6 text-center text-fg-muted">
+            Ganyan tablosu maç başlayınca (tahmin kilidi sonrası) görünür olacak.
+        </div>
+        {% else %}
+
+        {# Ganyan tablosu: per-criterion pool + prediction breakdown. #}
+        <section class="space-y-4 sm:space-y-6">
+            <h2 class="text-lg sm:text-xl font-semibold">Ganyan Tablosu</h2>
+            <p class="text-sm text-fg-muted">
+                Her kriter için sabit bir havuz var. Havuz, o kriteri doğru tutturanlar arasında eşit bölüşülür. Aynı tahmini yapan ne kadar çoksa kişi başı puan o kadar düşük.
+            </p>
+
+            {% for p in pools %}
+            <div class="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                    <div>
+                        <h3 class="text-base font-semibold">{{ p.label }}</h3>
+                        <div class="text-xs text-fg-muted mt-0.5">
+                            Havuz: <span class="font-mono">{{ p.pool.pool_size }}</span>
+                            · {{ p.pool.predictor_count }} tahmin
+                            {% if p.pool.winner_count %}· {{ p.pool.winner_count }} kazanan
+                            · Kişi başı <span class="font-mono">{{ p.pool.base_payout|floatformat:2 }}</span>
+                            {% elif actual and not p.pool.winner_count %}
+                            · <span class="text-danger">Havuz yandı</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {% if p.rows %}
+                <ul class="space-y-1.5">
+                    {% for r in p.rows %}
+                    <li class="flex items-center gap-3 py-1.5 px-2 rounded
+                        {% if actual and p.winning_key and r.key == p.winning_key %}bg-primary/10 border border-primary/30{% endif %}">
+                        <span class="font-mono text-sm shrink-0 w-28 sm:w-36">{{ r.display_key }}</span>
+                        <span class="text-xs text-fg-muted shrink-0">{{ r.count }} tahmin</span>
+                        <span class="flex-1"></span>
+                        <span class="font-mono text-sm text-fg-soft shrink-0">
+                            {% if actual %}
+                                {% if p.winning_key and r.key == p.winning_key %}
+                                    <span class="text-primary font-semibold">{{ p.pool.base_payout|floatformat:2 }} puan</span>
+                                {% else %}
+                                    <span class="text-fg-muted">—</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-fg-muted">tutarsa: {{ r.potential_payout|floatformat:2 }}</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-sm text-fg-muted">Bu kriter için tahmin yok.</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </section>
+
+        {% if user_payouts %}
+        <section class="mt-8">
+            <h2 class="text-lg sm:text-xl font-semibold mb-3">Oyuncu Puanları</h2>
+            <ul class="divide-y divide-line rounded-2xl border border-line bg-surface">
+                {% for entry in user_payouts %}
+                <li class="px-4 py-3 text-sm flex items-center gap-3">
+                    <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="text-fg-soft hover:text-primary truncate min-w-0 flex-1">
+                        {{ entry.user.nickname|default:entry.user.email }}
+                    </a>
+                    <span class="text-xs px-2 py-0.5 rounded-full border {{ entry.badge_cls }} shrink-0">{{ entry.label }}</span>
+                    <span class="text-xs text-fg-muted shrink-0">{{ entry.score.effective_round.name }}</span>
+                    <span class="font-mono font-semibold {% if entry.score.total > 0 %}text-primary{% else %}text-fg-muted{% endif %} w-16 text-right shrink-0">
+                        {{ entry.score.total|floatformat:2 }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

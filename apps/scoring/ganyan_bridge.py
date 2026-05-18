@@ -1,0 +1,99 @@
+"""Django ORM → ganyan engine bridge.
+
+Converts BracketSlot + SlotPrediction + ActualResult rows into the engine's
+dataclasses, runs `compute_slot`, and returns the per-user UserScore plus
+per-criterion PoolStats. The ORM upsert lives in `ganyan_cache.py`.
+"""
+
+from typing import Optional
+
+from django.contrib.auth import get_user_model
+
+from apps.predictions.models import SlotPrediction
+from apps.scoring import ganyan
+from apps.tournament.models import ActualResult, BracketSlot
+
+
+def _build_prediction(pred: SlotPrediction) -> ganyan.Prediction:
+    return ganyan.Prediction(
+        round_order=pred.prediction_round.order,
+        round_weight=pred.prediction_round.weight,
+        home_team=pred.home_team.code,
+        away_team=pred.away_team.code,
+        home_score=pred.home_score,
+        away_score=pred.away_score,
+        penalty_winner=pred.penalty_winner.code if pred.penalty_winner_id else None,
+    )
+
+
+def _build_result(actual: ActualResult) -> ganyan.Result:
+    return ganyan.Result(
+        home_team=actual.slot.home_team_actual.code if actual.slot.home_team_actual_id else "",
+        away_team=actual.slot.away_team_actual.code if actual.slot.away_team_actual_id else "",
+        home_score=actual.home_score,
+        away_score=actual.away_score,
+        went_to_penalties=actual.went_to_penalties,
+        penalty_winner=actual.penalty_winner.code if actual.penalty_winner_id else None,
+    )
+
+
+def _stage_pools(slot: BracketSlot) -> ganyan.StagePools:
+    s = slot.stage
+    return ganyan.StagePools(
+        pool_exact=s.pool_exact,
+        pool_diff=s.pool_diff,
+        pool_result=s.pool_result,
+        pool_penalty_pass=s.pool_penalty_pass,
+    )
+
+
+def _gather_predictions_by_user(slot: BracketSlot) -> dict[int, list[ganyan.Prediction]]:
+    preds = (
+        SlotPrediction.objects
+        .filter(slot=slot)
+        .select_related("home_team", "away_team", "penalty_winner", "prediction_round")
+    )
+    by_user: dict[int, list[ganyan.Prediction]] = {}
+    for p in preds:
+        by_user.setdefault(p.user_id, []).append(_build_prediction(p))
+    return by_user
+
+
+def compute_slot_scores(slot: BracketSlot) -> Optional[tuple[
+    dict[int, ganyan.UserScore], list[ganyan.PoolStats]
+]]:
+    """Run the ganyan engine for one slot.
+
+    Returns None if there is no actual result yet — caller treats this as
+    "no_result" (clears any old GanyanScore rows for this slot but writes
+    pre-result MatchPool rows via compute_pre_result_pools).
+    Returns ({}, [zero-stats]) if the slot has a result but nobody predicted.
+    """
+    actual = (
+        ActualResult.objects
+        .filter(slot=slot)
+        .select_related(
+            "slot__home_team_actual", "slot__away_team_actual", "penalty_winner",
+        )
+        .first()
+    )
+    if actual is None:
+        return None
+
+    predictions_by_user = _gather_predictions_by_user(slot)
+    pools = _stage_pools(slot)
+    result = _build_result(actual)
+
+    user_scores, pool_stats = ganyan.compute_slot(predictions_by_user, result, pools)
+    return user_scores, pool_stats
+
+
+def compute_pre_result_pools(slot: BracketSlot) -> list[ganyan.PoolStats]:
+    """Compute pre-result MatchPool stats from current predictions.
+
+    Used when a slot has predictions but no ActualResult yet — populates
+    MatchPool.breakdown so the ganyan tablosu UI can show counts.
+    """
+    predictions_by_user = _gather_predictions_by_user(slot)
+    pools = _stage_pools(slot)
+    return ganyan.compute_pre_result_pools(predictions_by_user, pools)

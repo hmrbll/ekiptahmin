@@ -49,24 +49,24 @@
                             {# Score + badge — top-right on mobile too so it's always visible #}
                             <div class="flex items-center gap-2 shrink-0">
                                 <span class="text-xs px-2 py-0.5 rounded-full border
-                                    {% if row.score.matchup_type == 'exact' %}bg-primary/10 border-primary/30 text-primary
-                                    {% elif row.score.matchup_type == 'diff' %}bg-success/10 border-success/30 text-success
-                                    {% elif row.score.matchup_type == 'result' %}bg-warning/10 border-warning/30 text-warning
-                                    {% elif row.score.matchup_type == 'penalty_loser_bonus' %}bg-accent/10 border-accent/30 text-accent
-                                    {% elif row.score.matchup_type == 'miss' %}bg-danger/10 border-danger/30 text-danger
+                                    {% if row.score.outcome == 'exact' %}bg-primary/10 border-primary/30 text-primary
+                                    {% elif row.score.outcome == 'diff' %}bg-success/10 border-success/30 text-success
+                                    {% elif row.score.outcome == 'result' %}bg-warning/10 border-warning/30 text-warning
+                                    {% elif row.score.outcome == 'penalty_pass' %}bg-accent/10 border-accent/30 text-accent
+                                    {% elif row.score.outcome == 'miss' %}bg-danger/10 border-danger/30 text-danger
                                     {% else %}bg-surface border-line text-fg-muted{% endif %}">
-                                    {% if row.score.matchup_type == 'exact' %}Tam skor
-                                    {% elif row.score.matchup_type == 'diff' %}Aynı fark
-                                    {% elif row.score.matchup_type == 'result' %}Doğru sonuç
-                                    {% elif row.score.matchup_type == 'penalty_loser_bonus' %}Penaltı bonusu
-                                    {% elif row.score.matchup_type == 'miss' %}Yanlış
-                                    {% elif row.score.matchup_type == 'no_prediction' %}Tahmin yok
-                                    {% elif row.score.matchup_type == 'no_result' %}Beklemede
+                                    {% if row.score.outcome == 'exact' %}Tam skor
+                                    {% elif row.score.outcome == 'diff' %}Aynı fark
+                                    {% elif row.score.outcome == 'result' %}Doğru sonuç
+                                    {% elif row.score.outcome == 'penalty_pass' %}Penaltı turlatan
+                                    {% elif row.score.outcome == 'miss' %}Yanlış
+                                    {% elif row.score.outcome == 'no_prediction' %}Tahmin yok
+                                    {% elif row.score.outcome == 'no_result' %}Beklemede
                                     {% endif %}
                                 </span>
                                 <span class="font-mono font-semibold text-sm
                                     {% if row.score.total > 0 %}text-primary
-                                    {% elif row.score.matchup_type == 'no_result' %}text-fg-muted
+                                    {% elif row.score.outcome == 'no_result' %}text-fg-muted
                                     {% else %}text-fg-muted{% endif %}">
                                     {{ row.score.total|floatformat:2 }}
                                 </span>
@@ -109,9 +109,12 @@
                                 {% endif %}
                             </div>
 
-                            {% if row.score.points_penalty %}
-                            <div class="text-xs text-fg-muted">
-                                Maç: {{ row.score.points_match|floatformat:2 }} · Pen: {{ row.score.points_penalty|floatformat:2 }}
+                            {% if row.score.total > 0 %}
+                            <div class="text-xs text-fg-muted flex flex-wrap gap-x-2 gap-y-0.5">
+                                {% if row.score.score_exact %}<span>Skor: <span class="font-mono">{{ row.score.score_exact|floatformat:2 }}</span></span>{% endif %}
+                                {% if row.score.score_diff %}<span>Fark: <span class="font-mono">{{ row.score.score_diff|floatformat:2 }}</span></span>{% endif %}
+                                {% if row.score.score_result %}<span>Sonuç: <span class="font-mono">{{ row.score.score_result|floatformat:2 }}</span></span>{% endif %}
+                                {% if row.score.score_penalty %}<span>Pen: <span class="font-mono">{{ row.score.score_penalty|floatformat:2 }}</span></span>{% endif %}
                             </div>
                             {% endif %}
                         </div>

@@ -34,7 +34,7 @@
                         {% for item in upcoming %}
                         <li class="rounded-xl border border-line bg-surface p-3" data-slot-position="{{ item.slot.position }}">
                             <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
-                                <span class="font-mono">{{ item.slot.display_position }}</span>
+                                <a href="{% url 'match_detail' item.slot.id %}" class="font-mono hover:text-primary transition">{{ item.slot.display_position }}</a>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M H:i" }}</span>
                             </div>
                             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
@@ -62,6 +62,9 @@
                             <div class="mt-2 flex flex-wrap gap-1">
                                 {% for chip in item.chips %}{% include "_prediction_chip.html" with chip=chip %}{% endfor %}
                             </div>
+                            <a href="{% url 'match_detail' item.slot.id %}" class="mt-2 inline-block text-[11px] text-primary hover:underline">
+                                Ganyan tablosu →
+                            </a>
                             {% endif %}
                         </li>
                         {% endfor %}
@@ -87,7 +90,7 @@
                         {% for item in recent %}
                         <li class="rounded-xl border border-line bg-surface p-3" data-slot-position="{{ item.slot.position }}">
                             <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
-                                <span class="font-mono">{{ item.slot.display_position }}</span>
+                                <a href="{% url 'match_detail' item.slot.id %}" class="font-mono hover:text-primary transition">{{ item.slot.display_position }}</a>
                                 <span>{{ item.slot.scheduled_kickoff|date:"d M" }}</span>
                             </div>
                             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
@@ -118,6 +121,9 @@
                                 {% for chip in item.chips %}{% include "_prediction_chip.html" with chip=chip %}{% endfor %}
                             </div>
                             {% endif %}
+                            <a href="{% url 'match_detail' item.slot.id %}" class="mt-2 inline-block text-[11px] text-primary hover:underline">
+                                Ganyan tablosu →
+                            </a>
                         </li>
                         {% endfor %}
                     </ul>

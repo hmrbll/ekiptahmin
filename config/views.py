@@ -1,12 +1,12 @@
-"""Project-level views (only the home page lives here)."""
+"""Project-level views (home + rules)."""
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 from apps.predictions.models import SlotPrediction
-from apps.scoring.leaderboard import leaderboard_for_tournament
-from apps.scoring.models import SlotScore
+from apps.scoring.ganyan_leaderboard import leaderboard_for_tournament
+from apps.scoring.models import GanyanScore, MatchPool
 from apps.tournament.models import ActualResult, BracketSlot, PredictionRound, Stage, Tournament
 
 # How many items each home-page module shows when there's enough data.
@@ -35,32 +35,32 @@ def _score_spectrum_key(home: int, away: int) -> tuple[int, int]:
 
 
 def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
-    """For each slot in `slot_ids`, return the list of "prediction chips"
-    — one per user who has a SlotScore on that slot.
+    """For each slot in `slot_ids`, return the list of "prediction chips" —
+    one per user whose prediction is visible.
 
-    Each chip carries the prediction's score, the user's nickname, and the
-    matchup_type used to colour-code it (None for pre-result matches).
-    When a user has multiple predictions across rounds, the displayed one
-    is the engine's "earning" prediction if any was correct, otherwise their
-    latest prediction.
+    Visibility rule: post-lock predictions are public. Pre-lock predictions
+    are hidden (slot.is_locked drives the chip set per slot).
 
-    Two queries total (one for scores, one for predictions) regardless of
-    how many slots/users are involved — the loops are pure Python.
+    Each chip carries the prediction's score, the user's nickname, and a
+    `matchup_type` for colour coding. After result entry the colour reflects
+    the user's GanyanScore.outcome; before result it's None (neutral chip).
     """
     if not slot_ids:
         return {}
 
-    scores = list(
-        SlotScore.objects
-        .filter(slot_id__in=slot_ids)
-        .exclude(matchup_type=SlotScore.NO_PREDICTION)
-        .select_related("user")
-    )
+    slots_by_id = {
+        s.id: s for s in BracketSlot.objects.filter(id__in=slot_ids).only(
+            "id", "scheduled_kickoff",
+        )
+    }
+    locked_slot_ids = [sid for sid, s in slots_by_id.items() if s.is_locked]
+    if not locked_slot_ids:
+        return {}
 
     preds = list(
         SlotPrediction.objects
-        .filter(slot_id__in=slot_ids)
-        .select_related("home_team", "away_team", "prediction_round")
+        .filter(slot_id__in=locked_slot_ids)
+        .select_related("user", "home_team", "away_team", "prediction_round")
         .order_by("slot_id", "user_id", "-prediction_round__order")
     )
     # Index: (slot, user) → ordered preds (latest first).
@@ -68,28 +68,40 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     for p in preds:
         preds_by_user.setdefault((p.slot_id, p.user_id), []).append(p)
 
+    # GanyanScore rows for the locked slots — only exist when a result is in.
+    ganyan_by_user_slot: dict[tuple[int, int], GanyanScore] = {
+        (gs.user_id, gs.slot_id): gs
+        for gs in GanyanScore.objects.filter(slot_id__in=locked_slot_ids)
+    }
+
     chips: dict[int, list[dict]] = {}
-    for ss in scores:
-        bucket = preds_by_user.get((ss.slot_id, ss.user_id), [])
-        if not bucket:
+    seen_user_slots: set[tuple[int, int]] = set()
+    for p in preds:
+        key = (p.slot_id, p.user_id)
+        if key in seen_user_slots:
             continue
-        # Earning round wins; otherwise fall back to the latest prediction.
-        display = bucket[0]
-        if ss.earning_round_order is not None:
-            for p in bucket:
-                if p.prediction_round.order == ss.earning_round_order:
-                    display = p
-                    break
-        match_type = ss.matchup_type if ss.matchup_type != SlotScore.NO_RESULT else None
-        chips.setdefault(ss.slot_id, []).append({
-            "user_id": ss.user_id,
-            "nickname": ss.user.nickname or ss.user.email,
+        seen_user_slots.add(key)
+        # Picked prediction: the user's effective_round if scored, else latest.
+        gs = ganyan_by_user_slot.get(key)
+        if gs and gs.effective_round_id is not None:
+            display = next(
+                (pp for pp in preds_by_user[key] if pp.prediction_round_id == gs.effective_round_id),
+                p,
+            )
+        else:
+            display = p  # latest (ordered desc)
+        match_type = gs.outcome if gs and gs.outcome not in (GanyanScore.NO_RESULT, GanyanScore.NO_PREDICTION) else None
+        user = display.user
+        nick = user.nickname or user.email
+        chips.setdefault(p.slot_id, []).append({
+            "user_id": user.id,
+            "nickname": nick,
             "home_score": display.home_score,
             "away_score": display.away_score,
             "matchup_type": match_type,
             "_sort": (
                 *_score_spectrum_key(display.home_score, display.away_score),
-                (ss.user.nickname or ss.user.email).lower(),
+                nick.lower(),
             ),
         })
 
@@ -157,12 +169,12 @@ def home(request: HttpRequest) -> HttpResponse:
         )
         .order_by("-slot__scheduled_kickoff")[:RESULTS_LIMIT]
     )
-    viewer_scores: dict[int, SlotScore] = {}
+    viewer_scores: dict[int, GanyanScore] = {}
     if viewer is not None:
         recent_slot_ids = [a.slot_id for a in recent_actuals]
         viewer_scores = {
             s.slot_id: s
-            for s in SlotScore.objects.filter(user=viewer, slot_id__in=recent_slot_ids)
+            for s in GanyanScore.objects.filter(user=viewer, slot_id__in=recent_slot_ids)
         }
     recent_chip_map = _chips_for_slots([a.slot_id for a in recent_actuals])
     recent = [
@@ -211,10 +223,11 @@ def rules(request: HttpRequest) -> HttpResponse:
         stages_view = [
             {
                 "name_tr": _STAGE_TR.get(s.kind, s.get_kind_display()),
-                "points_exact": s.points_exact,
-                "points_diff": s.points_diff,
-                "points_result": s.points_result,
-                "penalty_loser_pct": s.penalty_loser_pct,
+                "pool_exact": s.pool_exact,
+                "pool_diff": s.pool_diff,
+                "pool_result": s.pool_result,
+                "pool_penalty_pass": s.pool_penalty_pass,
+                "kind": s.kind,
             }
             for s in stages
         ]
