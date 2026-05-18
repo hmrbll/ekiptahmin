@@ -12,11 +12,11 @@
             <h1 class="text-2xl sm:text-3xl font-bold mb-2">Kurallar ve Puanlama</h1>
             <p class="text-fg-muted mb-8 sm:mb-10">{{ tournament.name|default:"2026 FIFA Dünya Kupası" }} · Tek sayfa, hepsi burada.</p>
 
-            <div class="space-y-12 text-sm sm:text-base leading-relaxed">
+            <div class="space-y-8 text-sm sm:text-base leading-relaxed">
 
                 {# ============ 1. Genel ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">1. Nasıl oynanır?</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">1. Nasıl oynanır?</h2>
                     <p class="text-fg-soft mb-3">
                         Her turda tüm turnuva bracketini tahmin ediyorsun. Klasik, maç başlayana kadar değil, tur başlayana kadar tahminleri yapmak gerekli.
                         Yani gruplardaki tüm maç skorlarını ve son 32'den finale kadar kim kimi eler, kim üçüncü olur, finalde skor ne olur — hepsini.
@@ -29,7 +29,7 @@
 
                 {# ============ 2. Tahmin turları ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">2. Tahmin turları</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">2. Tahmin turları</h2>
                     <p class="text-fg-soft mb-4">
                         Toplam <strong>{{ rounds|length }} tur</strong>. Her tur, ilgili aşamadaki ilk maçın başlamasıyla
                         kilitlenir. Sonrasında o turdaki tahminlerin görüntüleme modunda kalır — değiştiremezsin.
@@ -71,7 +71,7 @@
 
                 {# ============ 3. Hangi tahmin sayılır ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">3. Hangi tahmin sayılır</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">3. Hangi tahmin sayılır</h2>
                     <p class="text-fg-soft mb-3">
                         Bir maç oynandığında (örn. Brezilya–Arjantin Yarı Final 1), sistem o eşleşmeyi
                         doğru tahmin ettiğin <strong>tüm turlara</strong> bakar — her biri için ne kadar
@@ -98,7 +98,7 @@
 
                 {# ============ 4. Aşama puanları ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">4. Aşama puanları</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">4. Aşama puanları</h2>
                     <p class="text-fg-soft mb-3">
                         Her aşama farklı puana sahiptir. Tahmininin türü puanı belirler:
                     </p>
@@ -139,7 +139,7 @@
 
                 {# ============ 5. Penaltılar ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">5. Penaltılar</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">5. Penaltılar</h2>
                     <p class="text-fg-soft mb-3">
                         Eleme maçları normal süre + uzatma + penaltıyla biter. Tahminin penaltıya gittiği
                         durumla iki şekilde etkileşir:
@@ -166,7 +166,7 @@
 
                 {# ============ 6. Sıralama ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">6. Sıralama eşitlik kırıcıları</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">6. Sıralama eşitlik kırıcıları</h2>
                     <p class="text-fg-soft mb-3">
                         İki kişinin toplam puanı eşitse şu sırayla bakılır:
                     </p>
@@ -182,7 +182,7 @@
 
                 {# ============ 7. Gizlilik ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">7. Tahmin gizliliği</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">7. Tahmin gizliliği</h2>
                     <p class="text-fg-soft">
                         Tahminlerin, ilgili slot oynamaya başlayana kadar (kickoff anı) sadece sana
                         görünür. Maç başlar başlamaz o slot için tüm tahminler herkese açılır.
@@ -192,7 +192,7 @@
 
                 {# ============ 8. Hesap ve giriş ============ #}
                 <section>
-                    <h2 class="text-lg sm:text-xl font-semibold mb-4 text-fg">8. Hesap ve giriş</h2>
+                    <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">8. Hesap ve giriş</h2>
                     <p class="text-fg-soft mb-3">
                         Şifre yok — her girişte e-posta adresine tek seferlik bir "magic link" gönderilir.
                         Linke tıkla, giriş açıldı. 15 dakika sonra geçersiz olur.
