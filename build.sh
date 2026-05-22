@@ -37,4 +37,9 @@ python manage.py migrate --no-input
 echo "==> Seeding tournament data..."
 python manage.py seed_wc2026
 
+# Backfill ganyan caches — idempotent safety net for results entered before
+# the engine shipped, or any slot whose post_save signal got missed.
+echo "==> Recomputing ganyan caches..."
+python manage.py recompute_ganyan
+
 echo "==> Build complete."

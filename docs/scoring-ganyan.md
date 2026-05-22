@@ -161,7 +161,8 @@ Implementation deferred to a later phase but the data model must support it (com
 ## Migration / cutover
 
 - Existing `SlotScore` rows stay untouched (legacy continues to recompute).
-- For matches that already have `ActualResult` rows at migration time, a one-shot management command (`recompute_ganyan_scores`) populates `GanyanScore` + `MatchPool`.
+- For matches that already have `ActualResult` rows at migration time, a one-shot management command (`recompute_ganyan`) populates `GanyanScore` + `MatchPool`.
+- `build.sh` runs `recompute_ganyan` on every deploy as an idempotent safety net — covers results entered before the engine shipped and any slot whose `post_save` signal was missed.
 - WC2026 hasn't kicked off yet (May 2026), so the cutover affects test/seed data only.
 
 ## Open items (deferred)
