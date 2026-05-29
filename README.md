@@ -41,7 +41,7 @@ ekiptahmin.com/
 ├── theme/                      django-tailwind theme app
 │   └── static_src/             Tailwind source + npm config (brand palette)
 ├── static/                     Project static assets
-│   ├── brand/                  Logo/favicon/OG image set (Sunday Pitch v01)
+│   ├── brand/                  Logo/favicon/OG image set (Sunday Pitch v02 lockup)
 │   └── flags/                  Country flag SVGs
 ├── build.sh                    Render build script
 ├── render.yaml                 Render Blueprint
@@ -124,19 +124,20 @@ Staff users can render every email template with realistic dummy data at `/ops/e
 2. `pip install -r requirements.txt`
 3. `npm ci` + Tailwind production build
 4. `collectstatic` + `migrate`
+5. `seed_wc2026` (idempotent — re-syncs tournament fixtures from `data/wc2026/`)
+6. `recompute_ganyan` (idempotent — backfills `GanyanScore` + `MatchPool` for any slot whose post_save signal got missed)
 
-**First production deploy** also requires (run once via Render Shell):
+**First production deploy** only needs a superuser (everything else is in the build):
 
 ```bash
 python manage.py createsuperuser
-python manage.py seed_wc2026
 ```
 
 `RESEND_API_KEY` must be set manually in Render dashboard → Environment. Without it, the prod email backend is `dummy` (sign-up forms succeed but no mail is delivered).
 
 ## Theming
 
-Sunday Pitch palette (v01), **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500 (`#2E6B3F`) primary, clay-500 (`#C2683E`) accent. No dark mode — see project memory for the rationale.
+Sunday Pitch palette, **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500 (`#2E6B3F`) primary, clay-500 (`#C2683E`) accent. No dark mode — dark mode was attempted and dropped (flag/contrast issues + UA-level forced dark mode); `:root { color-scheme: only light; }` opts out at the browser level.
 
 - Tokens live as CSS variables in [theme/static_src/src/styles.css](theme/static_src/src/styles.css) (RGB triplets so Tailwind opacity modifiers work: `bg-primary/10`).
 - Tailwind config exposes both fixed scales (`pitch`, `clay`, `stone`, `success`, `warning`, `danger`) and semantic aliases (`page`, `surface`, `fg`, `fg-muted`, `line`, `primary`, `accent`, ...). Templates should prefer semantic names.

@@ -1,7 +1,7 @@
 # Ganyan Scoring (Parimutuel Pool Model)
 
-**Status:** Spec finalized 2026-05-18, implementation in progress.
-**Replaces:** The legacy bracket scoring (`apps/scoring/engine.py` + `SlotScore`) as the active scoring system. Legacy stays alive in parallel, staff-only.
+**Status:** Shipped 2026-05-18 (engine + cache + signals + public views). Active scoring system on `ekiptahmin.com`.
+**Replaces:** The legacy bracket scoring (`apps/scoring/engine.py` + `SlotScore`). Legacy stays alive in parallel under `/legacy/*` staff-only routes for calibration and reference.
 
 ## Concept
 

@@ -1,7 +1,9 @@
 """Staff-only preview views for email templates.
 
 Each preview renders a real template with realistic sample data so the
-production cron jobs (Dalga 1.3) can use the same templates without rework.
+production cron jobs (still TODO — render.yaml cron service + send_reminders
+/ send_daily_digest management commands) can use the same templates without
+rework.
 """
 from datetime import datetime, timedelta, timezone as dt_timezone
 
