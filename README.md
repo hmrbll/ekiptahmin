@@ -135,6 +135,27 @@ python manage.py createsuperuser
 
 `RESEND_API_KEY` must be set manually in Render dashboard → Environment. Without it, the prod email backend is `dummy` (sign-up forms succeed but no mail is delivered).
 
+### Launch / ops commands
+
+Run from **Render Shell** (these are one-shot operations, not part of the build):
+
+```bash
+python manage.py send_test_email you@example.com    # verify the email backend actually delivers
+
+# Wipe all test data before going live. Deletes non-staff users (CASCADE removes
+# their predictions/scores), clears staff users' predictions, wipes score caches.
+# Keeps staff accounts and invites. Dry-run by default.
+python manage.py reset_for_launch                    # preview
+python manage.py reset_for_launch --confirm          # execute
+
+# Bulk-create invites + email the welcome link to each address.
+# Skips already-registered emails and addresses with an active invite.
+python manage.py send_invites --emails "a@x.com,b@y.com" --dry-run
+python manage.py send_invites --file invites.txt     # one address per line ("email" or "email,note")
+```
+
+Do **not** add `reset_for_launch` to `build.sh` — it would wipe data on every deploy.
+
 ## Theming
 
 Sunday Pitch palette, **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500 (`#2E6B3F`) primary, clay-500 (`#C2683E`) accent. No dark mode — dark mode was attempted and dropped (flag/contrast issues + UA-level forced dark mode); `:root { color-scheme: only light; }` opts out at the browser level.
