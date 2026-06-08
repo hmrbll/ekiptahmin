@@ -50,3 +50,22 @@ def send_invite_welcome(invite) -> None:
         html=render_to_string("emails/invite_welcome.html", context),
         recipient=invite.email,
     )
+
+
+def send_onboarding_link(user, invite) -> None:
+    """Sent by the `onboard_players` command for a pre-created account. The
+    invite link logs the user straight in (no signup form), so the copy says
+    'your account is ready'. The link is long-lived and reusable — see
+    apps.accounts.views.invite_signup for the auto-login branch."""
+    invite_url = f"{settings.SITE_URL}/invite/{invite.code}/"
+    context = {
+        "nickname": user.nickname or user.email.split("@")[0],
+        "invite_url": invite_url,
+        "site_url": settings.SITE_URL,
+    }
+    _send(
+        subject="ekiptahmin.com — hesabın hazır, gir ve tahmin yap",
+        body=render_to_string("emails/onboarding.txt", context),
+        html=render_to_string("emails/onboarding.html", context),
+        recipient=user.email,
+    )

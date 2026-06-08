@@ -89,3 +89,27 @@ class TestInviteSignup:
         )
         assert r.status_code == 200
         assert not User.objects.filter(email="alice@example.com").exists()
+
+    def test_precreated_active_account_auto_logs_in(self, client, invite):
+        """Onboarding: a pre-created active account for the invite email is
+        logged straight in (no signup form), and the invite stays usable."""
+        user = User.objects.create(
+            email="alice@example.com", username="alice@example.com",
+            nickname="Alice", is_active=True,
+        )
+        r = client.get(reverse("invite_signup", args=[invite.code]))
+        assert r.status_code == 302
+        assert r.url.startswith(reverse("home"))
+        assert client.session.get("_auth_user_id") == str(user.pk)
+        # Reusable: the link didn't burn the invite.
+        invite.refresh_from_db()
+        assert invite.used_at is None
+
+    def test_precreated_inactive_account_still_shows_form(self, client, invite):
+        """An inactive account (not yet onboarded) must NOT auto-login."""
+        User.objects.create(
+            email="alice@example.com", username="alice@example.com",
+            nickname="Alice", is_active=False,
+        )
+        r = client.get(reverse("invite_signup", args=[invite.code]))
+        assert r.status_code == 200  # signup form, not a redirect

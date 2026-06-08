@@ -149,13 +149,26 @@ python manage.py send_test_email you@example.com    # verify the email backend a
 python manage.py reset_for_launch                    # preview
 python manage.py reset_for_launch --confirm          # execute
 
-# Bulk-create invites + email the welcome link to each address.
-# Skips already-registered emails and addresses with an active invite.
+# Bulk-create invites + email the welcome link to each address (self-signup:
+# the recipient picks their own nickname). Skips already-registered emails
+# and addresses with an active invite.
 python manage.py send_invites --emails "a@x.com,b@y.com" --dry-run
 python manage.py send_invites --file invites.txt     # one address per line ("email" or "email,note")
+
+# Pre-create accounts with nicknames YOU choose + email each a one-click
+# onboarding link. The link logs them straight in (no signup form, no 15-min
+# magic-link expiry) via the invite auto-login branch in accounts.views; it's
+# long-lived and reusable. Idempotent.
+python manage.py onboard_players --players "Ali:oyuncu1@x.com,Can:k@x.com" --dry-run
+python manage.py onboard_players --players "Ali:oyuncu1@x.com,Can:k@x.com"
 ```
 
 Do **not** add `reset_for_launch` to `build.sh` — it would wipe data on every deploy.
+
+> `send_invites` = self-signup (recipient chooses nickname). `onboard_players` =
+> you set the nickname and the link logs them in directly. A pre-created account's
+> invite link auto-logs-in (see `apps/accounts/views.py::invite_signup`); normal
+> invites with no account yet still show the signup form.
 
 ## Theming
 

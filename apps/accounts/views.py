@@ -35,6 +35,18 @@ def invite_signup(request: HttpRequest, code: str) -> HttpResponse:
     if not invite.is_valid:
         return render(request, "accounts/invite_invalid.html", {"invite": invite}, status=410)
 
+    # Onboarding flow: the invite is for an account we pre-created (nickname
+    # already set, is_active=True). Clicking the link logs them straight in —
+    # no signup form, no magic link, no 15-min expiry. The invite itself is
+    # long-lived and left unconsumed, so the link keeps working until it
+    # expires (whenever they click, they're in). Normal invites have no
+    # matching account yet and fall through to the signup form below.
+    if invite.email:
+        existing = User.objects.filter(email__iexact=invite.email, is_active=True).first()
+        if existing:
+            auth_login(request, existing, backend="django.contrib.auth.backends.ModelBackend")
+            return redirect(f"{reverse('home')}?event=login")
+
     if request.method == "POST":
         form = SignupForm(request.POST, invite=invite)
         if form.is_valid():
