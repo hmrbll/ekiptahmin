@@ -1,12 +1,8 @@
-Hesabın hazır, {{ nickname }} — ekiptahmin.com
+{{ nickname }}, ekiptahmin.com hesabın hazır
 
-Selam {{ nickname }}! Seni 2026 Dünya Kupası tahmin yarışmasına ekledim. Hesabın hazır, kayıt formu falan yok.
-
-Tek yapman gereken aşağıdaki linke tıklamak — direkt giriş yaparsın, sonra tahminlerini gir:
+Tahminlere başlıyoruz, buradan giriş yapabilirsin:
 
 {{ invite_url }}
-
-Bu linkin süresi yok, ne zaman tıklarsan giriş yaparsın. Sadece dikkat: gruplardan finale kadar tüm tahminlerin ilk maç başlamadan girilmeli, yani acele et :)
 
 Kurallar ve puanlama: {{ site_url }}/rules/
 

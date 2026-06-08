@@ -58,13 +58,14 @@ def send_onboarding_link(user, invite) -> None:
     'your account is ready'. The link is long-lived and reusable — see
     apps.accounts.views.invite_signup for the auto-login branch."""
     invite_url = f"{settings.SITE_URL}/invite/{invite.code}/"
+    nickname = user.nickname or user.email.split("@")[0]
     context = {
-        "nickname": user.nickname or user.email.split("@")[0],
+        "nickname": nickname,
         "invite_url": invite_url,
         "site_url": settings.SITE_URL,
     }
     _send(
-        subject="ekiptahmin.com — hesabın hazır, gir ve tahmin yap",
+        subject=f"{nickname}, ekiptahmin.com hesabın hazır",
         body=render_to_string("emails/onboarding.txt", context),
         html=render_to_string("emails/onboarding.html", context),
         recipient=user.email,
