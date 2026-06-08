@@ -69,8 +69,9 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
         preds_by_user.setdefault((p.slot_id, p.user_id), []).append(p)
 
     # GanyanScore rows for the locked slots — only exist when a result is in.
+    # Keyed (slot_id, user_id) to match the per-prediction `key` used below.
     ganyan_by_user_slot: dict[tuple[int, int], GanyanScore] = {
-        (gs.user_id, gs.slot_id): gs
+        (gs.slot_id, gs.user_id): gs
         for gs in GanyanScore.objects.filter(slot_id__in=locked_slot_ids)
     }
 

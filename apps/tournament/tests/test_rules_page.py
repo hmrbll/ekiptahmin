@@ -45,9 +45,8 @@ def test_rules_page_renders_for_active_tournament(client, seeded_tournament):
     assert "Kurallar ve Puanlama" in body
     # Round name comes from DB
     assert "Pre-turnuva" in body
-    # Stage point figures come from DB (group exact=6, final exact=20)
-    assert ">6<" in body
-    assert ">20<" in body
+    # Stage ganyan pool figures come from DB (uniform 100 per regulation criterion).
+    assert ">100<" in body
     # Stage label is translated to TR
     assert "Grup aşaması" in body
     # Round weight is rendered (Django TR locale uses comma)

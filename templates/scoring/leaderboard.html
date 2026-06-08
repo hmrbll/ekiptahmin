@@ -22,7 +22,7 @@
                     <span class="bg-primary/15 text-primary px-1.5 py-1 rounded" aria-label="Doğru Skor">{{ row.exact }}</span>
                     <span class="bg-success/15 text-success px-1.5 py-1 rounded" aria-label="Doğru Fark">{{ row.diff }}</span>
                     <span class="bg-warning/15 text-warning px-1.5 py-1 rounded" aria-label="Doğru Sonuç">{{ row.result }}</span>
-                    <span class="bg-accent/15 text-accent px-1.5 py-1 rounded" aria-label="Penaltı turlatan">{{ row.penalty }}</span>
+                    <span class="bg-accent/15 text-accent px-1.5 py-1 rounded" aria-label="Penaltı">{{ row.penalty }}</span>
                     <span class="bg-danger/15 text-danger px-1.5 py-1 rounded" aria-label="Yanlış">{{ row.wrong }}</span>
                 </div>
                 <span class="font-mono text-sm font-semibold text-fg shrink-0 w-12 text-right">{{ row.total|floatformat:2 }}</span>
@@ -49,7 +49,7 @@
                         <th class="text-right px-4 py-3 font-medium text-primary/80">Doğru Skor</th>
                         <th class="text-right px-4 py-3 font-medium text-success/90">Doğru Fark</th>
                         <th class="text-right px-4 py-3 font-medium text-warning/90">Doğru Sonuç</th>
-                        <th class="text-right px-4 py-3 font-medium text-accent/90">Penaltı turlatan</th>
+                        <th class="text-right px-4 py-3 font-medium text-accent/90">Penaltı</th>
                         <th class="text-right px-4 py-3 font-medium text-danger/90">Yanlış</th>
                     </tr>
                 </thead>

@@ -238,28 +238,25 @@ class TestUserDetailView:
             user=owner, prediction_round=pre_round, slot=slot1,
             home_team=tur, away_team=bra, home_score=2, away_score=1,
         )
-        # No ActualResult and kickoff is in the future → slot not locked.
+        # No ActualResult and kickoff is in the future → slot not locked and
+        # unscored, so it doesn't appear on the score sheet at all.
         r = client.get(reverse("leaderboard_user_detail", args=[owner.id]))
+        assert r.status_code == 200
         body = r.content.decode("utf-8")
-        assert "kilit sonrası görünür" in body
-        # The prediction's actual score (2–1) should NOT leak into the page.
+        # The prediction's score (2–1) must NOT leak to a non-owner viewer.
         assert "2–1" not in body
 
     def test_renders_user_breakdown_with_score_badges(
-        self, client, t, pre_round, slot1, slot2, tur, bra,
+        self, client, t, pre_round, slot1, tur, bra,
     ):
         u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
-        # Exact on slot1, miss (no prediction) on slot2.
+        # Exact prediction on slot1. (The ganyan score sheet only lists slots
+        # the user actually predicted+scored — unpredicted slots don't appear.)
         SlotPrediction.objects.create(
             user=u, prediction_round=pre_round, slot=slot1,
             home_team=tur, away_team=bra, home_score=2, away_score=1,
         )
         ActualResult.objects.create(slot=slot1, home_score=2, away_score=1)
-        ActualResult.objects.create(slot=slot2, home_score=1, away_score=1)
-        # Force a SlotScore for slot2 (no prediction → no_prediction row needs
-        # to be created via recompute since there's no SlotPrediction signal).
-        from apps.scoring.cache import recompute_slot_for_user
-        recompute_slot_for_user(u, slot2)
 
         client.force_login(u)
         r = client.get(reverse("leaderboard_user_detail", args=[u.id]))
@@ -270,9 +267,6 @@ class TestUserDetailView:
         # Slot1 should appear with an "exact" badge somewhere.
         assert b"GroupA-M1" in r.content
         assert "Tam skor".encode("utf-8") in r.content
-        # Slot2 (no prediction yet) gets the "Tahmin yok" badge.
-        assert b"GroupA-M2" in r.content
-        assert "Tahmin yok".encode("utf-8") in r.content
 
     def test_renders_empty_state_for_user_with_no_scores(
         self, client, t,
@@ -391,7 +385,7 @@ class TestLeaderboardCountColumns:
         # Header columns appear with Hemre's wording.
         for col in [
             "Toplam Puan", "Doğru Skor", "Doğru Fark", "Doğru Sonuç",
-            "Penaltı Bonus", "Yanlış", "Tahmin Yapmadı",
+            "Penaltı", "Yanlış",
         ]:
             assert col in body, col
 

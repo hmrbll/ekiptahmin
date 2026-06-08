@@ -202,9 +202,10 @@ class TestHomeAuthenticated:
         r = client.get(reverse("home"))
         body = r.content.decode("utf-8")
         assert "GroupA-M1" in body
-        # `floatformat` renders 6.00 as "6,00" under tr locale.
+        # Ganyan: sole predictor hits exact → exact+diff+result pools all pay
+        # the full 100 each = 300.00 (tr locale renders the comma).
         assert "Aldığın" in body
-        assert "6,00" in body
+        assert "300,00" in body
 
     def test_leaderboard_module_lists_top_users_with_highlight(
         self, client, t, group_stage, pre_round, tur, bra,
@@ -235,10 +236,10 @@ class TestHomeAuthenticated:
     ):
         """Predicted scores order as 4-1, 3-0, 2-2, 1-1, 0-1, 1-2 — i.e. from
         biggest home margin (with bigger gf first) through draws to growing
-        away margins.
+        away margins. Chips are post-lock only, so this uses a played match.
         """
         slot = _slot(t, group_stage, "GroupA-M1",
-                     timezone.now() + timedelta(days=1), tur, bra)
+                     timezone.now() - timedelta(days=1), tur, bra)
         score_to_nick = [
             ((4, 1), "U41"),
             ((3, 0), "U30"),
@@ -255,6 +256,7 @@ class TestHomeAuthenticated:
                 user=u, prediction_round=pre_round, slot=slot,
                 home_team=tur, away_team=bra, home_score=h, away_score=a,
             )
+        ActualResult.objects.create(slot=slot, home_score=1, away_score=1)
 
         viewer = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
         client.force_login(viewer)
@@ -265,16 +267,17 @@ class TestHomeAuthenticated:
         assert all(p > 0 for p in positions), positions
         assert positions == sorted(positions), positions
 
-    def test_upcoming_match_lists_all_user_prediction_chips(
+    def test_played_match_lists_all_user_prediction_chips(
         self, client, t, group_stage, pre_round, tur, bra,
     ):
-        """Each upcoming match in the home module shows a chip for every user
-        who has predicted it, including users other than the viewer.
+        """A played (post-lock) match's chip list shows a chip for every user
+        who predicted it, including users other than the viewer. (Pre-lock
+        matches hide others' predictions — see test_guest_does_not_see_*.)
         """
         me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
         rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
         slot = _slot(t, group_stage, "GroupA-M1",
-                     timezone.now() + timedelta(days=1), tur, bra)
+                     timezone.now() - timedelta(days=1), tur, bra)
         SlotPrediction.objects.create(
             user=me, prediction_round=pre_round, slot=slot,
             home_team=tur, away_team=bra, home_score=2, away_score=1,
@@ -283,6 +286,7 @@ class TestHomeAuthenticated:
             user=rival, prediction_round=pre_round, slot=slot,
             home_team=tur, away_team=bra, home_score=3, away_score=0,
         )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
         client.force_login(me)
         r = client.get(reverse("home"))
         body = r.content.decode("utf-8")
