@@ -6,7 +6,10 @@ Tiebreaker chain (per docs/scoring-ganyan.md):
 3. Diff hits (weighted) (desc)
 4. Result hits (weighted) (desc)
 5. Wrong-prediction count (asc — fewer 0-point predictions ranks higher)
-6. Earliest prediction (asc by effective-round-prediction created_at)
+
+Users tied on all five share a rank. Among them the display order is
+alphabetical by nickname — a stable, meaning-free fallback; a genuine tie is
+resolved manually during the tournament if it ever actually matters.
 """
 
 from dataclasses import dataclass
@@ -15,7 +18,6 @@ from typing import Optional
 
 from django.contrib.auth import get_user_model
 
-from apps.predictions.models import SlotPrediction
 from apps.tournament.models import PredictionRound, Tournament
 
 from .models import GanyanScore
@@ -32,7 +34,6 @@ TIEBREAKER_LABELS = [
     "ağırlıklı doğru fark sayısı",
     "ağırlıklı doğru sonuç sayısı",
     "az yanlış (sıfır puanlı maç)",
-    "erken tahmin",
 ]
 
 
@@ -60,17 +61,6 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboard
         .distinct()
     )
     users = {u.id: u for u in User.objects.filter(id__in=user_ids)}
-
-    # Pre-fetch earliest-prediction timestamps for layer 6 tiebreaker.
-    earliest_pred_by_user: dict[int, Optional[object]] = {}
-    if user_ids:
-        for p in (
-            SlotPrediction.objects
-            .filter(user_id__in=user_ids, slot__tournament=tournament)
-            .order_by("user_id", "created_at")
-            .only("user_id", "created_at")
-        ):
-            earliest_pred_by_user.setdefault(p.user_id, p.created_at)
 
     entries: list[GanyanLeaderboardEntry] = []
     for uid, user in users.items():
@@ -107,8 +97,6 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboard
                 weighted_result += weight
             wrong += s.wrong_count_contribution
 
-        earliest = earliest_pred_by_user.get(uid)
-
         entries.append(GanyanLeaderboardEntry(
             user=user,
             rank=0,
@@ -122,19 +110,20 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboard
             },
             # Layers 1-4: higher = better → negate for ascending sort key.
             # Layer 5: lower wrong = better → already ascending.
-            # Layer 6: earlier = better → already ascending.
             tiebreakers=(
                 -total,
                 -weighted_exact,
                 -weighted_diff,
                 -weighted_result,
                 wrong,
-                earliest if earliest is not None else _FAR_FUTURE,
             ),
             nickname=getattr(user, "nickname", "") or user.email,
         ))
 
-    entries.sort(key=lambda e: e.tiebreakers)
+    # Sort by the ranked tiebreakers, then alphabetically by nickname as a
+    # stable display fallback. Nickname is NOT part of the rank key below, so
+    # users equal on all five criteria still share a rank.
+    entries.sort(key=lambda e: (e.tiebreakers, e.nickname.lower()))
 
     # Competition ranking: identical tiebreaker tuples share a rank.
     prev_tb: Optional[tuple] = None
@@ -147,11 +136,6 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboard
             prev_rank = idx
             prev_tb = e.tiebreakers
     return entries
-
-
-# Sentinel for users with no SlotPrediction rows — sorts last on layer 6.
-import datetime as _dt
-_FAR_FUTURE = _dt.datetime(9999, 12, 31, tzinfo=_dt.timezone.utc)
 
 
 def describe_ties(entries: list[GanyanLeaderboardEntry]) -> list[str]:
@@ -173,7 +157,7 @@ def describe_ties(entries: list[GanyanLeaderboardEntry]) -> list[str]:
 
         differing_indices: list[int] = []
         for a, b in zip(group, group[1:]):
-            for idx in range(1, 6):  # idx 0 is total; group is already total-equal
+            for idx in range(1, 5):  # idx 0 is total; group is already total-equal
                 if a.tiebreakers[idx] != b.tiebreakers[idx]:
                     differing_indices.append(idx)
                     break
@@ -181,7 +165,8 @@ def describe_ties(entries: list[GanyanLeaderboardEntry]) -> list[str]:
         if not differing_indices:
             names = ", ".join(e.nickname for e in group)
             notes.append(
-                f"{names}: {group[0].total} puanla eşit — tüm kriterlerde de eşit, ortak sıra."
+                f"{names}: {group[0].total} puanla eşit — tüm kriterlerde de eşit, "
+                f"alfabetik sıralandı (gerçek eşitlik turnuvada değerlendirilir)."
             )
             continue
 

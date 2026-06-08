@@ -84,7 +84,10 @@ For the leaderboard, sort by (descending unless noted):
 3. Diff hit count (weighted)
 4. Result hit count (weighted)
 5. **Wrong-prediction count** — *ascending* (fewer 0-point predicted matches up top). Only matches the user predicted are counted; missing predictions do not count as "wrong".
-6. Earliest prediction (`SlotPrediction.created_at` of effective round, ascending).
+
+Note that layers 2–4 are *weighted* by the effective round's weight, so the same number of correct calls made in earlier (higher-weight) rounds already ranks ahead — that's where early-round correctness is rewarded, not via a clock-time layer.
+
+Users equal on all five layers **share a rank**. The display order among them is alphabetical by nickname — a stable, meaning-free fallback; a real tie is resolved manually during the tournament if it ever matters. (There is no clock-time "who submitted first" tiebreaker.)
 
 ## Data model
 
