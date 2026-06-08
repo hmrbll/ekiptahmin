@@ -143,8 +143,9 @@ Run from **Render Shell** (these are one-shot operations, not part of the build)
 python manage.py send_test_email you@example.com    # verify the email backend actually delivers
 
 # Wipe all test data before going live. Deletes non-staff users (CASCADE removes
-# their predictions/scores), clears staff users' predictions, wipes score caches.
-# Keeps staff accounts and invites. Dry-run by default.
+# their predictions/scores), clears staff users' predictions, wipes score caches,
+# deletes all match results (ActualResult) and reverts resolved knockout teams to
+# NULL. Keeps staff accounts and invites. Idempotent; dry-run by default.
 python manage.py reset_for_launch                    # preview
 python manage.py reset_for_launch --confirm          # execute
 

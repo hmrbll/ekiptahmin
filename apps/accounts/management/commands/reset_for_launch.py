@@ -9,6 +9,9 @@ What it does:
 - Wipes all score caches (GanyanScore, SlotScore, MatchPool). With no
   predictions left these would be stale anyway; recompute_ganyan on the next
   deploy rebuilds them empty.
+- Deletes all ActualResult rows and clears knockout slots' resolved teams
+  (home_team_actual / away_team_actual) back to NULL. Group slots keep their
+  seeded teams.
 
 Invites are left untouched (send fresh ones with `send_invites`).
 
@@ -25,6 +28,7 @@ from django.db import transaction
 
 from apps.predictions.models import BracketCompletionEvent, SlotPrediction
 from apps.scoring.models import GanyanScore, MatchPool, SlotScore
+from apps.tournament.models import ActualResult, BracketSlot
 
 
 class Command(BaseCommand):
@@ -56,6 +60,8 @@ class Command(BaseCommand):
         self.stdout.write(f"  GanyanScore           : {GanyanScore.objects.count()}")
         self.stdout.write(f"  SlotScore             : {SlotScore.objects.count()}")
         self.stdout.write(f"  MatchPool             : {MatchPool.objects.count()}")
+        self.stdout.write(f"  ActualResult          : {ActualResult.objects.count()}")
+        self.stdout.write(f"  Knockout slots w/ resolved teams: {self._resolved_knockout_qs().count()}")
 
         if not keep_users:
             self.stdout.write(self.style.ERROR(
@@ -77,7 +83,13 @@ class Command(BaseCommand):
             events = BracketCompletionEvent.objects.filter(user_id__in=keep_ids).delete()[0]
             # Delete non-staff users (CASCADE removes their predictions/scores).
             removed_users = User.objects.filter(is_staff=False).delete()[0]
+            # Delete actual results + revert resolved knockout teams to NULL.
+            results = ActualResult.objects.all().delete()[0]
+            knockout_reset = self._resolved_knockout_qs().update(
+                home_team_actual=None, away_team_actual=None,
+            )
             # Wipe all score caches — no predictions remain, so these are stale.
+            # (ActualResult delete fires recompute signals; this wipe is the final word.)
             GanyanScore.objects.all().delete()
             SlotScore.objects.all().delete()
             MatchPool.objects.all().delete()
@@ -86,10 +98,23 @@ class Command(BaseCommand):
         self.stdout.write(f"  Kept users' predictions deleted : {preds}")
         self.stdout.write(f"  Kept users' completion events   : {events}")
         self.stdout.write(f"  Objects removed with non-staff users (incl. CASCADE): {removed_users}")
+        self.stdout.write(f"  ActualResult rows deleted       : {results}")
+        self.stdout.write(f"  Knockout slots reverted to NULL : {knockout_reset}")
         self.stdout.write(self.style.MIGRATE_HEADING("Rows after"))
         self.stdout.write(f"  SlotPrediction        : {SlotPrediction.objects.count()}")
         self.stdout.write(f"  BracketCompletionEvent: {BracketCompletionEvent.objects.count()}")
         self.stdout.write(f"  GanyanScore           : {GanyanScore.objects.count()}")
         self.stdout.write(f"  SlotScore             : {SlotScore.objects.count()}")
         self.stdout.write(f"  MatchPool             : {MatchPool.objects.count()}")
-        self.stdout.write(self.style.SUCCESS("\nClean slate ready. Staff accounts kept, predictions cleared."))
+        self.stdout.write(f"  ActualResult          : {ActualResult.objects.count()}")
+        self.stdout.write(f"  Knockout slots w/ resolved teams: {self._resolved_knockout_qs().count()}")
+        self.stdout.write(self.style.SUCCESS("\nClean slate ready. Staff accounts kept; predictions + results cleared."))
+
+    @staticmethod
+    def _resolved_knockout_qs():
+        """Knockout slots (non-GROUP) that currently have at least one resolved team."""
+        from django.db.models import Q
+
+        return BracketSlot.objects.exclude(stage__kind="GROUP").filter(
+            Q(home_team_actual__isnull=False) | Q(away_team_actual__isnull=False)
+        )
