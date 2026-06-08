@@ -52,13 +52,13 @@
                                     {% if row.score.outcome == 'exact' %}bg-primary/10 border-primary/30 text-primary
                                     {% elif row.score.outcome == 'diff' %}bg-success/10 border-success/30 text-success
                                     {% elif row.score.outcome == 'result' %}bg-warning/10 border-warning/30 text-warning
-                                    {% elif row.score.outcome == 'penalty_pass' %}bg-accent/10 border-accent/30 text-accent
+                                    {% elif row.score.outcome == 'penalty' %}bg-accent/10 border-accent/30 text-accent
                                     {% elif row.score.outcome == 'miss' %}bg-danger/10 border-danger/30 text-danger
                                     {% else %}bg-surface border-line text-fg-muted{% endif %}">
                                     {% if row.score.outcome == 'exact' %}Tam skor
                                     {% elif row.score.outcome == 'diff' %}Aynı fark
                                     {% elif row.score.outcome == 'result' %}Doğru sonuç
-                                    {% elif row.score.outcome == 'penalty_pass' %}Penaltı turlatan
+                                    {% elif row.score.outcome == 'penalty' %}Penaltı
                                     {% elif row.score.outcome == 'miss' %}Yanlış
                                     {% elif row.score.outcome == 'no_prediction' %}Tahmin yok
                                     {% elif row.score.outcome == 'no_result' %}Beklemede

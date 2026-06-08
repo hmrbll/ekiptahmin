@@ -226,7 +226,9 @@ def rules(request: HttpRequest) -> HttpResponse:
                 "pool_exact": s.pool_exact,
                 "pool_diff": s.pool_diff,
                 "pool_result": s.pool_result,
-                "pool_penalty_pass": s.pool_penalty_pass,
+                "pool_penalty_winner": s.pool_penalty_winner,
+                "pool_penalty_score": s.pool_penalty_score,
+                "pool_penalty_diff": s.pool_penalty_diff,
                 "kind": s.kind,
             }
             for s in stages

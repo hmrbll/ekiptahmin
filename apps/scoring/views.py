@@ -34,7 +34,7 @@ _OUTCOME_BADGE = {
     GanyanScore.EXACT: ("Tam skor", "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"),
     GanyanScore.DIFF: ("Aynı fark", "bg-sky-400/10 border-sky-400/30 text-sky-300"),
     GanyanScore.RESULT: ("Doğru sonuç", "bg-indigo-400/10 border-indigo-400/30 text-indigo-300"),
-    GanyanScore.PENALTY_PASS: ("Penaltı turlatan", "bg-amber-400/10 border-amber-400/30 text-amber-300"),
+    GanyanScore.PENALTY: ("Penaltı", "bg-amber-400/10 border-amber-400/30 text-amber-300"),
     GanyanScore.MISS: ("Yanlış", "bg-rose-500/10 border-rose-500/30 text-rose-300"),
     GanyanScore.NO_PREDICTION: ("Tahmin yok", "bg-white/5 border-white/10 text-slate-500"),
 }
@@ -57,7 +57,7 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
             "exact": c.get(GanyanScore.EXACT, 0),
             "diff": c.get(GanyanScore.DIFF, 0),
             "result": c.get(GanyanScore.RESULT, 0),
-            "penalty": c.get(GanyanScore.PENALTY_PASS, 0),
+            "penalty": c.get(GanyanScore.PENALTY, 0),
             "wrong": c.get(GanyanScore.MISS, 0),
             "score_breakdown": e.score_breakdown,
         })
@@ -217,8 +217,13 @@ _CRITERION_LABEL_TR = {
     MatchPool.EXACT: "Tam skor",
     MatchPool.DIFF: "Doğru fark",
     MatchPool.RESULT: "Doğru sonuç",
-    MatchPool.PENALTY_PASS: "Penaltı turlatan",
+    MatchPool.PENALTY_WINNER: "Penaltı turlatan",
+    MatchPool.PENALTY_SCORE: "Penaltı skoru",
+    MatchPool.PENALTY_DIFF: "Penaltı farkı",
 }
+
+# Penalty criteria only render once a KO match has gone to penalties.
+_PENALTY_CRITERIA = (MatchPool.PENALTY_WINNER, MatchPool.PENALTY_SCORE, MatchPool.PENALTY_DIFF)
 
 # Result direction key → TR label for the "result" criterion breakdown.
 _RESULT_KEY_TR = {"H": "Ev sahibi kazanır", "A": "Deplasman kazanır", "D": "Berabere"}
@@ -262,7 +267,10 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
         MatchPool.objects.filter(slot=slot)
     )
     # Sort criteria in the order we display them.
-    criterion_order = [MatchPool.EXACT, MatchPool.DIFF, MatchPool.RESULT, MatchPool.PENALTY_PASS]
+    criterion_order = [
+        MatchPool.EXACT, MatchPool.DIFF, MatchPool.RESULT,
+        MatchPool.PENALTY_WINNER, MatchPool.PENALTY_SCORE, MatchPool.PENALTY_DIFF,
+    ]
     pools_by_criterion = {p.criterion: p for p in pools}
 
     pools_view = []
@@ -270,10 +278,8 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
         p = pools_by_criterion.get(c)
         if p is None:
             continue
-        # Penalty pool only relevant on KO matches that went to penalties.
-        if c == MatchPool.PENALTY_PASS and (
-            slot.stage.kind == "GROUP" or (actual is not None and not actual.went_to_penalties)
-        ):
+        # Penalty pools only render once the match has actually gone to penalties.
+        if c in _PENALTY_CRITERIA and not (actual is not None and actual.went_to_penalties):
             continue
         pools_view.append({
             "criterion": c,
@@ -324,6 +330,14 @@ def _winning_breakdown_key(criterion: str, slot: BracketSlot, actual: ActualResu
         if actual.home_score < actual.away_score:
             return "A"
         return "D"
-    if criterion == MatchPool.PENALTY_PASS:
+    if criterion == MatchPool.PENALTY_WINNER:
         return actual.penalty_winner.code if actual.penalty_winner_id else ""
+    if criterion == MatchPool.PENALTY_SCORE:
+        if actual.home_penalties is None or actual.away_penalties is None:
+            return ""
+        return f"{actual.home_penalties}-{actual.away_penalties}"
+    if criterion == MatchPool.PENALTY_DIFF:
+        if actual.home_penalties is None or actual.away_penalties is None:
+            return ""
+        return str(actual.home_penalties - actual.away_penalties)
     return ""

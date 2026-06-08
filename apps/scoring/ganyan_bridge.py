@@ -23,6 +23,8 @@ def _build_prediction(pred: SlotPrediction) -> ganyan.Prediction:
         home_score=pred.home_score,
         away_score=pred.away_score,
         penalty_winner=pred.penalty_winner.code if pred.penalty_winner_id else None,
+        home_penalties=pred.home_penalties,
+        away_penalties=pred.away_penalties,
     )
 
 
@@ -34,6 +36,8 @@ def _build_result(actual: ActualResult) -> ganyan.Result:
         away_score=actual.away_score,
         went_to_penalties=actual.went_to_penalties,
         penalty_winner=actual.penalty_winner.code if actual.penalty_winner_id else None,
+        home_penalties=actual.home_penalties,
+        away_penalties=actual.away_penalties,
     )
 
 
@@ -43,7 +47,9 @@ def _stage_pools(slot: BracketSlot) -> ganyan.StagePools:
         pool_exact=s.pool_exact,
         pool_diff=s.pool_diff,
         pool_result=s.pool_result,
-        pool_penalty_pass=s.pool_penalty_pass,
+        pool_penalty_winner=s.pool_penalty_winner,
+        pool_penalty_score=s.pool_penalty_score,
+        pool_penalty_diff=s.pool_penalty_diff,
     )
 
 

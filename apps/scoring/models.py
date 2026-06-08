@@ -84,11 +84,12 @@ class GanyanScore(models.Model):
     engine, but with payouts coming from shared pools rather than fixed values.
     """
 
-    # Outcome of the user-vs-slot pairing — drives UI labelling.
+    # Outcome of the user-vs-slot pairing — drives UI labelling. The three
+    # penalty criteria collapse to one PENALTY tier for this headline badge.
     EXACT = "exact"
     DIFF = "diff"
     RESULT = "result"
-    PENALTY_PASS = "penalty_pass"
+    PENALTY = "penalty"
     MISS = "miss"                  # predicted, scored zero
     NO_PREDICTION = "no_prediction"
     NO_RESULT = "no_result"
@@ -96,7 +97,7 @@ class GanyanScore(models.Model):
         (EXACT, "Exact score"),
         (DIFF, "Correct goal difference"),
         (RESULT, "Correct outcome"),
-        (PENALTY_PASS, "Penalty advancer (KO only)"),
+        (PENALTY, "Penalty shootout only (KO)"),
         (MISS, "Wrong / no points"),
         (NO_PREDICTION, "No prediction"),
         (NO_RESULT, "Actual result not entered"),
@@ -114,6 +115,9 @@ class GanyanScore(models.Model):
     )
 
     # Per-criterion payouts (already weighted by effective round weight).
+    # score_penalty is the combined payout from the three penalty criteria
+    # (winner + shootout score + shootout diff); the per-criterion split lives
+    # in MatchPool for the match-detail ganyan tablosu.
     score_exact = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     score_diff = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     score_result = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -167,12 +171,16 @@ class MatchPool(models.Model):
     EXACT = "exact"
     DIFF = "diff"
     RESULT = "result"
-    PENALTY_PASS = "penalty_pass"
+    PENALTY_WINNER = "penalty_winner"
+    PENALTY_SCORE = "penalty_score"
+    PENALTY_DIFF = "penalty_diff"
     CRITERION_CHOICES = [
         (EXACT, "Exact score"),
         (DIFF, "Goal difference"),
         (RESULT, "Outcome (1X2)"),
-        (PENALTY_PASS, "Penalty advancer"),
+        (PENALTY_WINNER, "Penalty advancer"),
+        (PENALTY_SCORE, "Penalty shootout exact score"),
+        (PENALTY_DIFF, "Penalty shootout difference"),
     ]
 
     slot = models.ForeignKey(
@@ -202,7 +210,8 @@ class MatchPool(models.Model):
     # JSON shape: {"1-0": 7, "2-1": 3, "2-0": 2} for EXACT;
     # {"1": 12, "2": 3, "0": 1} for DIFF (signed diff: home - away);
     # {"H": 9, "A": 4, "D": 1} for RESULT;
-    # {"BRA": 5, "ARG": 3} for PENALTY_PASS.
+    # {"BRA": 5, "ARG": 3} for PENALTY_WINNER;
+    # {"4-3": 2, "5-4": 1} for PENALTY_SCORE; {"1": 3} for PENALTY_DIFF.
     breakdown = models.JSONField(
         default=dict,
         blank=True,

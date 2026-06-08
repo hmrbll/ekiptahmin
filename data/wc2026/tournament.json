@@ -8,13 +8,13 @@
     "is_active": true
   },
   "stages": [
-    {"kind": "GROUP",  "order": 0, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_pass": 50,  "points_exact": 6,  "points_diff": 4,  "points_result": 2, "penalty_loser_pct": "0.60"},
-    {"kind": "R32",    "order": 1, "pool_exact": 120, "pool_diff": 120, "pool_result": 120, "pool_penalty_pass": 60,  "points_exact": 7,  "points_diff": 5,  "points_result": 3, "penalty_loser_pct": "0.60"},
-    {"kind": "R16",    "order": 2, "pool_exact": 150, "pool_diff": 150, "pool_result": 150, "pool_penalty_pass": 75,  "points_exact": 9,  "points_diff": 6,  "points_result": 3, "penalty_loser_pct": "0.60"},
-    {"kind": "QF",     "order": 3, "pool_exact": 200, "pool_diff": 200, "pool_result": 200, "pool_penalty_pass": 100, "points_exact": 14, "points_diff": 9,  "points_result": 5, "penalty_loser_pct": "0.60"},
-    {"kind": "SF",     "order": 4, "pool_exact": 250, "pool_diff": 250, "pool_result": 250, "pool_penalty_pass": 125, "points_exact": 20, "points_diff": 14, "points_result": 7, "penalty_loser_pct": "0.60"},
-    {"kind": "THIRD",  "order": 5, "pool_exact": 250, "pool_diff": 250, "pool_result": 250, "pool_penalty_pass": 125, "points_exact": 20, "points_diff": 14, "points_result": 7, "penalty_loser_pct": "0.60"},
-    {"kind": "FINAL",  "order": 6, "pool_exact": 300, "pool_diff": 300, "pool_result": 300, "pool_penalty_pass": 150, "points_exact": 20, "points_diff": 14, "points_result": 7, "penalty_loser_pct": "0.60"}
+    {"kind": "GROUP",  "order": 0, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_winner": 50, "pool_penalty_score": 50, "pool_penalty_diff": 50, "points_exact": 6,  "points_diff": 4,  "points_result": 2, "penalty_loser_pct": "0.60"},
+    {"kind": "R32",    "order": 1, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_winner": 50, "pool_penalty_score": 50, "pool_penalty_diff": 50, "points_exact": 7,  "points_diff": 5,  "points_result": 3, "penalty_loser_pct": "0.60"},
+    {"kind": "R16",    "order": 2, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_winner": 50, "pool_penalty_score": 50, "pool_penalty_diff": 50, "points_exact": 9,  "points_diff": 6,  "points_result": 3, "penalty_loser_pct": "0.60"},
+    {"kind": "QF",     "order": 3, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_winner": 50, "pool_penalty_score": 50, "pool_penalty_diff": 50, "points_exact": 14, "points_diff": 9,  "points_result": 5, "penalty_loser_pct": "0.60"},
+    {"kind": "SF",     "order": 4, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_winner": 50, "pool_penalty_score": 50, "pool_penalty_diff": 50, "points_exact": 20, "points_diff": 14, "points_result": 7, "penalty_loser_pct": "0.60"},
+    {"kind": "THIRD",  "order": 5, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_winner": 50, "pool_penalty_score": 50, "pool_penalty_diff": 50, "points_exact": 20, "points_diff": 14, "points_result": 7, "penalty_loser_pct": "0.60"},
+    {"kind": "FINAL",  "order": 6, "pool_exact": 100, "pool_diff": 100, "pool_result": 100, "pool_penalty_winner": 50, "pool_penalty_score": 50, "pool_penalty_diff": 50, "points_exact": 20, "points_diff": 14, "points_result": 7, "penalty_loser_pct": "0.60"}
   ],
   "prediction_rounds": [
     {"order": 0, "name": "Pre-turnuva",   "weight": "1.00", "editable_stages": ["GROUP", "R32", "R16", "QF", "SF", "THIRD", "FINAL"], "depends_on_stage": null},

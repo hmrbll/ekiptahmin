@@ -87,16 +87,18 @@ Tournament phases. Each stage holds **two scoring configurations** — ganyan po
 | `pool_exact` | Pool size for the "exact score" criterion. Split equally among users who get it right. Default 100. |
 | `pool_diff` | Pool size for "goal difference". Default 100. |
 | `pool_result` | Pool size for "outcome (1X2)". Default 100. |
-| `pool_penalty_pass` | Pool for "named the team that advanced via penalties" (KO only). Default 50. |
+| `pool_penalty_winner` | Pool for "named the team that advanced via penalties" (KO only). Default 50. |
+| `pool_penalty_score` | Pool for "exact penalty shootout score" — draw predictions only (KO). Default 50. |
+| `pool_penalty_diff` | Pool for "penalty shootout goal difference" — draw predictions only (KO). Default 50. |
 | **Legacy bracket scoring (staff-only views)** | |
 | `points_exact` | LEGACY. Points for correct exact score. |
 | `points_diff` | LEGACY. Points for correct outcome + goal difference. |
 | `points_result` | LEGACY. Points for correct outcome only. |
 | `penalty_loser_pct` | LEGACY. Percentage bonus when user named the penalty advancer despite predicting a non-draw. |
 
-All ten scoring fields are inline-editable in the Stage list view. The Stage detail page collapses the legacy section so the active pools are the foreground.
+All scoring fields are inline-editable in the Stage list view. The Stage detail page collapses the legacy section so the active pools are the foreground.
 
-> All scoring values are admin-tunable on purpose. There's no hardcoded scoring anywhere in Python code. After editing pool sizes, run `python manage.py recompute_ganyan` to refresh the cache (signals don't fire on Stage saves).
+> All scoring values are admin-tunable on purpose. There's no hardcoded scoring anywhere in Python code. Pool sizes you edit here **persist across deploys** — `seed_wc2026` writes them only when a Stage is first created, so it never overwrites your edits. After editing pool sizes, run `python manage.py recompute_ganyan` to refresh the cache (signals don't fire on Stage saves).
 
 The two engines run side by side on every `ActualResult` write. Pool sizes drive the public site; the legacy points drive `/legacy/scoring-diff/` for calibration.
 
@@ -169,7 +171,7 @@ The match results, entered by an admin once the match is over. Triggers scoring 
 | `slot` | Link to the BracketSlot this is the result for (one-to-one). |
 | `home_score`, `away_score` | 90-minute regulation score. This is the canonical scoring basis (matches the 2022 group rules). |
 | `went_to_extra_time` | Informational flag. |
-| `went_to_penalties` | When True, the penalty fields below populate. Ganyan engine activates `pool_penalty_pass`; legacy engine applies the "penalty loser bonus" rule. |
+| `went_to_penalties` | When True, the penalty fields below populate. Ganyan engine activates the three penalty pools (`pool_penalty_winner` / `pool_penalty_score` / `pool_penalty_diff`); legacy engine applies the "penalty loser bonus" rule. |
 | `penalty_winner`, `home_penalties`, `away_penalties` | Penalty shootout details (only when `went_to_penalties` is True). |
 | `entered_at` | Auto-stamped on save. |
 | `entered_by` | Auto-filled to the admin user who saved the row. |

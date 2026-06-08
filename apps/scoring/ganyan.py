@@ -7,7 +7,10 @@ Mechanic — for one match (BracketSlot) at a time:
 
 1. Every user is a single entity. Multiple rounds predicting the same match
    collapse to "the user has these candidate round-predictions."
-2. Each criterion (exact / diff / result / penalty_pass) has a fixed pool.
+2. Each criterion has a fixed pool. Regulation criteria (exact / diff / result)
+   score the 90-minute scoreline. Penalty criteria (penalty_winner /
+   penalty_score / penalty_diff) score the shootout, and only apply on knockout
+   matches that actually went to penalties.
 3. For each user we pick ONE effective round — the one that maximizes the
    user's weighted total payout. The effective round's prediction supplies
    the user's per-criterion payouts; other rounds don't earn.
@@ -18,21 +21,29 @@ The effective-round choice depends on base_payouts (which depend on |W_c|,
 which depends on effective rounds) → fixed-point. We iterate to convergence
 (typically 1-2 passes for ~30 users). See docs/scoring-ganyan.md.
 
-Outcome label (highest tier): EXACT > DIFF > RESULT > PENALTY_PASS > MISS.
-Drives the leaderboard tiebreaker counts.
+Outcome label (mutually exclusive, highest tier): EXACT > DIFF > RESULT >
+PENALTY > MISS. The single PENALTY tier fires when a user earned from any
+penalty criterion but missed all three regulation tiers. Drives the
+leaderboard tiebreaker counts.
 """
 
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional
 
-CRITERIA = ("exact", "diff", "result", "penalty_pass")
+# Regulation criteria score the 90' scoreline; penalty criteria score the
+# shootout (knockout matches that went to penalties only).
+REGULATION_CRITERIA = ("exact", "diff", "result")
+PENALTY_CRITERIA = ("penalty_winner", "penalty_score", "penalty_diff")
+CRITERIA = REGULATION_CRITERIA + PENALTY_CRITERIA
 
-# Outcome labels (mutually exclusive — best tier the user achieved).
+# Outcome labels (mutually exclusive — best tier the user achieved). The three
+# penalty criteria collapse to one PENALTY tier for the headline badge; the
+# per-criterion payouts are still tracked separately in PoolStats.
 OUTCOME_EXACT = "exact"
 OUTCOME_DIFF = "diff"
 OUTCOME_RESULT = "result"
-OUTCOME_PENALTY_PASS = "penalty_pass"
+OUTCOME_PENALTY = "penalty"
 OUTCOME_MISS = "miss"
 OUTCOME_NO_PREDICTION = "no_prediction"
 OUTCOME_NO_RESULT = "no_result"
@@ -44,7 +55,9 @@ class StagePools:
     pool_exact: int
     pool_diff: int
     pool_result: int
-    pool_penalty_pass: int
+    pool_penalty_winner: int
+    pool_penalty_score: int
+    pool_penalty_diff: int
 
 
 @dataclass(frozen=True)
@@ -56,6 +69,8 @@ class Result:
     away_score: int
     went_to_penalties: bool = False
     penalty_winner: Optional[str] = None  # team code (3 letters)
+    home_penalties: Optional[int] = None  # shootout score, when went_to_penalties
+    away_penalties: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +83,8 @@ class Prediction:
     home_score: int
     away_score: int
     penalty_winner: Optional[str] = None  # only when draw on KO match
+    home_penalties: Optional[int] = None  # shootout score, draw-on-KO predictions only
+    away_penalties: Optional[int] = None
 
 
 @dataclass
@@ -128,24 +145,55 @@ def satisfies_result(p: Prediction, r: Result) -> bool:
     return _outcome(p.home_score, p.away_score) == _outcome(r.home_score, r.away_score)
 
 
-def satisfies_penalty_pass(p: Prediction, r: Result) -> bool:
+def _predicted_winner(p: Prediction) -> Optional[str]:
+    """The team this prediction has advancing. For a draw, the chosen penalty
+    winner (may be None); otherwise the higher-scoring side."""
+    if p.home_score > p.away_score:
+        return p.home_team
+    if p.away_score > p.home_score:
+        return p.away_team
+    return p.penalty_winner
+
+
+def satisfies_penalty_winner(p: Prediction, r: Result) -> bool:
     """User correctly named the team that advanced via penalties.
 
     Only meaningful when the match actually went to penalties. For non-draw
     predictions the implied winner (via score) is checked. For draw predictions
-    the user's `penalty_winner` is checked.
+    the user's `penalty_winner` is checked. Open to any prediction.
     """
     if not r.went_to_penalties or r.penalty_winner is None:
         return False
     if not _matchup_correct(p, r):
         return False
-    if p.home_score > p.away_score:
-        predicted_winner = p.home_team
-    elif p.away_score > p.home_score:
-        predicted_winner = p.away_team
-    else:
-        predicted_winner = p.penalty_winner  # may be None
-    return predicted_winner is not None and predicted_winner == r.penalty_winner
+    predicted = _predicted_winner(p)
+    return predicted is not None and predicted == r.penalty_winner
+
+
+def _has_pen_scores(p: Prediction) -> bool:
+    return p.home_penalties is not None and p.away_penalties is not None
+
+
+def satisfies_penalty_score(p: Prediction, r: Result) -> bool:
+    """User predicted the exact penalty shootout score.
+
+    Only draw predictions carry a shootout score, so non-draw predictions can
+    never satisfy this. Matchup must line up and the match must have gone to pens.
+    """
+    if not r.went_to_penalties or r.home_penalties is None or r.away_penalties is None:
+        return False
+    if not _matchup_correct(p, r) or not _has_pen_scores(p):
+        return False
+    return p.home_penalties == r.home_penalties and p.away_penalties == r.away_penalties
+
+
+def satisfies_penalty_diff(p: Prediction, r: Result) -> bool:
+    """User predicted the penalty shootout goal difference (signed home−away)."""
+    if not r.went_to_penalties or r.home_penalties is None or r.away_penalties is None:
+        return False
+    if not _matchup_correct(p, r) or not _has_pen_scores(p):
+        return False
+    return (p.home_penalties - p.away_penalties) == (r.home_penalties - r.away_penalties)
 
 
 def satisfies(p: Prediction, r: Result, criterion: str) -> bool:
@@ -155,21 +203,26 @@ def satisfies(p: Prediction, r: Result, criterion: str) -> bool:
         return satisfies_diff(p, r)
     if criterion == "result":
         return satisfies_result(p, r)
-    if criterion == "penalty_pass":
-        return satisfies_penalty_pass(p, r)
+    if criterion == "penalty_winner":
+        return satisfies_penalty_winner(p, r)
+    if criterion == "penalty_score":
+        return satisfies_penalty_score(p, r)
+    if criterion == "penalty_diff":
+        return satisfies_penalty_diff(p, r)
     raise ValueError(f"Unknown criterion: {criterion}")
 
 
 def best_outcome(sat_map: dict[str, bool]) -> str:
-    """Highest tier the user achieved on this match."""
+    """Highest tier the user achieved on this match. The three penalty criteria
+    collapse to one PENALTY tier, below the regulation tiers."""
     if sat_map.get("exact"):
         return OUTCOME_EXACT
     if sat_map.get("diff"):
         return OUTCOME_DIFF
     if sat_map.get("result"):
         return OUTCOME_RESULT
-    if sat_map.get("penalty_pass"):
-        return OUTCOME_PENALTY_PASS
+    if any(sat_map.get(c) for c in PENALTY_CRITERIA):
+        return OUTCOME_PENALTY
     return OUTCOME_MISS
 
 
@@ -180,7 +233,8 @@ def breakdown_key(criterion: str, p: Prediction, r: Result) -> Optional[str]:
     """Returns the per-prediction string key for the ganyan-tablosu breakdown.
 
     Returns None if this prediction doesn't have a sensible value for this
-    criterion (e.g., penalty_pass without a determinable winner).
+    criterion (e.g., penalty_winner without a determinable winner, or a
+    penalty_score/diff key for a prediction that carries no shootout score).
     """
     if criterion == "exact":
         return f"{p.home_score}-{p.away_score}"
@@ -192,16 +246,32 @@ def breakdown_key(criterion: str, p: Prediction, r: Result) -> Optional[str]:
         if p.home_score < p.away_score:
             return "A"
         return "D"
-    if criterion == "penalty_pass":
-        if p.home_score > p.away_score:
-            return p.home_team
-        if p.home_score < p.away_score:
-            return p.away_team
-        return p.penalty_winner  # may be None
+    if criterion == "penalty_winner":
+        return _predicted_winner(p)  # team code; None on a draw with no chosen winner
+    if criterion == "penalty_score":
+        if not _has_pen_scores(p):
+            return None
+        return f"{p.home_penalties}-{p.away_penalties}"
+    if criterion == "penalty_diff":
+        if not _has_pen_scores(p):
+            return None
+        return str(p.home_penalties - p.away_penalties)
     raise ValueError(f"Unknown criterion: {criterion}")
 
 
 # ---------- Core scorer ----------
+
+
+def _pool_map(pools: StagePools) -> dict[str, int]:
+    """Criterion → pool size, in CRITERIA order."""
+    return {
+        "exact": pools.pool_exact,
+        "diff": pools.pool_diff,
+        "result": pools.pool_result,
+        "penalty_winner": pools.pool_penalty_winner,
+        "penalty_score": pools.pool_penalty_score,
+        "penalty_diff": pools.pool_penalty_diff,
+    }
 
 
 def _round_score_given_payouts(
@@ -247,12 +317,7 @@ def compute_slot(
     if not predictions_by_user:
         return {}, _empty_pool_stats(pools, predictor_count=0)
 
-    pool_by_criterion = {
-        "exact": pools.pool_exact,
-        "diff": pools.pool_diff,
-        "result": pools.pool_result,
-        "penalty_pass": pools.pool_penalty_pass,
-    }
+    pool_by_criterion = _pool_map(pools)
 
     # ---- Iterate to fixed point. ----
     # Initial guess: pool sizes as payouts (independent of |W_c|).
@@ -294,13 +359,15 @@ def compute_slot(
         }
         total = sum(scores_per_c.values(), Decimal("0"))
         outcome = best_outcome(sat) if total > 0 else OUTCOME_MISS
+        # The three penalty criteria collapse to one score_penalty column.
+        score_penalty = sum((scores_per_c[c] for c in PENALTY_CRITERIA), Decimal("0"))
         user_scores[uid] = UserScore(
             user_id=uid,
             effective_round_order=pred.round_order,
             score_exact=scores_per_c["exact"],
             score_diff=scores_per_c["diff"],
             score_result=scores_per_c["result"],
-            score_penalty=scores_per_c["penalty_pass"],
+            score_penalty=score_penalty,
             total=total,
             outcome=outcome,
             satisfied=dict(sat),
@@ -347,12 +414,7 @@ def compute_slot(
 
 def _empty_pool_stats(pools: StagePools, predictor_count: int) -> list[PoolStats]:
     """Pool stats with zero winners — used when no predictions exist."""
-    pool_by_criterion = {
-        "exact": pools.pool_exact,
-        "diff": pools.pool_diff,
-        "result": pools.pool_result,
-        "penalty_pass": pools.pool_penalty_pass,
-    }
+    pool_by_criterion = _pool_map(pools)
     return [
         PoolStats(
             criterion=c,
@@ -378,24 +440,18 @@ def compute_pre_result_pools(
 
     Each user contributes their LATEST round's prediction (highest round_order).
     """
-    pool_by_criterion = {
-        "exact": pools.pool_exact,
-        "diff": pools.pool_diff,
-        "result": pools.pool_result,
-        "penalty_pass": pools.pool_penalty_pass,
-    }
+    pool_by_criterion = _pool_map(pools)
     breakdowns = {c: {} for c in CRITERIA}
     for preds in predictions_by_user.values():
         # Latest round = highest round_order.
         latest = max(preds, key=lambda p: p.round_order)
-        # Pre-result: penalty_pass key depends on penalty_winner, which is only
-        # set on draws; for now we just track the implied winner-team-code.
-        for c in ("exact", "diff", "result"):
+        # Pre-result we only show regulation breakdowns. Penalty criteria depend
+        # on whether the match goes to pens (unknown pre-result), so skip them.
+        for c in REGULATION_CRITERIA:
             key = breakdown_key(c, latest, _DUMMY_RESULT)
             if key is None:
                 continue
             breakdowns[c][key] = breakdowns[c].get(key, 0) + 1
-        # Penalty_pass breakdown only meaningful post-result; skip pre-lock.
 
     return [
         PoolStats(

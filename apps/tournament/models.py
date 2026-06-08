@@ -85,6 +85,10 @@ class Stage(models.Model):
     # Ganyan pool sizes (parimutuel scoring). Each match has a fixed pool per
     # criterion; the pool is split equally among users who got that criterion
     # right. If no one got it right, the pool burns. See docs/scoring-ganyan.md.
+    #
+    # These are admin-tunable and are NOT re-synced from the seed file on deploy
+    # (seed_wc2026 writes them only on first Stage creation, via create_defaults),
+    # so a value edited in admin persists across deploys.
     pool_exact = models.PositiveIntegerField(
         default=100,
         help_text="Ganyan pool size for exact-score winners. Split equally; burns if no one is correct.",
@@ -97,10 +101,23 @@ class Stage(models.Model):
         default=100,
         help_text="Ganyan pool size for outcome (1X2) winners.",
     )
-    pool_penalty_pass = models.PositiveIntegerField(
+    # Penalty shootout pools — only relevant on knockout stages that go to
+    # penalties. Three parallel criteria mirroring the regulation ones:
+    pool_penalty_winner = models.PositiveIntegerField(
         default=50,
-        help_text="Ganyan pool size for the 'predicted the team that advanced via penalties' "
-                  "criterion. Only relevant on knockout stages.",
+        help_text="Ganyan pool: correctly named the team that advanced via penalties. "
+                  "Open to any prediction (implied winner from a non-draw, chosen penalty "
+                  "winner from a draw). Knockout only.",
+    )
+    pool_penalty_score = models.PositiveIntegerField(
+        default=50,
+        help_text="Ganyan pool: predicted the exact penalty shootout score. Only draw "
+                  "predictions carry a shootout score, so this is open to them only. Knockout only.",
+    )
+    pool_penalty_diff = models.PositiveIntegerField(
+        default=50,
+        help_text="Ganyan pool: predicted the penalty shootout goal difference (signed home−away). "
+                  "Draw predictions only. Knockout only.",
     )
 
     class Meta:

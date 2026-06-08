@@ -11,10 +11,10 @@ This is the parimutuel ganyan model from horse racing applied to football predic
 
 ## Core formula
 
-For a played match `M`, for each criterion `c ∈ {exact, diff, result, penalty_pass}`:
+For a played match `M`, for each criterion `c ∈ {exact, diff, result, penalty_winner, penalty_score, penalty_diff}`:
 
 ```
-pool_c        = Stage(M).pool_<c>          # admin-tunable, default 100, penalty 50
+pool_c        = Stage(M).pool_<c>          # admin-tunable, 100 regulation / 50 penalty
 N             = unique users who predicted M in any round
 W_c           = unique users whose at-least-one round prediction satisfies c
 base_payout_c = pool_c / |W_c|             # if |W_c| == 0 the pool burns
@@ -61,16 +61,19 @@ Highlighted row per user is the effective round.
 
 If no user satisfies criterion `c`, `|W_c| = 0` and the pool burns (no one is paid from it). The pool does **not** roll over.
 
-## Penalty pool (knockout only)
+## Penalty pools (knockout only)
 
-When a KO match goes to penalties (`ActualResult.went_to_penalties = True`):
+When a KO match goes to penalties (`ActualResult.went_to_penalties = True`), three extra criteria are scored **on top of** the regulation ones (which still score the 90' scoreline). Each is its own pool, default 50, split equally among its winners — same formula and burn rule as the regulation pools.
 
-- An extra criterion `penalty_pass` is scored.
-- A user "wins" `penalty_pass` if any of their round predictions for this match correctly names the team that advanced (regardless of whether they predicted a draw at 90').
-- Pool: `Stage.pool_penalty_pass`, default 50.
-- Same formula: split equally among `penalty_pass` winners.
+| Criterion | Wins when… | Open to |
+|-----------|------------|---------|
+| `penalty_winner` | named the team that advanced via penalties | **any** prediction — implied winner from a non-draw, or the chosen `penalty_winner` from a draw |
+| `penalty_score` | predicted the exact shootout score (e.g. 4–2) | **draw predictions only** (only they carry a shootout score) |
+| `penalty_diff` | predicted the shootout goal difference, signed home−away | **draw predictions only** |
 
-This replaces the legacy `penalty_loser_pct = 0.60` mechanic with a pool-based one. Knockout details may be refined as the KO stage approaches.
+All three require the predicted matchup (home/away teams) to line up with the actual one. The headline `outcome` badge collapses the three into a single `penalty` tier, shown only when the user earned from a penalty criterion but missed all three regulation tiers; `GanyanScore.score_penalty` stores the combined payout, while `MatchPool` keeps the per-criterion split for the match-detail tablosu.
+
+This replaces the legacy `penalty_loser_pct = 0.60` mechanic with a pool-based one.
 
 ## Tiebreaker chain
 
@@ -87,12 +90,13 @@ For the leaderboard, sort by (descending unless noted):
 
 ### Modified
 
-- **`Stage`** — add four fields:
+- **`Stage`** — ganyan pool fields:
   - `pool_exact` (default 100)
   - `pool_diff` (default 100)
   - `pool_result` (default 100)
-  - `pool_penalty_pass` (default 50, only used on KO stages)
+  - `pool_penalty_winner`, `pool_penalty_score`, `pool_penalty_diff` (default 50 each, only used on KO stages that go to penalties)
   - Legacy fields (`points_exact`, `points_diff`, `points_result`, `penalty_loser_pct`) stay — used by the legacy engine.
+  - **Pool sizes are admin-owned.** `seed_wc2026` writes them only on first Stage creation (`create_defaults`); deploys never re-sync them, so a value edited in Stage admin persists. All stages currently use the uniform 100/100/100 + 50/50/50 scheme (set once by migration `tournament/0009_equalize_ganyan_pools`).
 
 ### New
 
@@ -108,7 +112,7 @@ For the leaderboard, sort by (descending unless noted):
 
 - **`MatchPool`** (in `apps/scoring/`)
   - `slot` (FK)
-  - `criterion` (exact / diff / result / penalty_pass)
+  - `criterion` (exact / diff / result / penalty_winner / penalty_score / penalty_diff)
   - `pool_size` (snapshot of `Stage.pool_<criterion>` at compute time)
   - `winner_count` (|W_c|)
   - `base_payout` (`pool_size / winner_count` or null if burned)

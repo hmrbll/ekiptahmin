@@ -116,8 +116,10 @@
                 <section>
                     <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">4. Aşama havuzları</h2>
                     <p class="text-fg-soft mb-3">
-                        Aşama ilerledikçe havuzlar büyür — final maçı grup maçından daha kıymetli.
-                        Penaltı havuzu sadece eleme maçlarında, penaltılara giden maçlarda aktif.
+                        Her maçın havuzu aynı: tam skor, doğru fark ve doğru sonuç için
+                        <strong>100'er</strong>. Aşama fark etmez — grup maçı da final de aynı.
+                        Erken tahmin etmenin avantajı turun ağırlığından gelir (Bölüm 2), havuz
+                        büyüklüğünden değil.
                     </p>
 
                     <div class="overflow-x-auto rounded-xl border border-line bg-surface">
@@ -128,7 +130,6 @@
                                     <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Tam skor</th>
                                     <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Doğru fark</th>
                                     <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Doğru sonuç</th>
-                                    <th class="py-2.5 px-3 font-medium text-fg-muted text-right">Pen. turlatan</th>
                                 </tr>
                             </thead>
                             <tbody class="font-mono">
@@ -138,9 +139,6 @@
                                     <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.pool_exact }}</td>
                                     <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.pool_diff }}</td>
                                     <td class="py-2.5 px-3 text-right text-fg-soft">{{ s.pool_result }}</td>
-                                    <td class="py-2.5 px-3 text-right {% if s.kind == 'GROUP' %}text-fg-muted{% else %}text-fg-soft{% endif %}">
-                                        {% if s.kind == 'GROUP' %}—{% else %}{{ s.pool_penalty_pass }}{% endif %}
-                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -158,17 +156,33 @@
                 <section>
                     <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">5. Penaltılar</h2>
                     <p class="text-fg-soft mb-3">
-                        Eleme maçları normal süre + uzatma + penaltıyla biter. Penaltıya giden maçlarda
-                        ek bir kriter aktif olur: <strong>tur atlatan takım</strong>.
+                        Eleme maçları normal süre + uzatma + penaltıyla biter. Bir maç penaltılara
+                        giderse normal süre puanlamasının <strong>üstüne</strong>, her biri
+                        <strong>50'lik</strong> üç ekstra havuz açılır:
                     </p>
-                    <div class="rounded-xl border border-line bg-surface p-4">
-                        <p class="font-semibold text-fg mb-1.5">Tur atlatan takım kriteri</p>
-                        <p class="text-fg-soft">
-                            Yukardaki "Pen. turlatan" havuzu, penaltılarla tur atlayan takımı doğru
-                            bilen oyuncular arasında bölüşülür. Beraberlik tahmin edip-etmemen önemli
-                            değil — sadece tur atlatan takımı doğru bil. (Normal süredeki skoru
-                            tutturduysan zaten skor/fark/sonuç havuzlarından da pay alıyorsun.)
-                        </p>
+                    <div class="rounded-xl border border-line bg-surface p-4 space-y-3">
+                        <div>
+                            <p class="font-semibold text-fg mb-1">Penaltı turlatan <span class="text-fg-muted font-normal">(havuz 50)</span></p>
+                            <p class="text-fg-soft">
+                                Penaltılarla tur atlayan takımı doğru bilenler arasında bölüşülür.
+                                Beraberlik tahmin edip-etmemen fark etmez — galibiyet tahmininde
+                                kazanan saydığın takım, beraberlikte seçtiğin penaltı kazananı sayılır.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-fg mb-1">Penaltı skoru <span class="text-fg-muted font-normal">(havuz 50)</span></p>
+                            <p class="text-fg-soft">
+                                Penaltı atışlarının tam skorunu bilenlere (ör. 4–2). Sadece o maça
+                                <strong>beraberlik</strong> yazıp penaltı skoru girenler kazanabilir.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-fg mb-1">Penaltı farkı <span class="text-fg-muted font-normal">(havuz 50)</span></p>
+                            <p class="text-fg-soft">
+                                Penaltı atışlarının farkını bilenlere (ör. +1). Bu da yalnızca
+                                beraberlik tahmin edip penaltı skoru girenlere açık.
+                            </p>
+                        </div>
                     </div>
                 </section>
 

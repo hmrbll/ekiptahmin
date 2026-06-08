@@ -10,7 +10,8 @@ class StageInline(admin.TabularInline):
     extra = 0
     fields = (
         "order", "kind",
-        "pool_exact", "pool_diff", "pool_result", "pool_penalty_pass",
+        "pool_exact", "pool_diff", "pool_result",
+        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
         "points_exact", "points_diff", "points_result", "penalty_loser_pct",
     )
     ordering = ("order",)
@@ -36,22 +37,28 @@ class TournamentAdmin(admin.ModelAdmin):
 class StageAdmin(admin.ModelAdmin):
     list_display = (
         "tournament", "order", "kind",
-        "pool_exact", "pool_diff", "pool_result", "pool_penalty_pass",
+        "pool_exact", "pool_diff", "pool_result",
+        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
         "points_exact", "points_diff", "points_result", "penalty_loser_pct",
     )
     list_filter = ("tournament", "kind")
     list_editable = (
-        "pool_exact", "pool_diff", "pool_result", "pool_penalty_pass",
+        "pool_exact", "pool_diff", "pool_result",
+        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
         "points_exact", "points_diff", "points_result", "penalty_loser_pct",
     )
     ordering = ("tournament", "order")
     fieldsets = (
         (None, {"fields": ("tournament", "order", "kind")}),
         ("Ganyan pools (active engine)", {
-            "fields": ("pool_exact", "pool_diff", "pool_result", "pool_penalty_pass"),
+            "fields": (
+                "pool_exact", "pool_diff", "pool_result",
+                "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
+            ),
             "description": (
                 "Pool sizes split equally among users who get each criterion right. "
-                "Penalty pool only applies on knockout stages."
+                "The three penalty pools only apply on knockout matches that go to penalties. "
+                "Edited values persist across deploys (seed never overwrites them)."
             ),
         }),
         ("Legacy bracket scoring (staff-only views)", {

@@ -126,22 +126,30 @@ class Command(BaseCommand):
         self._log(f"Tournament: {tournament.name}", created)
 
         for sd in config["stages"]:
+            # `defaults` is applied on UPDATE (every deploy); `create_defaults`
+            # only on first creation. Ganyan pools live in create_defaults ONLY,
+            # so once a Stage exists, admin owns its pool sizes and deploys never
+            # clobber them. order + legacy points stay in defaults (kept in sync).
+            sync_fields = {
+                "order": sd["order"],
+                "points_exact": sd["points_exact"],
+                "points_diff": sd["points_diff"],
+                "points_result": sd["points_result"],
+                "penalty_loser_pct": Decimal(sd["penalty_loser_pct"]),
+            }
+            pool_fields = {
+                "pool_exact": sd.get("pool_exact", 100),
+                "pool_diff": sd.get("pool_diff", 100),
+                "pool_result": sd.get("pool_result", 100),
+                "pool_penalty_winner": sd.get("pool_penalty_winner", 50),
+                "pool_penalty_score": sd.get("pool_penalty_score", 50),
+                "pool_penalty_diff": sd.get("pool_penalty_diff", 50),
+            }
             stage, created = Stage.objects.update_or_create(
                 tournament=tournament,
                 kind=sd["kind"],
-                defaults={
-                    "order": sd["order"],
-                    # Ganyan pools (active engine).
-                    "pool_exact": sd.get("pool_exact", 100),
-                    "pool_diff": sd.get("pool_diff", 100),
-                    "pool_result": sd.get("pool_result", 100),
-                    "pool_penalty_pass": sd.get("pool_penalty_pass", 50),
-                    # Legacy bracket scoring.
-                    "points_exact": sd["points_exact"],
-                    "points_diff": sd["points_diff"],
-                    "points_result": sd["points_result"],
-                    "penalty_loser_pct": Decimal(sd["penalty_loser_pct"]),
-                },
+                defaults=sync_fields,
+                create_defaults={**sync_fields, **pool_fields},
             )
             self._log(f"  Stage: {stage.get_kind_display()}", created)
 

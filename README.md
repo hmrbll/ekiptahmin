@@ -174,7 +174,7 @@ Sunday Pitch palette, **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500
 
 ### Scoring at a glance
 
-Each match has fixed pools per criterion (exact / diff / result / penalty_pass). Pools split equally among users who get that criterion right — single-prediction wins pay the full pool, consensus picks pay a thin slice. For each `(user, match)` the engine picks ONE **effective round** (the round whose prediction + weight maximises the user's payout); criteria are paid from that round only. Pools that no one hits **burn**.
+Each match has fixed pools per criterion: regulation (exact / diff / result, 100 each) plus — on knockout matches that go to penalties — three penalty pools (penalty_winner / penalty_score / penalty_diff, 50 each). Pools split equally among users who get that criterion right — single-prediction wins pay the full pool, consensus picks pay a thin slice. For each `(user, match)` the engine picks ONE **effective round** (the round whose prediction + weight maximises the user's payout); criteria are paid from that round only. Pools that no one hits **burn**. Pool sizes are admin-tunable and persist across deploys (seed sets them only on first creation).
 
 Legacy bracket scoring (`apps/scoring/engine.py`, `SlotScore`) still runs in parallel for staff comparison at `/legacy/leaderboard/`, `/legacy/results/`, `/legacy/scoring-diff/` — see [docs/scoring-ganyan.md](docs/scoring-ganyan.md) for the full spec and rationale.
 
