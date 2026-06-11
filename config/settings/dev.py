@@ -3,7 +3,7 @@
 import platform
 
 from .base import *  # noqa: F401, F403
-from .base import INSTALLED_APPS, MIDDLEWARE, env
+from .base import INSTALLED_APPS, MIDDLEWARE
 
 # django-tailwind needs an explicit npm path on Windows (looks for `npm`, not `npm.cmd`)
 if platform.system() == "Windows":

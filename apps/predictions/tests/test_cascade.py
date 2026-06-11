@@ -4,13 +4,11 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from django.urls import reverse
 from django.utils import timezone
 
 from apps.predictions.forms import SlotPredictionForm
 from apps.predictions.models import SlotPrediction
-from apps.predictions.standings import derive_group_team
-from apps.tournament.models import BracketSlot, PredictionRound, Stage, Team
+from apps.tournament.models import BracketSlot, Stage, Team
 
 
 @pytest.fixture

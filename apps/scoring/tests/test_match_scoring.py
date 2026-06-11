@@ -2,7 +2,6 @@
 
 from decimal import Decimal
 
-import pytest
 
 from apps.scoring.engine import Prediction, Result, score_slot
 

@@ -7,7 +7,6 @@ per-criterion PoolStats. The ORM upsert lives in `ganyan_cache.py`.
 
 from typing import Optional
 
-from django.contrib.auth import get_user_model
 
 from apps.predictions.models import SlotPrediction
 from apps.scoring import ganyan
