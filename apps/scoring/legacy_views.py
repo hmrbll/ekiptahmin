@@ -136,13 +136,14 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
 
 
 # Matchup-type → (Turkish label, Tailwind badge classes) for the results page.
+# Same tier colour convention as _OUTCOME_BADGE in views.py.
 _MATCHUP_BADGE = {
-    SlotScore.EXACT: ("Tam skor", "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"),
-    SlotScore.DIFF: ("Aynı fark", "bg-sky-400/10 border-sky-400/30 text-sky-300"),
-    SlotScore.RESULT: ("Doğru sonuç", "bg-indigo-400/10 border-indigo-400/30 text-indigo-300"),
-    SlotScore.PENALTY_LOSER_BONUS: ("Penaltı bonusu", "bg-amber-400/10 border-amber-400/30 text-amber-300"),
-    SlotScore.MISS: ("Yanlış", "bg-rose-500/10 border-rose-500/30 text-rose-300"),
-    SlotScore.NO_PREDICTION: ("Tahmin yok", "bg-white/5 border-white/10 text-slate-500"),
+    SlotScore.EXACT: ("Tam skor", "bg-primary/10 border-primary/30 text-primary"),
+    SlotScore.DIFF: ("Aynı fark", "bg-success/10 border-success/30 text-success"),
+    SlotScore.RESULT: ("Doğru sonuç", "bg-warning/10 border-warning/30 text-warning"),
+    SlotScore.PENALTY_LOSER_BONUS: ("Penaltı bonusu", "bg-accent/10 border-accent/30 text-accent"),
+    SlotScore.MISS: ("Yanlış", "bg-danger/10 border-danger/30 text-danger"),
+    SlotScore.NO_PREDICTION: ("Tahmin yok", "bg-surface border-line text-fg-muted"),
 }
 
 
