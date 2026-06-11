@@ -22,9 +22,10 @@ from .admin_forms import ActualResultForm, SlotTeamsForm
 
 GROUP_LETTERS = list("ABCDEFGHIJKL")
 KNOCKOUT_STAGE_ORDER = ["R32", "R16", "QF", "SF", "THIRD", "FINAL"]
+# English on purpose: this wizard lives under /admin/ (admin = EN, site = TR).
 KNOCKOUT_LABELS = {
-    "R32": "Son 32", "R16": "Son 16", "QF": "Çeyrek Final",
-    "SF": "Yarı Final", "THIRD": "3.lük", "FINAL": "Final",
+    "R32": "Round of 32", "R16": "Round of 16", "QF": "Quarter Finals",
+    "SF": "Semi Finals", "THIRD": "Third Place", "FINAL": "Final",
 }
 
 
@@ -37,12 +38,12 @@ def _steps() -> list[dict]:
     for letter in GROUP_LETTERS:
         steps.append({
             "key": f"group-{letter}",
-            "label": f"Grup {letter}",
+            "label": f"Group {letter}",
             "url": reverse("admin_results_group", args=[letter]),
         })
     steps.append({
         "key": "groups-summary",
-        "label": "Grup Özet",
+        "label": "Groups Summary",
         "url": reverse("admin_results_groups_summary"),
     })
     for kind in KNOCKOUT_STAGE_ORDER:
@@ -53,7 +54,7 @@ def _steps() -> list[dict]:
         })
     steps.append({
         "key": "knockout-summary",
-        "label": "Eleme Özet",
+        "label": "Knockout Summary",
         "url": reverse("admin_results_knockout_summary"),
     })
     return steps

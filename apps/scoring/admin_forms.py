@@ -36,7 +36,8 @@ class SlotTeamsForm(forms.ModelForm):
         h = cleaned.get("home_team_actual")
         a = cleaned.get("away_team_actual")
         if h and a and h.id == a.id:
-            raise ValidationError("Ev sahibi ve deplasman aynı takım olamaz.")
+            # English: this form renders only on the /admin/results/ wizard.
+            raise ValidationError("Home and away cannot be the same team.")
         return cleaned
 
 
@@ -75,16 +76,17 @@ class ActualResultForm(forms.ModelForm):
         a_pen = cleaned.get("away_penalties")
 
         if went_pen:
+            # English: this form renders only on the /admin/results/ wizard.
             if home != away:
                 raise ValidationError(
-                    "Penaltıya gidiyorsa 90 dakikalık skor berabere olmalı."
+                    "A match that went to penalties must have a drawn 90' score."
                 )
             if not pen_winner:
-                raise ValidationError("Penaltıyı kazanan takım belirtilmeli.")
+                raise ValidationError("Penalty shootout winner is required.")
             if h_pen is None or a_pen is None:
-                raise ValidationError("Penaltı skoru (her iki taraf) girilmeli.")
+                raise ValidationError("Penalty score is required for both sides.")
             if h_pen == a_pen:
-                raise ValidationError("Penaltı skoru berabere olamaz.")
+                raise ValidationError("Penalty shootout cannot end in a draw.")
         else:
             # Clear penalty fields when not going to penalties.
             cleaned["penalty_winner"] = None

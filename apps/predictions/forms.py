@@ -13,6 +13,12 @@ Cascade rule (knockout R16 and beyond):
   remain editable.
 - If the user hasn't predicted the source slot yet, the form is blocked
   with a `cascade_blocked` flag — the view shows a "predict X first" page.
+
+Derivation helpers live in `cascade.py` (shared with the post-save
+invalidation pass that deletes stale downstream predictions). The derived
+team is written into `self.initial` as well as `field.initial` — a disabled
+field's submit value comes from `self.initial`, so this is what guarantees a
+stale team stored on an existing prediction can never survive a re-save.
 """
 
 from django import forms
@@ -20,57 +26,9 @@ from django.core.exceptions import ValidationError
 
 from apps.tournament.models import BracketSlot, Team
 
+from .cascade import derive_cascaded_team, resolve_slot_side_team
 from .models import SlotPrediction
 from .standings import derive_best_third_for_slot, derive_group_team
-
-
-def _derive_cascaded_team(user, source_slot: BracketSlot, source_kind: str):
-    """Look up the user's latest prediction for `source_slot` and return the
-    winner or loser team based on `source_kind`. Returns None if no
-    prediction exists or the prediction has no determinate winner (draw
-    without penalty winner).
-    """
-    if source_slot is None:
-        return None
-    pred = (
-        SlotPrediction.objects
-        .filter(user=user, slot=source_slot)
-        .select_related("home_team", "away_team", "penalty_winner")
-        .order_by("-prediction_round__order")
-        .first()
-    )
-    if pred is None:
-        return None
-    return pred.winner_team() if source_kind == BracketSlot.SOURCE_KIND_WINNER else pred.loser_team()
-
-
-def _resolve_slot_side_team(user, slot: BracketSlot, side: str):
-    """Best-effort: figure out which Team belongs in `side` of `slot` for this user.
-
-    Uses the same precedence chain as `SlotPredictionForm._configure_side`:
-    actual (admin-set) → upstream slot cascade → group standings → best-third.
-    Returns the Team or None if no path resolves (e.g. user hasn't predicted
-    enough upstream slots yet).
-    """
-    actual = getattr(slot, f"{side}_team_actual")
-    if actual:
-        return actual
-
-    source_slot = getattr(slot, f"{side}_source_slot")
-    if source_slot:
-        kind = getattr(slot, f"{side}_source_kind")
-        return _derive_cascaded_team(user, source_slot, kind)
-
-    group_letter = getattr(slot, f"{side}_source_group_letter")
-    group_position = getattr(slot, f"{side}_source_group_position")
-    if group_letter and group_position:
-        return derive_group_team(user, slot.tournament, group_letter, group_position)
-
-    thirds_groups = getattr(slot, f"{side}_source_thirds_groups")
-    if thirds_groups:
-        return derive_best_third_for_slot(user, slot.tournament, slot)
-
-    return None
 
 
 def _format_slot_blocker_label(user, source_slot: BracketSlot) -> str:
@@ -79,8 +37,8 @@ def _format_slot_blocker_label(user, source_slot: BracketSlot) -> str:
     and falls back to the textual `home_source` / `away_source` per side
     when no path resolves yet.
     """
-    home_team = _resolve_slot_side_team(user, source_slot, "home")
-    away_team = _resolve_slot_side_team(user, source_slot, "away")
+    home_team = resolve_slot_side_team(user, source_slot, "home")
+    away_team = resolve_slot_side_team(user, source_slot, "away")
     home_text = home_team.name_tr if home_team else (source_slot.home_source or "?")
     away_text = away_team.name_tr if away_team else (source_slot.away_source or "?")
     return f"{source_slot.position} — {home_text} vs {away_text}"
@@ -120,10 +78,8 @@ class SlotPredictionForm(forms.ModelForm):
 
         # Group slots: teams are fixed, render as disabled (initial fills them in).
         if slot.home_team_actual_id and slot.away_team_actual_id:
-            self.fields["home_team"].initial = slot.home_team_actual
-            self.fields["away_team"].initial = slot.away_team_actual
-            self.fields["home_team"].disabled = True
-            self.fields["away_team"].disabled = True
+            self._lock_side_to_team("home", slot.home_team_actual)
+            self._lock_side_to_team("away", slot.away_team_actual)
             return
 
         # Cascade resolution per side (knockout from R32 onward).
@@ -135,20 +91,32 @@ class SlotPredictionForm(forms.ModelForm):
         self._configure_side(user, slot, "home")
         self._configure_side(user, slot, "away")
 
-    def _configure_side(self, user, slot, side: str):
+    def _lock_side_to_team(self, side: str, team):
+        """Pin a team field to the derived/fixed team and disable it.
+
+        Written to BOTH `field.initial` and `self.initial`: Django resolves a
+        disabled field's value via `self.initial` first, and ModelForm seeds
+        that dict from the instance — so without the override, a stale team
+        stored on an existing prediction would silently win over the freshly
+        derived one (both in display and on save).
+        """
         field = self.fields[f"{side}_team"]
+        field.initial = team
+        field.disabled = True
+        self.initial[f"{side}_team"] = team
+
+    def _configure_side(self, user, slot, side: str):
         source_slot = getattr(slot, f"{side}_source_slot")
         if source_slot:
             kind = getattr(slot, f"{side}_source_kind")
-            team = _derive_cascaded_team(user, source_slot, kind)
+            team = derive_cascaded_team(user, source_slot, kind)
             if team is None:
                 self.cascade_blocked_on.append({
                     "label": _format_slot_blocker_label(user, source_slot),
                     "slot": source_slot,
                 })
             else:
-                field.initial = team
-                field.disabled = True
+                self._lock_side_to_team(side, team)
             return
 
         group_letter = getattr(slot, f"{side}_source_group_letter")
@@ -161,8 +129,7 @@ class SlotPredictionForm(forms.ModelForm):
                     "slot": None,
                 })
             else:
-                field.initial = team
-                field.disabled = True
+                self._lock_side_to_team(side, team)
             return
 
         thirds_groups = getattr(slot, f"{side}_source_thirds_groups")
@@ -179,8 +146,7 @@ class SlotPredictionForm(forms.ModelForm):
                     "slot": None,
                 })
             else:
-                field.initial = team
-                field.disabled = True
+                self._lock_side_to_team(side, team)
             return
 
     def clean(self):

@@ -129,7 +129,7 @@ def thirds_candidates(user, tournament, group_letters: list[str]) -> list[Team]:
     return teams
 
 
-def _qualifying_thirds(user, tournament) -> tuple[list[str], dict[str, TeamStanding]] | tuple[None, None]:
+def qualifying_thirds(user, tournament) -> tuple[list[str], dict[str, TeamStanding]] | tuple[None, None]:
     """Compute which 8 group letters qualify with their third-placed teams.
 
     Returns (sorted_letters, third_standings_by_letter) where the first list
@@ -166,7 +166,15 @@ def derive_best_third_for_slot(user, tournament, slot: BracketSlot):
     enough matches for all 12 groups to have a determinable third-place
     finisher.
     """
-    qualifying, third_by_letter = _qualifying_thirds(user, tournament)
+    qualifying, third_by_letter = qualifying_thirds(user, tournament)
+    return best_third_from_qualifying(tournament, slot, qualifying, third_by_letter)
+
+
+def best_third_from_qualifying(tournament, slot: BracketSlot, qualifying, third_by_letter):
+    """Allocation-table lookup half of `derive_best_third_for_slot`, split out
+    so callers that check many slots (cascade invalidation) can compute
+    `qualifying_thirds` once and reuse it.
+    """
     if qualifying is None:
         return None
 

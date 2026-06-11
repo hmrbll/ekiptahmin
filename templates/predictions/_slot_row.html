@@ -1,5 +1,5 @@
 {% load static %}
-<li id="slot-row-{{ slot.id }}"
+<li id="slot-row-{{ slot.id }}"{% if oob %} hx-swap-oob="outerHTML"{% endif %}
     class="rounded-2xl border border-line bg-surface p-4"
     data-slot-row="{{ slot.id }}"
     data-slot-position="{{ slot.position }}"
