@@ -70,9 +70,10 @@ $m = [regex]::Match($localUrl, $urlPattern)
 if (-not $m.Success) {
     throw "Could not parse DATABASE_URL (expected postgres://USER:PASSWORD@HOST:PORT/DBNAME)."
 }
+# Credentials in the URL are percent-encoded (same as Django reads them).
 $local = @{
-    User = $m.Groups["user"].Value
-    Pass = $m.Groups["pass"].Value
+    User = [uri]::UnescapeDataString($m.Groups["user"].Value)
+    Pass = [uri]::UnescapeDataString($m.Groups["pass"].Value)
     Host = $m.Groups["host"].Value
     Port = if ($m.Groups["port"].Success) { $m.Groups["port"].Value } else { "5432" }
     Db   = $m.Groups["db"].Value
@@ -84,23 +85,30 @@ if ($local.Host -notin @("localhost", "127.0.0.1")) {
 }
 
 # --- Locate PostgreSQL client tools ------------------------------------------
-$pgBin = $null
-$onPath = Get-Command pg_dump -ErrorAction SilentlyContinue
-if ($onPath) {
-    $pgBin = Split-Path $onPath.Source -Parent
-} else {
-    $installs = Get-ChildItem "C:\Program Files\PostgreSQL" -Directory -ErrorAction SilentlyContinue |
-        Sort-Object { [int]$_.Name } -Descending
-    foreach ($dir in $installs) {
-        if (Test-Path (Join-Path $dir.FullName "bin\pg_dump.exe")) {
-            $pgBin = Join-Path $dir.FullName "bin"
-            break
-        }
+# Collect every install we can find and use the newest one: pg_dump must be
+# at least as new as the Render server (PG 18 as of 2026-06), which may be
+# newer than the local PostgreSQL *server* install.
+$candidates = @()
+foreach ($dir in (Get-ChildItem "C:\Program Files\PostgreSQL" -Directory -ErrorAction SilentlyContinue)) {
+    if ($dir.Name -match "^(\d+)$" -and (Test-Path (Join-Path $dir.FullName "bin\pg_dump.exe"))) {
+        $candidates += @{ Bin = (Join-Path $dir.FullName "bin"); Version = [int]$Matches[1] }
     }
 }
-if (-not $pgBin) {
-    throw "pg_dump not found on PATH or under C:\Program Files\PostgreSQL. Install PostgreSQL client tools."
+# Standalone client binaries (EDB zip, no service) live under LocalAppData.
+foreach ($dir in (Get-ChildItem (Join-Path $env:LOCALAPPDATA "Programs") -Directory -Filter "pgsql-*" -ErrorAction SilentlyContinue)) {
+    if ($dir.Name -match "^pgsql-(\d+)$" -and (Test-Path (Join-Path $dir.FullName "bin\pg_dump.exe"))) {
+        $candidates += @{ Bin = (Join-Path $dir.FullName "bin"); Version = [int]$Matches[1] }
+    }
 }
+$onPath = Get-Command pg_dump -ErrorAction SilentlyContinue
+if ($onPath -and ((& $onPath.Source --version) -match "(\d+)(?:\.\d+)?\s*$")) {
+    $candidates += @{ Bin = (Split-Path $onPath.Source -Parent); Version = [int]$Matches[1] }
+}
+if (-not $candidates) {
+    throw "pg_dump not found (PATH, C:\Program Files\PostgreSQL, $env:LOCALAPPDATA\Programs\pgsql-*). Install PostgreSQL client tools - see docs/dev_workflow.md."
+}
+$best = $candidates | Sort-Object { $_.Version } -Descending | Select-Object -First 1
+$pgBin = $best.Bin
 $pgDump = Join-Path $pgBin "pg_dump.exe"
 $pgRestore = Join-Path $pgBin "pg_restore.exe"
 $psql = Join-Path $pgBin "psql.exe"

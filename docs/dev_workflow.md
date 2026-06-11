@@ -100,12 +100,25 @@ What it does, in order:
 ### Troubleshooting
 
 - **"server version mismatch"** from `pg_dump`: the local client tools are
-  older than the Render Postgres server. Install the matching PostgreSQL
-  version (client tools are enough) and re-run; the script picks the highest
-  version under `C:\Program Files\PostgreSQL` automatically.
+  older than the Render Postgres server (PG **18.3** as of 2026-06, while the
+  local *server* is PG 17 — that's fine as a restore target; only the client
+  tools must be ≥ the prod version). Fix without installing a second
+  Postgres service: download the EDB binaries zip and extract it so that
+  `pg_dump.exe` ends up at
+  `%LOCALAPPDATA%\Programs\pgsql-18\bin\pg_dump.exe` — the script scans
+  `Program Files`, `%LOCALAPPDATA%\Programs\pgsql-*` and PATH, then uses the
+  newest version it finds.
+
+  ```powershell
+  curl.exe -L -o "$env:TEMP\pgsql.zip" "https://get.enterprisedb.com/postgresql/postgresql-18.3-1-windows-x64-binaries.zip"
+  Expand-Archive "$env:TEMP\pgsql.zip" "$env:TEMP\pgsql_x"
+  Move-Item "$env:TEMP\pgsql_x\pgsql" "$env:LOCALAPPDATA\Programs\pgsql-18"
+  ```
+
 - **SSL errors**: make sure the URL ends with `?sslmode=require`.
 - **Local password with special characters**: URL-encode them in
-  `DATABASE_URL` (same rule as the normal dev setup).
+  `DATABASE_URL` (same rule as the normal dev setup); the script decodes
+  them before talking to `psql`.
 - After a pull, the local DB contains **real user emails**. Dev's email
   backend writes `.eml` files to `_dev_emails/` instead of sending, so
   nothing can reach real inboxes — don't change `EMAIL_BACKEND` in dev.
