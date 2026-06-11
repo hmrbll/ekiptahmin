@@ -87,7 +87,9 @@ For the leaderboard, sort by (descending unless noted):
 
 Note that layers 2–4 are *weighted* by the effective round's weight, so the same number of correct calls made in earlier (higher-weight) rounds already ranks ahead — that's where early-round correctness is rewarded, not via a clock-time layer.
 
-Users equal on all five layers **share a rank**. The display order among them is alphabetical by nickname — a stable, meaning-free fallback; a real tie is resolved manually during the tournament if it ever matters. (There is no clock-time "who submitted first" tiebreaker.)
+Users equal on all five layers **share a rank**. The display order among them is alphabetical by nickname — a stable, meaning-free fallback. (There is no clock-time "who submitted first" tiebreaker.)
+
+The tie notes rendered under the leaderboard are always concrete: they name the decisive criterion and each tied user's value on it (e.g. "sırayı ağırlıklı tam skor sayısı kriteri belirledi: Ali 3,40 · Veli 2,55"); for full ties they list the compared criteria and state that the rank is shared. Vague phrasings ("resolved during the tournament") are deliberately avoided.
 
 ## Data model
 

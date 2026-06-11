@@ -8,8 +8,9 @@ Tiebreaker chain (per docs/scoring-ganyan.md):
 5. Wrong-prediction count (asc — fewer 0-point predictions ranks higher)
 
 Users tied on all five share a rank. Among them the display order is
-alphabetical by nickname — a stable, meaning-free fallback; a genuine tie is
-resolved manually during the tournament if it ever actually matters.
+alphabetical by nickname — a stable, meaning-free fallback. The tie notes
+shown on the leaderboard always name the decisive criterion and each user's
+value on it (never a vague "decided elsewhere" phrasing).
 """
 
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from decimal import Decimal
 from typing import Optional
 
 from django.contrib.auth import get_user_model
+from django.utils.formats import number_format
 
 from apps.tournament.models import PredictionRound, Tournament
 
@@ -138,10 +140,27 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboard
     return entries
 
 
+def _format_tiebreaker_value(value) -> str:
+    """Localized display for one tiebreaker value. Weighted hit counts are
+    Decimal (round weights), wrong count is a plain int."""
+    if isinstance(value, Decimal):
+        return number_format(value, decimal_pos=2)
+    return str(value)
+
+
+def _tiebreaker_value(entry: GanyanLeaderboardEntry, idx: int):
+    """Un-negate the sort key back to the user-facing value for layer `idx`
+    (layers 1-3 are stored negated for ascending sort; layer 4 isn't)."""
+    raw = entry.tiebreakers[idx]
+    return -raw if idx < 4 else raw
+
+
 def describe_ties(entries: list[GanyanLeaderboardEntry]) -> list[str]:
     """For each cluster with identical total, describe which tiebreaker decided
-    their order. Returns one TR-language note per cluster, or empty list when
-    every user has a unique total.
+    their order — naming the criterion AND each user's value on it, so the
+    note reads "decided by X: A 3,40 · B 2,55" rather than something vague.
+    Returns one TR-language note per cluster, or empty list when every user
+    has a unique total.
     """
     notes: list[str] = []
     i = 0
@@ -155,6 +174,9 @@ def describe_ties(entries: list[GanyanLeaderboardEntry]) -> list[str]:
         if len(group) < 2:
             continue
 
+        names = ", ".join(e.nickname for e in group)
+        total_disp = number_format(group[0].total, decimal_pos=2)
+
         differing_indices: list[int] = []
         for a, b in zip(group, group[1:]):
             for idx in range(1, 5):  # idx 0 is total; group is already total-equal
@@ -163,17 +185,21 @@ def describe_ties(entries: list[GanyanLeaderboardEntry]) -> list[str]:
                     break
 
         if not differing_indices:
-            names = ", ".join(e.nickname for e in group)
+            criteria = ", ".join(TIEBREAKER_LABELS[1:])
             notes.append(
-                f"{names}: {group[0].total} puanla eşit — tüm kriterlerde de eşit, "
-                f"alfabetik sıralandı (gerçek eşitlik turnuvada değerlendirilir)."
+                f"{names}: {total_disp} puanla eşit ve dört eşitlik kriterinde de "
+                f"({criteria}) aynı değerdeler — aynı sırayı paylaşıyorlar, "
+                f"isimler alfabetik dizildi."
             )
             continue
 
         decisive_idx = min(differing_indices)
-        names = ", ".join(e.nickname for e in group)
+        values = " · ".join(
+            f"{e.nickname} {_format_tiebreaker_value(_tiebreaker_value(e, decisive_idx))}"
+            for e in group
+        )
         notes.append(
-            f"{names}: {group[0].total} puanla eşit — "
-            f"sıra {TIEBREAKER_LABELS[decisive_idx]} kriteriyle belirlendi."
+            f"{names}: {total_disp} puanla eşit — sırayı "
+            f"{TIEBREAKER_LABELS[decisive_idx]} kriteri belirledi: {values}."
         )
     return notes
