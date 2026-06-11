@@ -13,6 +13,10 @@ module.exports = {
         '../templates/**/*.html',
         '../../templates/**/*.html',
         '../../**/templates/**/*.html',
+        // Badge/tier classes are built in Python view dicts (e.g.
+        // _OUTCOME_BADGE in apps/scoring/views.py) — scan them too so the
+        // compiled CSS keeps those utilities.
+        '../../apps/**/*.py',
     ],
     theme: {
         extend: {
