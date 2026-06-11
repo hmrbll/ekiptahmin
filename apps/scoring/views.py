@@ -19,7 +19,6 @@ from apps.predictions.models import SlotPrediction
 from apps.tournament.models import (
     ActualResult,
     BracketSlot,
-    PredictionRound,
     Tournament,
 )
 

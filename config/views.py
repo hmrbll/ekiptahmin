@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.predictions.models import SlotPrediction
 from apps.scoring.ganyan_leaderboard import leaderboard_for_tournament
-from apps.scoring.models import GanyanScore, MatchPool
+from apps.scoring.models import GanyanScore
 from apps.tournament.models import ActualResult, BracketSlot, PredictionRound, Stage, Tournament
 
 # How many items each home-page module shows when there's enough data.

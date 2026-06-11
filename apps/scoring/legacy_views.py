@@ -15,8 +15,6 @@ from django.shortcuts import get_object_or_404, render
 from apps.predictions.models import SlotPrediction
 from apps.tournament.models import (
     ActualResult,
-    BracketSlot,
-    PredictionRound,
     Tournament,
 )
 
@@ -235,7 +233,6 @@ def scoring_diff(request: HttpRequest) -> HttpResponse:
     from decimal import Decimal
 
     from .ganyan_leaderboard import leaderboard_for_tournament as ganyan_lb
-    from .models import GanyanScore
 
     tournament = Tournament.objects.filter(is_active=True).first()
     if tournament is None:

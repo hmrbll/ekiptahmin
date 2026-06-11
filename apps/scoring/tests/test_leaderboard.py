@@ -10,7 +10,6 @@ from django.utils import timezone
 
 from apps.predictions.models import SlotPrediction
 from apps.scoring.leaderboard import describe_ties, leaderboard_for_tournament
-from apps.scoring.models import SlotScore
 from apps.tournament.models import (
     ActualResult,
     BracketSlot,
@@ -409,8 +408,7 @@ class TestLeaderboardCountColumns:
         recompute_slot_for_user(u, slot2)
 
         client.force_login(u)
-        r = client.get(reverse("leaderboard"))
-        body = r.content.decode("utf-8")
+        client.get(reverse("leaderboard"))
         # The user's row should contain a "1" in both Yanlış and Tahmin Yapmadı
         # columns. Easiest assertion: the entry's exposed count fields.
         from apps.scoring.leaderboard import leaderboard_for_tournament

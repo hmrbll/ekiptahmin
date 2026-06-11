@@ -14,8 +14,7 @@ Tie-break order (FIFA-aligned subset, simplified for MVP):
 6. Alphabetical team code (deterministic fallback; FIFA uses fair play / draw)
 """
 
-from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterable
 
 

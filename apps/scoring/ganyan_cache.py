@@ -9,7 +9,6 @@ from decimal import Decimal
 
 from django.db import transaction
 
-from apps.scoring.ganyan import OUTCOME_NO_PREDICTION, OUTCOME_NO_RESULT
 from apps.tournament.models import BracketSlot
 
 from .ganyan_bridge import compute_pre_result_pools, compute_slot_scores

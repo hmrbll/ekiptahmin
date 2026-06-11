@@ -155,7 +155,7 @@ class TestHomeAuthenticated:
             t, group_stage, "GroupA-M1", now + timedelta(days=2), tur, bra,
         )
         ActualResult.objects.create(slot=future_with_result, home_score=2, away_score=1)
-        future_clean = _slot(
+        _slot(
             t, group_stage, "GroupA-M2", now + timedelta(days=3), bra, tur,
         )
 
