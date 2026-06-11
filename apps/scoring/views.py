@@ -48,17 +48,29 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
     rows = []
     for e in entries:
         c = e.counts
+        # Cumulative counts: an exact score also nails the goal difference
+        # and the outcome, so it counts in all three columns (mirrors the
+        # weighted tiebreaker semantics in ganyan_leaderboard).
+        exact = c.get(GanyanScore.EXACT, 0)
+        diff_or_better = exact + c.get(GanyanScore.DIFF, 0)
+        result_or_better = diff_or_better + c.get(GanyanScore.RESULT, 0)
         rows.append({
             "rank": e.rank,
             "user_id": e.user.id,
             "nickname": e.nickname,
             "total": e.total,
-            "exact": c.get(GanyanScore.EXACT, 0),
-            "diff": c.get(GanyanScore.DIFF, 0),
-            "result": c.get(GanyanScore.RESULT, 0),
+            "exact": exact,
+            "diff": diff_or_better,
+            "result": result_or_better,
             "penalty": c.get(GanyanScore.PENALTY, 0),
             "wrong": c.get(GanyanScore.MISS, 0),
-            "score_breakdown": e.score_breakdown,
+            # Points earned per criterion — the "Puan" face of the toggle.
+            # Already cumulative by construction: an exact hit wins the
+            # exact, diff AND result pools.
+            "points_exact": e.score_breakdown["exact"],
+            "points_diff": e.score_breakdown["diff"],
+            "points_result": e.score_breakdown["result"],
+            "points_penalty": e.score_breakdown["penalty"],
         })
 
     return render(request, "scoring/leaderboard.html", {

@@ -11,6 +11,18 @@
         <p class="text-fg-muted mb-6 sm:mb-8">{{ tournament.name }}</p>
 
         {% if rows %}
+        {% comment %}
+        Adet/Puan toggle — switches every stat cell between hit counts and
+        points earned per criterion. Pure client-side (dual spans, JS swaps
+        visibility); choice persists in localStorage.
+        {% endcomment %}
+        <div class="flex items-center justify-end mb-3">
+            <div class="inline-flex rounded-full border border-line bg-surface p-0.5 text-xs" role="group" aria-label="Görünüm seçimi">
+                <button type="button" data-lb-toggle="adet" class="px-3 py-1 rounded-full transition">Adet</button>
+                <button type="button" data-lb-toggle="puan" class="px-3 py-1 rounded-full transition">Puan</button>
+            </div>
+        </div>
+
         {# Mobile: single-line row — rank · name · 5 colour-coded stat pills · total (<md) #}
         {# Legend below the list maps each colour to its category for first-time viewers. #}
         <ul class="md:hidden space-y-2">
@@ -19,10 +31,10 @@
                 <span class="font-mono text-xs text-fg-muted w-5 text-right shrink-0">{{ row.rank }}</span>
                 <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-primary hover:text-primary-hover underline decoration-primary/40 underline-offset-2 hover:decoration-primary transition truncate flex-1 min-w-0 text-sm">{{ row.nickname }}</a>
                 <div class="flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none">
-                    <span class="bg-primary/15 text-primary px-1.5 py-1 rounded" aria-label="Doğru Skor">{{ row.exact }}</span>
-                    <span class="bg-success/15 text-success px-1.5 py-1 rounded" aria-label="Doğru Fark">{{ row.diff }}</span>
-                    <span class="bg-warning/15 text-warning px-1.5 py-1 rounded" aria-label="Doğru Sonuç">{{ row.result }}</span>
-                    <span class="bg-accent/15 text-accent px-1.5 py-1 rounded" aria-label="Penaltı">{{ row.penalty }}</span>
+                    <span class="bg-primary/15 text-primary px-1.5 py-1 rounded" aria-label="Doğru Skor"><span data-lb-val="adet">{{ row.exact }}</span><span data-lb-val="puan" class="hidden">{{ row.points_exact|floatformat:1 }}</span></span>
+                    <span class="bg-success/15 text-success px-1.5 py-1 rounded" aria-label="Doğru Fark"><span data-lb-val="adet">{{ row.diff }}</span><span data-lb-val="puan" class="hidden">{{ row.points_diff|floatformat:1 }}</span></span>
+                    <span class="bg-warning/15 text-warning px-1.5 py-1 rounded" aria-label="Doğru Sonuç"><span data-lb-val="adet">{{ row.result }}</span><span data-lb-val="puan" class="hidden">{{ row.points_result|floatformat:1 }}</span></span>
+                    <span class="bg-accent/15 text-accent px-1.5 py-1 rounded" aria-label="Penaltı"><span data-lb-val="adet">{{ row.penalty }}</span><span data-lb-val="puan" class="hidden">{{ row.points_penalty|floatformat:1 }}</span></span>
                     <span class="bg-danger/15 text-danger px-1.5 py-1 rounded" aria-label="Yanlış">{{ row.wrong }}</span>
                 </div>
                 <span class="font-mono text-sm font-semibold text-fg shrink-0 w-12 text-right">{{ row.total|floatformat:2 }}</span>
@@ -61,16 +73,48 @@
                             <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-primary hover:text-primary-hover underline decoration-primary/40 underline-offset-2 hover:decoration-primary transition">{{ row.nickname }}</a>
                         </td>
                         <td class="px-4 py-3 text-right font-semibold">{{ row.total|floatformat:2 }}</td>
-                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.exact }}</td>
-                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.diff }}</td>
-                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.result }}</td>
-                        <td class="px-4 py-3 text-right text-fg-soft">{{ row.penalty }}</td>
+                        <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.exact }}</span><span data-lb-val="puan" class="hidden">{{ row.points_exact|floatformat:2 }}</span></td>
+                        <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.diff }}</span><span data-lb-val="puan" class="hidden">{{ row.points_diff|floatformat:2 }}</span></td>
+                        <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.result }}</span><span data-lb-val="puan" class="hidden">{{ row.points_result|floatformat:2 }}</span></td>
+                        <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.penalty }}</span><span data-lb-val="puan" class="hidden">{{ row.points_penalty|floatformat:2 }}</span></td>
                         <td class="px-4 py-3 text-right text-fg-soft">{{ row.wrong }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <p class="mt-2 text-xs text-fg-muted">
+            Tam skor tutturulan maç, doğru fark ve doğru sonuç sütunlarına da dahildir.
+            "Yanlış" her iki görünümde de maç adedidir.
+        </p>
+
+        <script>
+        (function () {
+            var KEY = "lb-display-mode";
+            var ACTIVE = ["bg-primary/10", "text-primary", "font-medium"];
+            var INACTIVE = ["text-fg-muted"];
+            function apply(mode) {
+                document.querySelectorAll("[data-lb-val]").forEach(function (el) {
+                    el.classList.toggle("hidden", el.getAttribute("data-lb-val") !== mode);
+                });
+                document.querySelectorAll("[data-lb-toggle]").forEach(function (btn) {
+                    var active = btn.getAttribute("data-lb-toggle") === mode;
+                    ACTIVE.forEach(function (c) { btn.classList.toggle(c, active); });
+                    INACTIVE.forEach(function (c) { btn.classList.toggle(c, !active); });
+                });
+                try { localStorage.setItem(KEY, mode); } catch (e) { /* private mode */ }
+            }
+            document.querySelectorAll("[data-lb-toggle]").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    apply(btn.getAttribute("data-lb-toggle"));
+                });
+            });
+            var saved = "adet";
+            try { saved = localStorage.getItem(KEY) || "adet"; } catch (e) { /* private mode */ }
+            apply(saved === "puan" ? "puan" : "adet");
+        })();
+        </script>
 
         {% if tie_notes %}
         <div class="mt-6 rounded-2xl border border-warning/20 bg-warning/5 p-4">
