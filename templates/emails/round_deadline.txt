@@ -8,6 +8,6 @@ Selam {{ nickname }},
 
 Tahminlerini tamamla: {{ predict_url }}
 
-Deadline: {{ deadline|date:"j F l" }}, {{ deadline|time:"H:i" }}
+Son tarih: {{ deadline|date:"j F l" }}, {{ deadline|time:"H:i" }}
 
 {% include "emails/_footer.txt" %}

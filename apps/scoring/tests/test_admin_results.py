@@ -122,8 +122,8 @@ class TestGroupStep:
         # Group rows show team names as locked labels (not selects).
         assert "Türkiye" in body
         assert "Brezilya" in body
-        # Step nav present.
-        assert "Grup B" in body  # neighbouring step pill
+        # Step nav present (admin wizard is English).
+        assert "Group B" in body  # neighbouring step pill
 
     def test_unknown_group_redirects_to_entry(self, client, staff, t):
         client.force_login(staff)
@@ -144,8 +144,8 @@ class TestKnockoutStep:
         # Team selects rendered — both team options appear within form selects.
         assert "Türkiye" in body
         assert "Brezilya" in body
-        # Penalty section visible for knockout.
-        assert "Penaltılara gitti" in body
+        # Penalty section visible for knockout (admin wizard is English).
+        assert "Went to penalties" in body
 
 
 @pytest.mark.django_db

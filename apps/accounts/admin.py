@@ -80,6 +80,6 @@ class InviteAdmin(admin.ModelAdmin):
         if is_new and obj.email:
             try:
                 send_invite_welcome(obj)
-                messages.success(request, f"Davet maili gönderildi: {obj.email}")
+                messages.success(request, f"Invite email sent: {obj.email}")
             except Exception as exc:
-                messages.error(request, f"Davet maili gönderilemedi ({obj.email}): {exc}")
+                messages.error(request, f"Invite email failed ({obj.email}): {exc}")

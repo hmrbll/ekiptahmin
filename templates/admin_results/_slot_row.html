@@ -50,11 +50,11 @@
             {# Regulation score #}
             <input type="number" inputmode="numeric" min="0" max="20" name="{{ result_form.home_score.html_name }}"
                    value="{{ result_form.home_score.value|default_if_none:'' }}" required
-                   class="w-11 sm:w-14 text-center" aria-label="Ev skoru">
+                   class="w-11 sm:w-14 text-center" aria-label="Home score">
             <span class="text-fg-muted text-sm">–</span>
             <input type="number" inputmode="numeric" min="0" max="20" name="{{ result_form.away_score.html_name }}"
                    value="{{ result_form.away_score.value|default_if_none:'' }}" required
-                   class="w-11 sm:w-14 text-center" aria-label="Deplasman skoru">
+                   class="w-11 sm:w-14 text-center" aria-label="Away score">
 
             {# Away team #}
             <div class="min-w-0">
@@ -82,32 +82,32 @@
             <label class="inline-flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
                 <input type="checkbox" name="{{ result_form.went_to_extra_time.html_name }}"
                        {% if result_form.went_to_extra_time.value %}checked{% endif %}>
-                Uzatmalara gitti (90+30 dk)
+                Went to extra time (90+30 min)
             </label>
             <label class="inline-flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
                 <input type="checkbox" name="{{ result_form.went_to_penalties.html_name }}"
                        {% if result_form.went_to_penalties.value %}checked{% endif %}>
-                Penaltılara gitti
+                Went to penalties
             </label>
 
             {% if result_form.went_to_penalties.value %}
             <div class="space-y-2 pt-1 border-t border-line">
-                <div class="text-xs text-fg-muted">Penaltıyı kazanan</div>
+                <div class="text-xs text-fg-muted">Penalty winner</div>
                 <select name="{{ result_form.penalty_winner.html_name }}" class="text-sm">
-                    <option value="">— seç —</option>
+                    <option value="">— select —</option>
                     {% for choice in result_form.penalty_winner.field.queryset %}
                     <option value="{{ choice.id }}" {% if result_form.penalty_winner.value|stringformat:"s" == choice.id|stringformat:"s" %}selected{% endif %}>{{ choice.name_tr }}</option>
                     {% endfor %}
                 </select>
-                <div class="text-xs text-fg-muted">Penaltı skoru</div>
+                <div class="text-xs text-fg-muted">Penalty shootout score</div>
                 <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center max-w-xs">
                     <input type="number" min="0" max="30" name="{{ result_form.home_penalties.html_name }}"
                            value="{{ result_form.home_penalties.value|default_if_none:'' }}"
-                           class="text-center" placeholder="0" aria-label="Ev penaltı">
+                           class="text-center" placeholder="0" aria-label="Home penalties">
                     <span class="text-fg-muted text-sm">–</span>
                     <input type="number" min="0" max="30" name="{{ result_form.away_penalties.html_name }}"
                            value="{{ result_form.away_penalties.value|default_if_none:'' }}"
-                           class="text-center" placeholder="0" aria-label="Deplasman penaltı">
+                           class="text-center" placeholder="0" aria-label="Away penalties">
                 </div>
             </div>
             {% endif %}
