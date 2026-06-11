@@ -116,9 +116,25 @@ In dev, a custom file backend writes each email as a `.eml` file to `_dev_emails
 
 Staff users can render every email template with realistic dummy data at `/ops/emails/preview/`. Each variant (round-open kinds, reminder urgency levels, daily digests) is its own slug — see [apps/notifications/views.py](apps/notifications/views.py) for the registry. Production senders pass the same context shape.
 
+## Development Workflow
+
+The site is live — `main` deploys straight to production, so all work happens on the `dev` branch:
+
+1. Commit & push to `dev` → CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs ruff + pytest.
+2. `gh pr create --base main --head dev` → CI result shows on the PR.
+3. Merge when green → Render auto-deploys `main`.
+
+To develop against real data, pull a copy of the production database into local Postgres:
+
+```powershell
+.\scripts\pull-prod-db.ps1    # needs PROD_DATABASE_URL in .env (see docs)
+```
+
+Full runbook (branch rules, release steps, prod-data sync details & troubleshooting): [docs/dev_workflow.md](docs/dev_workflow.md).
+
 ## Deployment
 
-`git push origin main` triggers an auto-deploy on Render via [render.yaml](render.yaml). The build script ([build.sh](build.sh)):
+Merging a PR into `main` (see [Development Workflow](#development-workflow)) triggers an auto-deploy on Render via [render.yaml](render.yaml). The build script ([build.sh](build.sh)):
 
 1. Downloads Node 22 LTS (cached between deploys)
 2. `pip install -r requirements.txt`
@@ -183,6 +199,7 @@ Sunday Pitch palette, **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500
 - [docs/scoring-ganyan.md](docs/scoring-ganyan.md) — Active scoring mechanic: parimutuel pool model with per-stage pool sizes and round-weight effective-round picking.
 - [docs/admin.md](docs/admin.md) — Django admin module reference
 - [docs/email_setup.md](docs/email_setup.md) — Email infrastructure (Resend SMTP + DNS)
+- [docs/dev_workflow.md](docs/dev_workflow.md) — Branch model, CI, release flow, prod-data sync
 - Project decisions and session-to-session context live in private `memory/` (gitignored).
 
 ### Scoring at a glance
