@@ -18,6 +18,7 @@ from django.views.decorators.http import require_POST
 
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 
+from .cascade import downstream_slots, invalidate_stale_predictions
 from .forms import SlotPredictionForm
 from .models import BracketCompletionEvent, SlotPrediction
 from .standings import standings_for_group
@@ -230,6 +231,18 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred):
         instance=instance, initial=initial,
         user=request.user, prediction_round=pr, slot=slot,
     )
+
+    # Carry-over prefill only makes sense while the matchup is the same match.
+    # If the derived teams (written into form.initial by the form itself)
+    # differ from the previous round's teams, drop the stale scoreline so the
+    # slot renders as never predicted.
+    if instance is None and initial and (
+        form.initial.get("home_team") != initial.get("home_team")
+        or form.initial.get("away_team") != initial.get("away_team")
+    ):
+        for key in ("home_score", "away_score",
+                    "penalty_winner", "home_penalties", "away_penalties"):
+            form.initial.pop(key, None)
 
     display_home = slot.home_team_actual
     display_away = slot.away_team_actual
@@ -470,18 +483,17 @@ def slot_prediction_save(
         user=request.user, prediction_round=pr, slot=slot,
     )
     saved = form.is_valid()
+    invalidated: list[BracketSlot] = []
     if saved:
         form.save()
+        # The edit may have changed downstream matchups (R32 winner feeds
+        # R16, group standings feed R32, ...). Predictions whose matchup
+        # went stale are deleted — they must look never-predicted.
+        invalidated = invalidate_stale_predictions(request.user, pr)
 
     if request.headers.get("HX-Request"):
-        all_latest, _ = _user_preds_index(request.user, pr)
-        this_round_pred = (
-            SlotPrediction.objects
-            .filter(user=request.user, prediction_round=pr, slot=slot)
-            .select_related("home_team", "away_team", "penalty_winner")
-            .first()
-        )
-        ctx = _build_row_context(request, pr, slot, all_latest, this_round_pred)
+        all_latest, this_round = _user_preds_index(request.user, pr)
+        ctx = _build_row_context(request, pr, slot, all_latest, this_round.get(slot.id))
         ctx["just_saved"] = saved
         if not saved:
             ctx["form"] = form
@@ -489,6 +501,24 @@ def slot_prediction_save(
             ctx["bracket_just_completed"] = _check_and_mark_bracket_complete(request.user, pr)
 
         body = render_to_string("predictions/_slot_row.html", ctx, request=request)
+
+        # Refresh dependent rows in place (knockout summary shows several
+        # stages at once): every invalidated slot, plus — for knockout saves —
+        # all transitively fed slots, whose displayed teams may have changed
+        # even without a deletion. Sent as hx-swap-oob fragments; htmx drops
+        # the ones not present on the current page.
+        if saved:
+            editable_stage_ids = set(pr.editable_stages.values_list("id", flat=True))
+            refresh = {s.id: s for s in invalidated}
+            if slot.stage.kind != "GROUP":
+                for ds in downstream_slots(slot):
+                    refresh.setdefault(ds.id, ds)
+            for ds in refresh.values():
+                if ds.id == slot.id or ds.stage_id not in editable_stage_ids:
+                    continue
+                ds_ctx = _build_row_context(request, pr, ds, all_latest, this_round.get(ds.id))
+                ds_ctx["oob"] = True
+                body += render_to_string("predictions/_slot_row.html", ds_ctx, request=request)
 
         # Group slot save → also push the updated standings table for that
         # group via HTMX out-of-band swap, so the live ranking refreshes.

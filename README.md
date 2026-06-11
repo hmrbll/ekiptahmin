@@ -18,7 +18,8 @@ ekiptahmin.com/
 │   ├── accounts/               Custom User, Invite, magic-link auth
 │   ├── tournament/             Tournament, Stage, Team, PredictionRound,
 │   │                           BracketSlot, ActualResult + seed command
-│   ├── predictions/            SlotPrediction + full wizard UI
+│   ├── predictions/            SlotPrediction, bracket cascade (derivation +
+│   │                           stale-prediction invalidation) + full wizard UI
 │   ├── scoring/                Two engines in parallel:
 │   │                           - ganyan.py  (active: parimutuel pool)
 │   │                           - engine.py  (legacy bracket, staff-only)
@@ -207,6 +208,10 @@ Sunday Pitch palette, **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500
 Each match has fixed pools per criterion: regulation (exact / diff / result, 100 each) plus — on knockout matches that go to penalties — three penalty pools (penalty_winner / penalty_score / penalty_diff, 50 each). Pools split equally among users who get that criterion right — single-prediction wins pay the full pool, consensus picks pay a thin slice. For each `(user, match)` the engine picks ONE **effective round** (the round whose prediction + weight maximises the user's payout); criteria are paid from that round only. Pools that no one hits **burn**. Pool sizes are admin-tunable and persist across deploys (seed sets them only on first creation).
 
 Legacy bracket scoring (`apps/scoring/engine.py`, `SlotScore`) still runs in parallel for staff comparison at `/legacy/leaderboard/`, `/legacy/results/`, `/legacy/scoring-diff/` — see [docs/scoring-ganyan.md](docs/scoring-ganyan.md) for the full spec and rationale.
+
+### Bracket cascade at a glance
+
+Knockout slot teams are derived per user from their own earlier predictions — upstream slot winner/loser, group standings, or FIFA's best-third allocation table; admin-entered actual teams override all of these ([apps/predictions/cascade.py](apps/predictions/cascade.py)). Editing an upstream prediction re-derives every downstream matchup in the same round: any stored prediction whose matchup went stale is **deleted automatically** (the slot shows as never predicted), recursively down the bracket. Closed rounds are scored history and are never touched. Affected rows on multi-stage pages refresh in place via HTMX out-of-band swaps, and carry-over prefill from earlier rounds is skipped when the matchup changed.
 
 ### Common commands (scoring-specific)
 
