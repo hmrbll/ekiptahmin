@@ -91,6 +91,12 @@ Users equal on all five layers **share a rank**. The display order among them is
 
 The tie notes rendered under the leaderboard are always concrete: they name the decisive criterion and each tied user's value on it (e.g. "sırayı ağırlıklı tam skor sayısı kriteri belirledi: Ali 3,40 · Veli 2,55"); for full ties they list the compared criteria and state that the rank is shared. Vague phrasings ("resolved during the tournament") are deliberately avoided.
 
+## Leaderboard display
+
+The stat columns (Doğru Skor / Doğru Fark / Doğru Sonuç) show **cumulative** counts: an exact-score hit also counts as a correct goal difference and a correct result, a diff hit also counts as a correct result — same semantics as the weighted tiebreaker layers. "Penaltı" stays a best-tier bucket (earned from a penalty pool while missing all regulation tiers) and "Yanlış" is the wrong-prediction count.
+
+An **Adet/Puan toggle** (client-side, persisted in localStorage) switches every stat cell between hit counts and points earned per criterion (`GanyanScore.score_exact/diff/result/penalty` sums — also cumulative by construction, since an exact hit wins all three regulation pools). "Yanlış" shows the count in both modes.
+
 ## Data model
 
 ### Modified
