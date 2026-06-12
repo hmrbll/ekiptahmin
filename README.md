@@ -141,7 +141,7 @@ Merging a PR into `main` (see [Development Workflow](#development-workflow)) tri
 2. `pip install -r requirements.txt`
 3. `npm ci` + Tailwind production build
 4. `collectstatic` + `migrate`
-5. `seed_wc2026` (idempotent — re-syncs tournament fixtures from `data/wc2026/`)
+5. `seed_wc2026` (idempotent — re-syncs tournament fixtures from `data/wc2026/`; **prediction rounds are the exception**: they're created once and admin-owned after that, so mid-tournament admin edits — closed stages, moved deadlines — survive deploys)
 6. `recompute_ganyan` (idempotent — backfills `GanyanScore` + `MatchPool` for any slot whose post_save signal got missed)
 
 **First production deploy** only needs a superuser (everything else is in the build):

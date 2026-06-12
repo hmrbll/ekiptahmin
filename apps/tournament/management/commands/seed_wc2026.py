@@ -1,6 +1,8 @@
 """Seed the 2026 World Cup tournament structure from data/wc2026/.
 
 Idempotent: rerunning updates existing rows in place rather than duplicating.
+Exception: PredictionRounds are created once and then admin-owned — deploys
+must not revert mid-tournament admin edits (closed stages, moved deadlines).
 Reads:
 - data/wc2026/tournament.json    (Tournament + Stages + PredictionRounds)
 - data/wc2026/teams.csv          (Teams)
@@ -158,19 +160,15 @@ class Command(BaseCommand):
     # ---- PredictionRounds (after slots, so opens_at can be computed) ----
 
     def _seed_prediction_rounds(self, tournament: Tournament, config: dict) -> None:
-        stage_by_kind = {s.kind: s for s in tournament.stages.all()}
+        """Create missing rounds; never touch existing ones.
 
-        # Drop rounds removed from the JSON since the last seed (cleans up
-        # orders that no longer appear in config).
-        listed_orders = {rd["order"] for rd in config["prediction_rounds"]}
-        deleted = (
-            PredictionRound.objects
-            .filter(tournament=tournament)
-            .exclude(order__in=listed_orders)
-            .delete()
-        )
-        if deleted[0]:
-            self.stdout.write(self.style.WARNING(f"  Removed {deleted[0]} obsolete prediction round(s)"))
+        Rounds are admin-owned once created: during the live tournament the
+        admin closes stages mid-round (e.g. GROUP removed from "Pre-turnuva"
+        at kickoff) and extends deadlines. Re-syncing from JSON on deploy
+        would silently revert that state — so the seed only fills gaps, and
+        never deletes rounds (a delete would cascade into SlotPredictions).
+        """
+        stage_by_kind = {s.kind: s for s in tournament.stages.all()}
 
         for rd in config["prediction_rounds"]:
             depends_kind = rd.get("depends_on_stage")
@@ -183,7 +181,7 @@ class Command(BaseCommand):
                 rd.get("deadline_iso"), tournament_start=config["tournament"]["start_date"],
             )
 
-            round_obj, created = PredictionRound.objects.update_or_create(
+            round_obj, created = PredictionRound.objects.get_or_create(
                 tournament=tournament,
                 order=rd["order"],
                 defaults={
@@ -194,7 +192,8 @@ class Command(BaseCommand):
                     "opens_at": opens_at,
                 },
             )
-            round_obj.editable_stages.set(editable_stages)
+            if created:
+                round_obj.editable_stages.set(editable_stages)
             self._log(f"  Round: {round_obj.name} (×{round_obj.weight})", created)
 
     def _compute_opens_at(self, tournament: Tournament, depends_stage: Stage | None):
