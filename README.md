@@ -141,7 +141,7 @@ Merging a PR into `main` (see [Development Workflow](#development-workflow)) tri
 2. `pip install -r requirements.txt`
 3. `npm ci` + Tailwind production build
 4. `collectstatic` + `migrate`
-5. `seed_wc2026` (idempotent — re-syncs tournament fixtures from `data/wc2026/`)
+5. `seed_wc2026` (idempotent — re-syncs tournament fixtures from `data/wc2026/`; **prediction rounds are the exception**: they're created once and admin-owned after that, so mid-tournament admin edits — closed stages, moved deadlines — survive deploys)
 6. `recompute_ganyan` (idempotent — backfills `GanyanScore` + `MatchPool` for any slot whose post_save signal got missed)
 
 **First production deploy** only needs a superuser (everything else is in the build):
@@ -212,6 +212,12 @@ Legacy bracket scoring (`apps/scoring/engine.py`, `SlotScore`) still runs in par
 ### Bracket cascade at a glance
 
 Knockout slot teams are derived per user from their own earlier predictions — upstream slot winner/loser, group standings, or FIFA's best-third allocation table; admin-entered actual teams override all of these ([apps/predictions/cascade.py](apps/predictions/cascade.py)). Editing an upstream prediction re-derives every downstream matchup in the same round: any stored prediction whose matchup went stale is **deleted automatically** (the slot shows as never predicted), recursively down the bracket. Closed rounds are scored history and are never touched. Affected rows on multi-stage pages refresh in place via HTMX out-of-band swaps, and carry-over prefill from earlier rounds is skipped when the matchup changed.
+
+When an edit turns a draw prediction into a decisive score, the browser still submits the (CSS-hidden) penalty-shootout inputs; the form clears those stale fields server-side instead of rejecting the save — otherwise the validation error would render inside the hidden section and the save would fail silently, leaving downstream matchups stale.
+
+### Mid-tournament stage locking
+
+Closing predictions for a stage mid-round = removing it from the round's `editable_stages` in admin (rounds are admin-owned — deploys don't revert this). The wizard keeps a closed stage visible to users who predicted it in that round: its steps render read-only (static rows instead of forms, 🔒 markers on the step pills) and the live group standings stay. The same read-only rendering kicks in when the round's deadline has passed or a slot's kickoff is in the past, and the round entry redirect skips locked steps to land on the first still-editable one.
 
 ### Common commands (scoring-specific)
 

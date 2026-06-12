@@ -131,6 +131,8 @@ Defines the multi-round prediction mechanic. There are 7 rounds for WC 2026 (one
 
 The `is_open` column shows live whether the round is currently accepting predictions.
 
+> **Rounds are admin-owned after creation.** `seed_wc2026` only creates rounds that don't exist yet — a deploy never overwrites `deadline`, `editable_stages`, or any other round field. This is what makes mid-tournament edits safe: removing GROUP from a round's `editable_stages` closes group predictions for good, and an extended deadline stays extended.
+
 > Round weight encodes "early predictions are riskier and worth more". A correct matchup with the same score predicted in Round 1 (weight 1.00) earns more than the same matchup predicted in Round 4 (weight 0.65). The scoring engine evaluates every round in which the user predicted the matchup correctly and picks the one that yields the highest weighted total; ties go to the earlier round. A user who got the matchup right early with a wrong score and then fixed the score later is no longer locked out of points.
 
 ### Bracket slots

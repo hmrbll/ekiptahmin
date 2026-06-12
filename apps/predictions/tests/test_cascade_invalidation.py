@@ -276,6 +276,38 @@ class TestSaveViewInvalidation:
         assert f'id="slot-row-{r16_cascaded.id}"' in content
         assert 'hx-swap-oob="outerHTML"' in content
 
+    def test_draw_to_decisive_edit_with_stale_penalty_payload_invalidates(
+        self, client, user, full_round, r32_a, r16_cascaded, bracket_preds,
+        team_tur, team_bra,
+    ):
+        """Reported in the wild: R32 draw (with pens) edited to a decisive
+        score did NOT update downstream matchups. Cause: the browser still
+        submits the CSS-hidden penalty inputs, validation rejected the save
+        silently, so invalidation never ran."""
+        pred = bracket_preds["r32_a"]
+        pred.home_score, pred.away_score = 1, 1
+        pred.penalty_winner, pred.home_penalties, pred.away_penalties = team_tur, 4, 2
+        pred.save()
+
+        client.force_login(user)
+        r = client.post(
+            reverse("slot_prediction_save", args=[full_round.id, r32_a.id]),
+            {"home_team": team_tur.id, "away_team": team_bra.id,
+             "home_score": 0, "away_score": 1,
+             # stale shootout values from the now-hidden penalty section
+             "penalty_winner": team_tur.id,
+             "home_penalties": 4, "away_penalties": 2},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert r.status_code == 200
+        pred.refresh_from_db()
+        assert (pred.home_score, pred.away_score) == (0, 1)
+        assert pred.penalty_winner_id is None
+        # BRA now wins R32-1 → the stored R16 (TUR vs ARG) must be gone.
+        assert not SlotPrediction.objects.filter(user=user, slot=r16_cascaded).exists()
+        assert f'id="slot-row-{r16_cascaded.id}"' in r.content.decode()
+
     def test_htmx_save_with_same_winner_sends_refreshed_dependent_rows_only(
         self, client, user, full_round, r32_a, r16_cascaded, bracket_preds,
         team_tur, team_bra,

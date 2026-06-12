@@ -159,6 +159,17 @@ class SlotPredictionForm(forms.ModelForm):
             raise ValidationError("Bu round'un süresi doldu — tahmin gönderilemez.")
         if self.slot.is_locked:
             raise ValidationError("Bu maçın kickoff'u geçti — tahmin gönderilemez.")
+        # When an edit turns a draw into a decisive score, the browser only
+        # CSS-hides the penalty section — its stale inputs still submit. A
+        # decisive scoreline makes shootout fields meaningless, so drop them
+        # here; letting model validation reject them would fail the save with
+        # an error that renders inside the hidden section (invisible).
+        home_score = cleaned.get("home_score")
+        away_score = cleaned.get("away_score")
+        if home_score is not None and away_score is not None and home_score != away_score:
+            cleaned["penalty_winner"] = None
+            cleaned["home_penalties"] = None
+            cleaned["away_penalties"] = None
         return cleaned
 
     def save(self, commit=True):
