@@ -64,7 +64,7 @@
           hx-post="{% url 'slot_prediction_save' round.id slot.id %}"
           hx-target="#slot-row-{{ slot.id }}"
           hx-swap="outerHTML"
-          hx-trigger="keyup changed delay:500ms from:input[type=number], change from:input[type=radio], change from:input[type=hidden], submit"
+          hx-trigger="keyup changed delay:500ms from:input[type=number], change from:input[type=hidden], submit"
           class="pred-form space-y-3"
           data-pred-form="{{ slot.id }}">
         {% csrf_token %}
@@ -121,47 +121,17 @@
         {% if slot.stage.kind != "GROUP" %}
         <div class="penalty-section hidden mt-2 rounded-xl border border-line bg-surface/40 p-3"
              data-penalty-section="{{ slot.id }}">
-            <div class="text-xs uppercase tracking-wider text-fg-muted mb-2">Penaltı (berabere tahmininde)</div>
-            <div class="space-y-3">
-                <div>
-                    <div class="text-xs text-fg-muted mb-1.5">Penaltıyı kazanan</div>
-                    <div class="grid grid-cols-2 gap-2">
-                        {% if display_home %}
-                        <label class="cursor-pointer">
-                            <input type="radio" name="{{ form.penalty_winner.html_name }}" value="{{ display_home.id }}"
-                                   class="sr-only peer"
-                                   {% if form.penalty_winner.value|stringformat:"s" == display_home.id|stringformat:"s" %}checked{% endif %}>
-                            <span class="block text-center text-sm rounded-lg border border-line bg-surface/40 px-2 py-2 peer-checked:bg-primary-hover/15 peer-checked:border-primary/40 peer-checked:text-primary transition">
-                                {{ display_home.name_tr }}
-                            </span>
-                        </label>
-                        {% endif %}
-                        {% if display_away %}
-                        <label class="cursor-pointer">
-                            <input type="radio" name="{{ form.penalty_winner.html_name }}" value="{{ display_away.id }}"
-                                   class="sr-only peer"
-                                   {% if form.penalty_winner.value|stringformat:"s" == display_away.id|stringformat:"s" %}checked{% endif %}>
-                            <span class="block text-center text-sm rounded-lg border border-line bg-surface/40 px-2 py-2 peer-checked:bg-primary-hover/15 peer-checked:border-primary/40 peer-checked:text-primary transition">
-                                {{ display_away.name_tr }}
-                            </span>
-                        </label>
-                        {% endif %}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-xs text-fg-muted mb-1.5">Penaltı skoru</div>
-                    <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center max-w-xs">
-                        <input type="number" min="0" max="30" name="{{ form.home_penalties.html_name }}"
-                               value="{{ form.home_penalties.value|default_if_none:'' }}"
-                               class="text-center" placeholder="0" aria-label="Ev penaltı">
-                        <span class="text-fg-muted text-sm">–</span>
-                        <input type="number" min="0" max="30" name="{{ form.away_penalties.html_name }}"
-                               value="{{ form.away_penalties.value|default_if_none:'' }}"
-                               class="text-center" placeholder="0" aria-label="Deplasman penaltı">
-                    </div>
-                </div>
+            <div class="text-xs uppercase tracking-wider text-fg-muted mb-2">Penaltı skoru (berabere tahmininde)</div>
+            <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center max-w-xs">
+                <input type="number" min="0" max="30" name="{{ form.home_penalties.html_name }}"
+                       value="{{ form.home_penalties.value|default_if_none:'' }}"
+                       class="text-center" placeholder="0" aria-label="Ev penaltı">
+                <span class="text-fg-muted text-sm">–</span>
+                <input type="number" min="0" max="30" name="{{ form.away_penalties.html_name }}"
+                       value="{{ form.away_penalties.value|default_if_none:'' }}"
+                       class="text-center" placeholder="0" aria-label="Deplasman penaltı">
             </div>
-            {% if form.penalty_winner.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.penalty_winner.errors }}</div>{% endif %}
+            <div class="text-xs text-fg-muted mt-2">Penaltı skoru berabere bitemez — önde yazdığın takım turu geçer.</div>
             {% if form.home_penalties.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.home_penalties.errors }}</div>{% endif %}
             {% if form.away_penalties.errors %}<div class="text-xs text-danger-300 mt-1">{{ form.away_penalties.errors }}</div>{% endif %}
         </div>

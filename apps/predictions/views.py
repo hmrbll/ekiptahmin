@@ -243,7 +243,7 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
                 user=request.user, slot=slot,
                 prediction_round__order__lt=pr.order,
             )
-            .select_related("home_team", "away_team", "penalty_winner")
+            .select_related("home_team", "away_team")
             .order_by("-prediction_round__order")
             .first()
         )
@@ -251,7 +251,6 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
             initial = {
                 "home_team": prev.home_team, "away_team": prev.away_team,
                 "home_score": prev.home_score, "away_score": prev.away_score,
-                "penalty_winner": prev.penalty_winner,
                 "home_penalties": prev.home_penalties,
                 "away_penalties": prev.away_penalties,
             }
@@ -270,7 +269,7 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
         or form.initial.get("away_team") != initial.get("away_team")
     ):
         for key in ("home_score", "away_score",
-                    "penalty_winner", "home_penalties", "away_penalties"):
+                    "home_penalties", "away_penalties"):
             form.initial.pop(key, None)
 
     display_home = slot.home_team_actual

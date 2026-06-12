@@ -50,7 +50,7 @@ class TestSlotPredictionKnockoutSlot:
         )
         p.full_clean()
 
-    def test_knockout_draw_requires_penalty_winner(
+    def test_knockout_draw_requires_penalty_score(
         self, user, prediction_round, r16_slot, team_tur, team_arg
     ):
         p = SlotPrediction(
@@ -59,29 +59,35 @@ class TestSlotPredictionKnockoutSlot:
         )
         with pytest.raises(ValidationError) as exc:
             p.full_clean()
-        assert "penalty_winner" in exc.value.error_dict
+        assert "home_penalties" in exc.value.error_dict
 
-    def test_knockout_draw_with_full_penalty_data_passes(
+    def test_penalty_winner_derived_from_shootout_score(
         self, user, prediction_round, r16_slot, team_tur, team_arg
     ):
         p = SlotPrediction(
             user=user, prediction_round=prediction_round, slot=r16_slot,
             home_team=team_tur, away_team=team_arg, home_score=1, away_score=1,
-            penalty_winner=team_tur, home_penalties=4, away_penalties=2,
+            home_penalties=4, away_penalties=2,
         )
         p.full_clean()
+        assert p.penalty_winner == team_tur
 
-    def test_penalty_winner_must_be_one_of_two_teams(
+        p.home_penalties, p.away_penalties = 3, 5
+        p.full_clean()
+        assert p.penalty_winner == team_arg
+
+    def test_provided_penalty_winner_is_overwritten_by_derivation(
         self, user, prediction_round, r16_slot, team_tur, team_arg, team_ger
     ):
+        """penalty_winner is never an input — even a nonsense value (team not
+        in the match) is silently replaced by the derived winner."""
         p = SlotPrediction(
             user=user, prediction_round=prediction_round, slot=r16_slot,
             home_team=team_tur, away_team=team_arg, home_score=1, away_score=1,
             penalty_winner=team_ger, home_penalties=4, away_penalties=3,
         )
-        with pytest.raises(ValidationError) as exc:
-            p.full_clean()
-        assert "penalty_winner" in exc.value.error_dict
+        p.full_clean()
+        assert p.penalty_winner == team_tur
 
     def test_penalty_shootout_cannot_be_a_draw(
         self, user, prediction_round, r16_slot, team_tur, team_arg
@@ -89,23 +95,36 @@ class TestSlotPredictionKnockoutSlot:
         p = SlotPrediction(
             user=user, prediction_round=prediction_round, slot=r16_slot,
             home_team=team_tur, away_team=team_arg, home_score=0, away_score=0,
-            penalty_winner=team_tur, home_penalties=3, away_penalties=3,
+            home_penalties=3, away_penalties=3,
         )
         with pytest.raises(ValidationError) as exc:
             p.full_clean()
         assert "away_penalties" in exc.value.error_dict
 
-    def test_penalty_fields_forbidden_when_not_a_draw(
+    def test_penalty_score_forbidden_when_not_a_draw(
         self, user, prediction_round, r16_slot, team_tur, team_arg
     ):
         p = SlotPrediction(
             user=user, prediction_round=prediction_round, slot=r16_slot,
             home_team=team_tur, away_team=team_arg, home_score=2, away_score=0,
-            penalty_winner=team_tur, home_penalties=4, away_penalties=2,
+            home_penalties=4, away_penalties=2,
         )
         with pytest.raises(ValidationError) as exc:
             p.full_clean()
-        assert "penalty_winner" in exc.value.error_dict
+        assert "home_penalties" in exc.value.error_dict
+
+    def test_stale_penalty_winner_cleared_on_decisive_prediction(
+        self, user, prediction_round, r16_slot, team_tur, team_arg
+    ):
+        """A draw edited into a decisive score must not keep the old derived
+        shootout winner around."""
+        p = SlotPrediction(
+            user=user, prediction_round=prediction_round, slot=r16_slot,
+            home_team=team_tur, away_team=team_arg, home_score=2, away_score=0,
+            penalty_winner=team_tur,
+        )
+        p.full_clean()
+        assert p.penalty_winner is None
 
 
 @pytest.mark.django_db

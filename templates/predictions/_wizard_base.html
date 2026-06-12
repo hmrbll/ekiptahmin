@@ -55,7 +55,8 @@
     }
     // Block auto-save while the form isn't in a saveable shape:
     // - both scores must be filled
-    // - on knockout draws, penalty winner + non-tied penalty score required
+    // - on knockout draws, a non-tied penalty score is required
+    //   (the shootout winner is derived from it server-side)
     function isReadyToSave(form) {
         const home = form.querySelector('[data-score-input="home"]');
         const away = form.querySelector('[data-score-input="away"]');
@@ -65,10 +66,8 @@
         const stage = row ? row.dataset.stageKind : "";
         const isDraw = Number(home.value) === Number(away.value);
         if (stage !== "GROUP" && isDraw) {
-            const winner = form.querySelector('input[type=radio][name$="penalty_winner"]:checked');
             const homePen = form.querySelector('input[name$="home_penalties"]');
             const awayPen = form.querySelector('input[name$="away_penalties"]');
-            if (!winner) return false;
             if (!homePen || !awayPen) return false;
             if (homePen.value === "" || awayPen.value === "") return false;
             if (Number(homePen.value) === Number(awayPen.value)) return false;

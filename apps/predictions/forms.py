@@ -52,7 +52,7 @@ class SlotPredictionForm(forms.ModelForm):
         fields = [
             "home_team", "away_team",
             "home_score", "away_score",
-            "penalty_winner", "home_penalties", "away_penalties",
+            "home_penalties", "away_penalties",
         ]
 
     def __init__(self, *args, user, prediction_round, slot, **kwargs):
@@ -73,8 +73,6 @@ class SlotPredictionForm(forms.ModelForm):
         teams_qs = Team.objects.filter(tournament=slot.tournament).order_by("name_tr")
         self.fields["home_team"].queryset = teams_qs
         self.fields["away_team"].queryset = teams_qs
-        self.fields["penalty_winner"].queryset = teams_qs
-        self.fields["penalty_winner"].required = False
 
         # Group slots: teams are fixed, render as disabled (initial fills them in).
         if slot.home_team_actual_id and slot.away_team_actual_id:
@@ -164,10 +162,11 @@ class SlotPredictionForm(forms.ModelForm):
         # decisive scoreline makes shootout fields meaningless, so drop them
         # here; letting model validation reject them would fail the save with
         # an error that renders inside the hidden section (invisible).
+        # (penalty_winner isn't a form field — the model derives it from the
+        # shootout score and clears it on decisive saves.)
         home_score = cleaned.get("home_score")
         away_score = cleaned.get("away_score")
         if home_score is not None and away_score is not None and home_score != away_score:
-            cleaned["penalty_winner"] = None
             cleaned["home_penalties"] = None
             cleaned["away_penalties"] = None
         return cleaned

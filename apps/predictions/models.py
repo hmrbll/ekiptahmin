@@ -58,6 +58,8 @@ class SlotPrediction(models.Model):
 
     # Only meaningful when the user predicted a draw on a knockout slot
     # (knockout matches must be decided — penalties are the tiebreaker).
+    # Never entered by anyone: a shootout cannot end level, so `clean()`
+    # derives this from home_penalties/away_penalties on every validated save.
     penalty_winner = models.ForeignKey(
         "tournament.Team",
         on_delete=models.PROTECT,
@@ -160,32 +162,35 @@ class SlotPrediction(models.Model):
                     "Grup maçında deplasman takımı değiştirilemez."
                 )
 
-        # Penalty fields: required iff draw on knockout, forbidden otherwise.
+        # Penalty shootout score: required iff draw on knockout, forbidden
+        # otherwise. `penalty_winner` is derived from the shootout score (a
+        # shootout cannot end level), overwriting whatever the instance held —
+        # it is never an input. Error keys must be fields the user form
+        # actually has (home/away_penalties); the form has no penalty_winner
+        # field and a ModelForm crashes on error keys it doesn't know.
         is_knockout = self.slot_id and self.slot.stage.kind != "GROUP"
         draw = self.home_score is not None and self.away_score is not None and self.is_draw_prediction()
 
         if is_knockout and draw:
-            if not self.penalty_winner_id:
-                errors["penalty_winner"] = (
-                    "Knockout berabere tahmininde penaltı kazananı belirtilmeli."
-                )
-            elif self.home_team_id and self.away_team_id and self.penalty_winner_id not in {
-                self.home_team_id, self.away_team_id,
-            }:
-                errors["penalty_winner"] = (
-                    "Penaltı kazananı maçtaki iki takımdan biri olmalı."
-                )
             if self.home_penalties is None or self.away_penalties is None:
-                errors.setdefault(
-                    "home_penalties",
-                    "Penaltı skoru girilmeli (her iki takım için).",
+                errors["home_penalties"] = (
+                    "Penaltı skoru girilmeli (her iki takım için)."
                 )
             elif self.home_penalties == self.away_penalties:
                 errors["away_penalties"] = "Penaltılar berabere bitemez."
+            elif self.home_team_id and self.away_team_id:
+                self.penalty_winner = (
+                    self.home_team
+                    if self.home_penalties > self.away_penalties
+                    else self.away_team
+                )
         else:
-            if self.penalty_winner_id or self.home_penalties is not None or self.away_penalties is not None:
-                errors["penalty_winner"] = (
-                    "Penaltı alanları sadece knockout'ta berabere tahmininde doldurulur."
+            # Derived field — clear silently so a stale shootout winner from
+            # an earlier draw prediction can't survive a decisive re-save.
+            self.penalty_winner = None
+            if self.home_penalties is not None or self.away_penalties is not None:
+                errors["home_penalties"] = (
+                    "Penaltı skoru sadece knockout'ta berabere tahmininde girilir."
                 )
 
         if errors:

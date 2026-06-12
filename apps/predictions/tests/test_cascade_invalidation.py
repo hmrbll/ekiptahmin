@@ -295,7 +295,6 @@ class TestSaveViewInvalidation:
             {"home_team": team_tur.id, "away_team": team_bra.id,
              "home_score": 0, "away_score": 1,
              # stale shootout values from the now-hidden penalty section
-             "penalty_winner": team_tur.id,
              "home_penalties": 4, "away_penalties": 2},
             HTTP_HX_REQUEST="true",
         )

@@ -18,12 +18,14 @@ class SlotPredictionAdmin(admin.ModelAdmin):
     )
     list_filter = ("prediction_round", "slot__stage")
     search_fields = ("user__email", "user__nickname", "slot__position")
-    raw_id_fields = ("user", "slot", "home_team", "away_team", "penalty_winner")
-    readonly_fields = ("created_at", "updated_at")
+    raw_id_fields = ("user", "slot", "home_team", "away_team")
+    # penalty_winner is derived from the shootout score in model.clean() —
+    # editing it here would be overwritten on save.
+    readonly_fields = ("penalty_winner", "created_at", "updated_at")
     fieldsets = (
         (None, {"fields": ("user", "prediction_round", "slot")}),
         ("Prediction", {"fields": ("home_team", "away_team", "home_score", "away_score")}),
-        ("Penalties", {"fields": ("penalty_winner", "home_penalties", "away_penalties")}),
+        ("Penalties", {"fields": ("home_penalties", "away_penalties", "penalty_winner")}),
         ("Audit", {"fields": ("created_at", "updated_at")}),
     )
 
