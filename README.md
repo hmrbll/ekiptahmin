@@ -172,6 +172,13 @@ python manage.py reset_for_launch --confirm          # execute
 python manage.py send_invites --emails "a@x.com,b@y.com" --dry-run
 python manage.py send_invites --file invites.txt     # one address per line ("email" or "email,note")
 
+# Delete stale knockout predictions (matchup no longer derivable from the
+# user's upstream predictions) in all OPEN rounds. Backfill for rows written
+# before save-time invalidation shipped (or let through by a since-fixed
+# bug); closed rounds are scored history and are never touched.
+python manage.py revalidate_predictions --dry-run    # preview, rolls back
+python manage.py revalidate_predictions              # execute
+
 # Pre-create accounts with nicknames YOU choose + email each a one-click
 # onboarding link. The link logs them straight in (no signup form, no 15-min
 # magic-link expiry) via the invite auto-login branch in accounts.views; it's

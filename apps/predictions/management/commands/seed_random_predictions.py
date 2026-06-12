@@ -18,7 +18,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.predictions.forms import _resolve_slot_side_team
+from apps.predictions.cascade import resolve_slot_side_team
 from apps.predictions.models import SlotPrediction
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 
@@ -103,8 +103,8 @@ class Command(BaseCommand):
                     home = slot.home_team_actual
                     away = slot.away_team_actual
                 else:
-                    home = _resolve_slot_side_team(user, slot, "home")
-                    away = _resolve_slot_side_team(user, slot, "away")
+                    home = resolve_slot_side_team(user, slot, "home")
+                    away = resolve_slot_side_team(user, slot, "away")
 
                 if home is None or away is None:
                     self.stdout.write(self.style.WARNING(
