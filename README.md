@@ -213,6 +213,8 @@ Legacy bracket scoring (`apps/scoring/engine.py`, `SlotScore`) still runs in par
 
 Knockout slot teams are derived per user from their own earlier predictions — upstream slot winner/loser, group standings, or FIFA's best-third allocation table; admin-entered actual teams override all of these ([apps/predictions/cascade.py](apps/predictions/cascade.py)). Editing an upstream prediction re-derives every downstream matchup in the same round: any stored prediction whose matchup went stale is **deleted automatically** (the slot shows as never predicted), recursively down the bracket. Closed rounds are scored history and are never touched. Affected rows on multi-stage pages refresh in place via HTMX out-of-band swaps, and carry-over prefill from earlier rounds is skipped when the matchup changed.
 
+When an edit turns a draw prediction into a decisive score, the browser still submits the (CSS-hidden) penalty-shootout inputs; the form clears those stale fields server-side instead of rejecting the save — otherwise the validation error would render inside the hidden section and the save would fail silently, leaving downstream matchups stale.
+
 ### Common commands (scoring-specific)
 
 ```powershell
