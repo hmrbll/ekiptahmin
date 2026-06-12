@@ -179,6 +179,11 @@ python manage.py send_invites --file invites.txt     # one address per line ("em
 python manage.py revalidate_predictions --dry-run    # preview, rolls back
 python manage.py revalidate_predictions              # execute
 
+# Who is missing which predictions in the open rounds (editable stages only)?
+# Complements revalidate_predictions: that finds stale rows, this finds gaps.
+# Run before a deadline to know who to nudge.
+python manage.py missing_predictions
+
 # Pre-create accounts with nicknames YOU choose + email each a one-click
 # onboarding link. The link logs them straight in (no signup form, no 15-min
 # magic-link expiry) via the invite auto-login branch in accounts.views; it's
