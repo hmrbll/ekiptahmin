@@ -7,7 +7,7 @@
 <div class="mb-6">
     <h2 class="text-xl font-bold mb-1">Eleme Özet</h2>
     <p class="text-fg-muted text-sm">
-        Tüm eleme tahminlerini buradan gözden geçirebilir ve değiştirebilirsin.
+        {% if knockout_locked %}Eleme tahminleri kilitlendi — burası artık sadece görüntüleme.{% else %}Tüm eleme tahminlerini buradan gözden geçirebilir ve değiştirebilirsin.{% endif %}
     </p>
 </div>
 
@@ -26,7 +26,7 @@
         {% if stage.kind == 'THIRD' or stage.kind == 'FINAL' %}md:grid-cols-1 max-w-2xl{% endif %}
         ">
         {% for item in items %}
-            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on round=round %}
+            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on readonly=item.readonly round=round %}
         {% endfor %}
     </ul>
 </section>

@@ -148,52 +148,76 @@ def _user_preds_index(user, pr):
     return all_latest, this_round
 
 
-def _has_group_step(pr) -> bool:
-    return pr.editable_stages.filter(kind="GROUP").exists()
+def _stage_visibility(user, pr) -> tuple[set[str], set[str]]:
+    """(editable_kinds, visible_kinds) for this user in this round.
+
+    A stage stays visible after the admin closes it mid-round by removing
+    it from editable_stages (e.g. GROUP at tournament kickoff) — users keep
+    seeing their own predictions, read-only. Visibility is per-user: only
+    stages they actually predicted in this round come back as locked steps.
+    """
+    editable = set(pr.editable_stages.values_list("kind", flat=True))
+    predicted = set(
+        SlotPrediction.objects
+        .filter(user=user, prediction_round=pr)
+        .values_list("slot__stage__kind", flat=True)
+        .distinct()
+    )
+    return editable, editable | predicted
 
 
-def _has_knockout_step(pr) -> bool:
-    return pr.editable_stages.exclude(kind="GROUP").exists()
+def _edit_state(pr) -> dict:
+    """Per-request snapshot driving the read-only switch in slot rows."""
+    return {
+        "round_open": pr.is_open,
+        "editable_stage_ids": set(pr.editable_stages.values_list("id", flat=True)),
+    }
 
 
-def _round_steps(pr) -> list[dict]:
-    """Ordered list of wizard steps for this round."""
+def _round_steps(pr, user) -> list[dict]:
+    """Ordered list of wizard steps for this round. `locked` marks steps
+    rendered read-only: stage closed mid-round or round no longer open."""
+    round_open = pr.is_open
+    editable_kinds, visible_kinds = _stage_visibility(user, pr)
     steps: list[dict] = []
-    if _has_group_step(pr):
+    if "GROUP" in visible_kinds:
+        group_locked = not round_open or "GROUP" not in editable_kinds
         for letter in GROUP_LETTERS:
             steps.append({
                 "key": f"group-{letter}",
                 "label": f"Grup {letter}",
                 "url": reverse("predict_group_step", args=[pr.id, letter]),
+                "locked": group_locked,
             })
         steps.append({
             "key": "groups-summary",
             "label": "Grup Özet",
             "url": reverse("predict_groups_summary", args=[pr.id]),
+            "locked": group_locked,
         })
 
-    editable_knockout_kinds = set(
-        pr.editable_stages.exclude(kind="GROUP").values_list("kind", flat=True)
-    )
-    knockout_kinds_in_order = [k for k in KNOCKOUT_STAGE_ORDER if k in editable_knockout_kinds]
+    knockout_kinds_in_order = [k for k in KNOCKOUT_STAGE_ORDER if k in visible_kinds]
     for kind in knockout_kinds_in_order:
         steps.append({
             "key": f"knockout-{kind}",
             "label": KNOCKOUT_LABELS[kind],
             "url": reverse("predict_knockout_stage_step", args=[pr.id, kind]),
+            "locked": not round_open or kind not in editable_kinds,
         })
     if knockout_kinds_in_order:
         steps.append({
             "key": "knockout-summary",
             "label": "Eleme Özet",
             "url": reverse("predict_knockout_summary", args=[pr.id]),
+            "locked": not round_open
+            or not any(k in editable_kinds for k in knockout_kinds_in_order),
         })
     return steps
 
 
-def _wrap_steps(pr, current_key: str) -> dict:
+def _wrap_steps(pr, user, current_key: str) -> dict:
     """Build the {steps, prev_step, next_step, current_step_idx} payload."""
-    steps = _round_steps(pr)
+    steps = _round_steps(pr, user)
     idx = next((i for i, s in enumerate(steps) if s["key"] == current_key), 0)
     return {
         "steps": steps,
@@ -203,11 +227,16 @@ def _wrap_steps(pr, current_key: str) -> dict:
     }
 
 
-def _build_row_context(request, pr, slot, all_user_latest, this_round_pred):
+def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit_state):
     """Per-slot context dict consumed by `_slot_row.html`."""
+    readonly = (
+        not edit_state["round_open"]
+        or slot.stage_id not in edit_state["editable_stage_ids"]
+        or slot.is_locked
+    )
     instance = this_round_pred
     initial: dict = {}
-    if instance is None:
+    if instance is None and not readonly:
         prev = (
             SlotPrediction.objects
             .filter(
@@ -265,6 +294,12 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred):
                 if slot.away_source_kind == "WINNER" else src.loser_team()
             )
 
+    # Read-only rows show the prediction as stored — it's history now, so
+    # the saved teams beat any re-derived matchup.
+    if readonly and instance is not None:
+        display_home = instance.home_team
+        display_away = instance.away_team
+
     return {
         "slot": slot,
         "pred": instance,
@@ -273,10 +308,11 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred):
         "display_away": display_away,
         "cascade_blocked_on": form.cascade_blocked_on,
         "round": pr,
+        "readonly": readonly,
     }
 
 
-def _build_group_block(request, pr, letter, all_user_latest, this_round_preds):
+def _build_group_block(request, pr, letter, all_user_latest, this_round_preds, edit_state):
     """Build the group card payload (slot rows + standings)."""
     group_slots = list(
         BracketSlot.objects
@@ -289,7 +325,9 @@ def _build_group_block(request, pr, letter, all_user_latest, this_round_preds):
         .order_by("scheduled_kickoff")
     )
     items = [
-        _build_row_context(request, pr, slot, all_user_latest, this_round_preds.get(slot.id))
+        _build_row_context(
+            request, pr, slot, all_user_latest, this_round_preds.get(slot.id), edit_state,
+        )
         for slot in group_slots
     ]
     standings = standings_for_group(request.user, pr.tournament, letter)
@@ -303,12 +341,17 @@ def _build_group_block(request, pr, letter, all_user_latest, this_round_preds):
 
 @login_required
 def predict_round_entry(request: HttpRequest, round_id: int) -> HttpResponse:
-    """Redirect to the first wizard step for this round."""
+    """Redirect to the first wizard step for this round.
+
+    Prefers the first step the user can still edit; falls back to the
+    first (read-only) step when everything is locked.
+    """
     pr = get_object_or_404(PredictionRound, pk=round_id)
-    steps = _round_steps(pr)
+    steps = _round_steps(pr, request.user)
     if not steps:
         return render(request, "predictions/no_steps.html", {"round": pr})
-    return redirect(steps[0]["url"])
+    target = next((s for s in steps if not s["locked"]), steps[0])
+    return redirect(target["url"])
 
 
 # ---------- Group step ----------
@@ -320,16 +363,18 @@ def predict_group_step(
 ) -> HttpResponse:
     pr = get_object_or_404(PredictionRound.objects.select_related("tournament"), pk=round_id)
     letter = letter.upper()
-    if not _has_group_step(pr) or letter not in GROUP_LETTERS:
+    _, visible_kinds = _stage_visibility(request.user, pr)
+    if "GROUP" not in visible_kinds or letter not in GROUP_LETTERS:
         return redirect("predict_round_entry", round_id=pr.id)
 
+    edit_state = _edit_state(pr)
     all_latest, this_round = _user_preds_index(request.user, pr)
-    group = _build_group_block(request, pr, letter, all_latest, this_round)
+    group = _build_group_block(request, pr, letter, all_latest, this_round, edit_state)
     if not group["items"]:
         return redirect("predict_round_entry", round_id=pr.id)
 
     ctx = {"round": pr, "group": group}
-    ctx.update(_wrap_steps(pr, f"group-{letter}"))
+    ctx.update(_wrap_steps(pr, request.user, f"group-{letter}"))
     return render(request, "predictions/group_step.html", ctx)
 
 
@@ -339,18 +384,24 @@ def predict_group_step(
 @login_required
 def predict_groups_summary(request: HttpRequest, round_id: int) -> HttpResponse:
     pr = get_object_or_404(PredictionRound.objects.select_related("tournament"), pk=round_id)
-    if not _has_group_step(pr):
+    editable_kinds, visible_kinds = _stage_visibility(request.user, pr)
+    if "GROUP" not in visible_kinds:
         return redirect("predict_round_entry", round_id=pr.id)
 
+    edit_state = _edit_state(pr)
     all_latest, this_round = _user_preds_index(request.user, pr)
     groups = [
-        _build_group_block(request, pr, letter, all_latest, this_round)
+        _build_group_block(request, pr, letter, all_latest, this_round, edit_state)
         for letter in GROUP_LETTERS
         if _build_group_block_has_slots(pr, letter)
     ]
 
-    ctx = {"round": pr, "groups": groups}
-    ctx.update(_wrap_steps(pr, "groups-summary"))
+    ctx = {
+        "round": pr,
+        "groups": groups,
+        "groups_locked": not edit_state["round_open"] or "GROUP" not in editable_kinds,
+    }
+    ctx.update(_wrap_steps(pr, request.user, "groups-summary"))
     return render(request, "predictions/groups_summary.html", ctx)
 
 
@@ -364,7 +415,7 @@ def _build_group_block_has_slots(pr, letter: str) -> bool:
 # ---------- Knockout step ----------
 
 
-def _knockout_section_for_stage(request, pr, stage_kind):
+def _knockout_section_for_stage(request, pr, stage_kind, edit_state):
     """Returns a (stage, items) tuple for one knockout stage in this tournament."""
     try:
         stage = pr.tournament.stages.get(kind=stage_kind)
@@ -381,7 +432,7 @@ def _knockout_section_for_stage(request, pr, stage_kind):
         return None
     all_latest, this_round = _user_preds_index(request.user, pr)
     items = [
-        _build_row_context(request, pr, slot, all_latest, this_round.get(slot.id))
+        _build_row_context(request, pr, slot, all_latest, this_round.get(slot.id), edit_state)
         for slot in slots
     ]
     return (stage, items)
@@ -396,10 +447,11 @@ def predict_knockout_stage_step(
     kind = kind.upper()
     if kind not in KNOCKOUT_STAGE_ORDER:
         return redirect("predict_round_entry", round_id=pr.id)
-    if not pr.editable_stages.filter(kind=kind).exists():
+    _, visible_kinds = _stage_visibility(request.user, pr)
+    if kind not in visible_kinds:
         return redirect("predict_round_entry", round_id=pr.id)
 
-    section = _knockout_section_for_stage(request, pr, kind)
+    section = _knockout_section_for_stage(request, pr, kind, _edit_state(pr))
     if section is None:
         return redirect("predict_round_entry", round_id=pr.id)
 
@@ -409,30 +461,33 @@ def predict_knockout_stage_step(
         "items": section[1],
         "stage_label": KNOCKOUT_LABELS[kind],
     }
-    ctx.update(_wrap_steps(pr, f"knockout-{kind}"))
+    ctx.update(_wrap_steps(pr, request.user, f"knockout-{kind}"))
     return render(request, "predictions/knockout_stage_step.html", ctx)
 
 
 @login_required
 def predict_knockout_summary(request: HttpRequest, round_id: int) -> HttpResponse:
-    """All editable knockout stages on one page (review + edit)."""
+    """All visible knockout stages on one page (review + edit)."""
     pr = get_object_or_404(PredictionRound.objects.select_related("tournament"), pk=round_id)
-    if not _has_knockout_step(pr):
+    editable_kinds, visible_kinds = _stage_visibility(request.user, pr)
+    visible_knockout = [k for k in KNOCKOUT_STAGE_ORDER if k in visible_kinds]
+    if not visible_knockout:
         return redirect("predict_round_entry", round_id=pr.id)
 
-    editable_knockout_kinds = set(
-        pr.editable_stages.exclude(kind="GROUP").values_list("kind", flat=True)
-    )
+    edit_state = _edit_state(pr)
     sections = []
-    for kind in KNOCKOUT_STAGE_ORDER:
-        if kind not in editable_knockout_kinds:
-            continue
-        section = _knockout_section_for_stage(request, pr, kind)
+    for kind in visible_knockout:
+        section = _knockout_section_for_stage(request, pr, kind, edit_state)
         if section is not None:
             sections.append(section)
 
-    ctx = {"round": pr, "sections": sections}
-    ctx.update(_wrap_steps(pr, "knockout-summary"))
+    ctx = {
+        "round": pr,
+        "sections": sections,
+        "knockout_locked": not edit_state["round_open"]
+        or not any(k in editable_kinds for k in visible_knockout),
+    }
+    ctx.update(_wrap_steps(pr, request.user, "knockout-summary"))
     return render(request, "predictions/knockout_summary.html", ctx)
 
 
@@ -492,8 +547,11 @@ def slot_prediction_save(
         invalidated = invalidate_stale_predictions(request.user, pr)
 
     if request.headers.get("HX-Request"):
+        edit_state = _edit_state(pr)
         all_latest, this_round = _user_preds_index(request.user, pr)
-        ctx = _build_row_context(request, pr, slot, all_latest, this_round.get(slot.id))
+        ctx = _build_row_context(
+            request, pr, slot, all_latest, this_round.get(slot.id), edit_state,
+        )
         ctx["just_saved"] = saved
         if not saved:
             ctx["form"] = form
@@ -508,15 +566,16 @@ def slot_prediction_save(
         # even without a deletion. Sent as hx-swap-oob fragments; htmx drops
         # the ones not present on the current page.
         if saved:
-            editable_stage_ids = set(pr.editable_stages.values_list("id", flat=True))
             refresh = {s.id: s for s in invalidated}
             if slot.stage.kind != "GROUP":
                 for ds in downstream_slots(slot):
                     refresh.setdefault(ds.id, ds)
             for ds in refresh.values():
-                if ds.id == slot.id or ds.stage_id not in editable_stage_ids:
+                if ds.id == slot.id or ds.stage_id not in edit_state["editable_stage_ids"]:
                     continue
-                ds_ctx = _build_row_context(request, pr, ds, all_latest, this_round.get(ds.id))
+                ds_ctx = _build_row_context(
+                    request, pr, ds, all_latest, this_round.get(ds.id), edit_state,
+                )
                 ds_ctx["oob"] = True
                 body += render_to_string("predictions/_slot_row.html", ds_ctx, request=request)
 

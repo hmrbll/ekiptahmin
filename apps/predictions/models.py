@@ -12,7 +12,7 @@ Design notes:
 """
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models
 
@@ -131,13 +131,16 @@ class SlotPrediction(models.Model):
             if self.away_team.tournament_id != self.slot.tournament_id:
                 errors["away_team"] = "Deplasman takımı slot'un turnuvasında değil."
 
-        # Slot stage must be editable in this round.
+        # Slot stage must be editable in this round. Keyed as a non-field
+        # error: the user-facing SlotPredictionForm has no `slot` field, and
+        # a ModelForm crashes on error keys it doesn't know — this is the one
+        # model check a user can trip after the admin closes a stage mid-round.
         if self.slot_id and self.prediction_round_id:
             editable_ids = set(
                 self.prediction_round.editable_stages.values_list("id", flat=True)
             )
             if self.slot.stage_id not in editable_ids:
-                errors["slot"] = (
+                errors[NON_FIELD_ERRORS] = (
                     "Bu slot'un aşaması seçili round'da düzenlenebilir değil."
                 )
 

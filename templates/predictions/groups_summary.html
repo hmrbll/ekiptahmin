@@ -7,7 +7,7 @@
 <div class="mb-6">
     <h2 class="text-xl font-bold mb-1">Grup Özet</h2>
     <p class="text-fg-muted text-sm">
-        Tüm grup tahminlerini buradan gözden geçirebilir ve değiştirebilirsin.
+        {% if groups_locked %}Grup tahminleri kilitlendi — burası artık sadece görüntüleme.{% else %}Tüm grup tahminlerini buradan gözden geçirebilir ve değiştirebilirsin.{% endif %}
     </p>
 </div>
 
@@ -30,7 +30,7 @@
 
         <ul class="space-y-2 mb-4">
             {% for item in grp.items %}
-                {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on round=round %}
+                {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on readonly=item.readonly round=round %}
             {% endfor %}
         </ul>
 

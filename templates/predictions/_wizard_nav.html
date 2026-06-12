@@ -7,9 +7,9 @@ screens — no native scrollbar, no horizontal overflow.
     <div class="flex flex-wrap gap-1.5">
         {% for s in steps %}
             {% if forloop.counter0 == current_step_idx %}
-                <span class="px-3 py-1.5 rounded-lg bg-primary-hover/15 border border-primary/40 text-primary text-xs font-medium">{{ s.label }}</span>
+                <span class="px-3 py-1.5 rounded-lg bg-primary-hover/15 border border-primary/40 text-primary text-xs font-medium">{{ s.label }}{% if s.locked %} 🔒{% endif %}</span>
             {% else %}
-                <a href="{{ s.url }}" class="px-3 py-1.5 rounded-lg bg-surface border border-line text-fg-muted hover:text-white hover:bg-surface text-xs transition">{{ s.label }}</a>
+                <a href="{{ s.url }}" class="px-3 py-1.5 rounded-lg bg-surface border border-line text-fg-muted hover:text-white hover:bg-surface text-xs transition">{{ s.label }}{% if s.locked %} 🔒{% endif %}</a>
             {% endif %}
         {% endfor %}
     </div>

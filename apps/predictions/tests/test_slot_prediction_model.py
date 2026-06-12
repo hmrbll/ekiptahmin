@@ -1,7 +1,7 @@
 """SlotPrediction model validation tests."""
 
 import pytest
-from django.core.exceptions import ValidationError
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db import IntegrityError
 
 from apps.predictions.models import SlotPrediction
@@ -150,7 +150,9 @@ class TestSlotPredictionStructuralRules:
         )
         with pytest.raises(ValidationError) as exc:
             p.full_clean()
-        assert "slot" in exc.value.error_dict
+        # Non-field error on purpose: the user-facing form has no `slot`
+        # field and would crash on an unknown error key.
+        assert NON_FIELD_ERRORS in exc.value.error_dict
 
     def test_unique_constraint_on_user_round_slot(
         self, user, prediction_round, r16_slot, team_tur, team_arg

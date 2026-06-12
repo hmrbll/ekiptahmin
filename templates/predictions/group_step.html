@@ -15,7 +15,7 @@
 
     <ul class="space-y-2 mb-6">
         {% for item in group.items %}
-            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on round=round %}
+            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on readonly=item.readonly round=round %}
         {% endfor %}
     </ul>
 

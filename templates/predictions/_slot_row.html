@@ -10,10 +10,40 @@
         <span>·</span>
         <span>{{ slot.scheduled_kickoff|date:"d M H:i" }}</span>
         {% if slot.venue %}<span>·</span><span class="truncate">{{ slot.venue }}</span>{% endif %}
-        {% if slot.is_locked %}<span class="text-warning">· Kilitli (kickoff geçti)</span>{% endif %}
+        {% if slot.is_locked %}<span class="text-warning">· Kilitli (kickoff geçti)</span>
+        {% elif readonly %}<span class="text-warning">· Kilitli</span>{% endif %}
     </div>
 
-    {% if cascade_blocked_on %}
+    {% if readonly %}
+    <div class="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] gap-1.5 sm:gap-2 items-center">
+        <div class="min-w-0">
+            {% if display_home %}
+            <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
+                {% if display_home.flag_svg_path %}<img src="{% static display_home.flag_svg_path %}" alt="{{ display_home.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                <span class="text-xs sm:text-sm truncate">{{ display_home.name_tr }}</span>
+            </div>
+            {% endif %}
+        </div>
+        <span class="w-11 sm:w-14 text-center text-sm font-semibold">{% if pred %}{{ pred.home_score }}{% else %}—{% endif %}</span>
+        <span class="text-fg-muted text-sm">–</span>
+        <span class="w-11 sm:w-14 text-center text-sm font-semibold">{% if pred %}{{ pred.away_score }}{% else %}—{% endif %}</span>
+        <div class="min-w-0">
+            {% if display_away %}
+            <div class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-lg bg-surface/40 border border-line">
+                {% if display_away.flag_svg_path %}<img src="{% static display_away.flag_svg_path %}" alt="{{ display_away.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                <span class="text-xs sm:text-sm truncate">{{ display_away.name_tr }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% if pred.penalty_winner %}
+    <div class="mt-2 text-xs text-fg-muted">Penaltılar: {{ pred.penalty_winner.name_tr }} kazanır ({{ pred.home_penalties }}–{{ pred.away_penalties }})</div>
+    {% endif %}
+    {% if not pred %}
+    <div class="mt-2 text-xs text-fg-muted">Tahmin yapılmadı.</div>
+    {% endif %}
+
+    {% elif cascade_blocked_on %}
     <div class="rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm">
         <div class="text-warning-300 font-medium mb-1">Önce alttaki tahminleri yap:</div>
         <ul class="space-y-1">

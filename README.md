@@ -215,6 +215,10 @@ Knockout slot teams are derived per user from their own earlier predictions — 
 
 When an edit turns a draw prediction into a decisive score, the browser still submits the (CSS-hidden) penalty-shootout inputs; the form clears those stale fields server-side instead of rejecting the save — otherwise the validation error would render inside the hidden section and the save would fail silently, leaving downstream matchups stale.
 
+### Mid-tournament stage locking
+
+Closing predictions for a stage mid-round = removing it from the round's `editable_stages` in admin (rounds are admin-owned — deploys don't revert this). The wizard keeps a closed stage visible to users who predicted it in that round: its steps render read-only (static rows instead of forms, 🔒 markers on the step pills) and the live group standings stay. The same read-only rendering kicks in when the round's deadline has passed or a slot's kickoff is in the past, and the round entry redirect skips locked steps to land on the first still-editable one.
+
 ### Common commands (scoring-specific)
 
 ```powershell
