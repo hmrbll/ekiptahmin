@@ -14,6 +14,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
@@ -43,23 +44,49 @@ KNOCKOUT_LABELS = {
 # ---------- Public "all predictions" view ----------
 
 
-# Slot is treated as locked (predictions become public) when EITHER its
-# kickoff has passed OR an ActualResult has been entered. The latter covers
-# matches that admin tested ahead of schedule.
-def _slot_predictions_public(slot: BracketSlot) -> bool:
-    return slot.is_locked or hasattr(slot, "result")
+def _stages_still_editable(tournament: Tournament) -> set[int]:
+    """Stage ids that an OPEN prediction round can still edit.
+
+    A stage's predictions can still change while some round whose
+    ``editable_stages`` include that stage has a deadline in the future. Once
+    no such open round remains — its deadline passed, or admins closed the
+    stage by removing it from every round's ``editable_stages`` — submissions
+    for that stage are final and safe to reveal publicly. A stage that no
+    round can edit is therefore treated as closed (not in this set).
+    """
+    now = timezone.now()
+    open_stage_ids: set[int] = set()
+    for pr in tournament.prediction_rounds.prefetch_related("editable_stages"):
+        if pr.deadline > now:
+            open_stage_ids.update(s.id for s in pr.editable_stages.all())
+    return open_stage_ids
+
+
+# Predictions for a slot become public once the submission window for its
+# stage has closed — i.e. no open round can still edit that stage. An entered
+# ActualResult or a passed kickoff also reveal them as safety nets, covering
+# admin test-entry and live matches.
+def _slot_predictions_public(slot: BracketSlot, stages_still_editable: set[int]) -> bool:
+    if hasattr(slot, "result"):
+        return True
+    if slot.is_locked:
+        return True
+    return slot.stage_id not in stages_still_editable
 
 
 def predictions_all(request: HttpRequest) -> HttpResponse:
     """Match-by-match public view of every user's predictions.
 
-    No login required. Predictions are revealed only after a slot has
-    locked (kickoff passed or actual result entered) — pre-lock predictions
-    stay private so users don't copy each other.
+    No login required. A slot's predictions are revealed once its prediction
+    submission window has closed — no open round can still edit its stage —
+    before that they stay private so users don't copy each other. A passed
+    kickoff or an entered result also reveal them.
     """
     tournament = Tournament.objects.filter(is_active=True).first()
     if tournament is None:
         return render(request, "predictions/all.html", {"tournament": None})
+
+    stages_still_editable = _stages_still_editable(tournament)
 
     slots = list(
         BracketSlot.objects
@@ -93,7 +120,7 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         if not (slot.home_team_actual_id and slot.away_team_actual_id):
             continue
 
-        is_public = _slot_predictions_public(slot)
+        is_public = _slot_predictions_public(slot, stages_still_editable)
         slot_preds = []
         if is_public:
             slot_preds = sorted(

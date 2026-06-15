@@ -11,8 +11,8 @@
         <h1 class="text-2xl sm:text-3xl font-bold mb-2">Tüm Tahminler</h1>
         <p class="text-fg-muted mb-2">{{ tournament.name|default:"" }}</p>
         <p class="text-fg-muted text-xs mb-6 sm:mb-8">
-            Bir maçın tahminleri ancak <span class="text-fg-soft">kickoff geçince</span> ya da
-            <span class="text-fg-soft">sonuç girilince</span> herkese görünür.
+            Bir maçın tahminleri, <span class="text-fg-soft">tahmin gönderim süresi dolduktan sonra</span>
+            herkese görünür olur.
         </p>
 
         {% if matches %}
@@ -51,9 +51,14 @@
 
                 {% if m.is_public %}
                 {% if m.predictions %}
-                <div class="border-t border-line pt-3">
-                    <div class="text-xs uppercase tracking-wider text-fg-muted mb-2">Tahminler ({{ m.predictions|length }})</div>
-                    <ul class="divide-y divide-line">
+                <details class="group border-t border-line pt-3">
+                    <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden text-xs uppercase tracking-wider text-fg-muted hover:text-fg-soft transition">
+                        <span>Tahminler ({{ m.predictions|length }})</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0 transition-transform group-open:rotate-180">
+                            <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </summary>
+                    <ul class="divide-y divide-line mt-2">
                         {% for p in m.predictions %}
                         <li class="py-2 text-sm">
                             <div class="flex items-center justify-between gap-3 mb-1">
@@ -78,7 +83,7 @@
                         </li>
                         {% endfor %}
                     </ul>
-                </div>
+                </details>
                 {% else %}
                 <div class="border-t border-line pt-3 text-sm text-fg-muted">
                     Bu maç için kayıtlı tahmin yok.
@@ -86,7 +91,7 @@
                 {% endif %}
                 {% else %}
                 <div class="border-t border-line pt-3 text-xs text-fg-muted">
-                    {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti — kilit sonrası görünür.{% else %}Henüz kimse tahmin etmedi.{% endif %}
+                    {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti — gönderim süresi dolunca görünür.{% else %}Henüz kimse tahmin etmedi.{% endif %}
                 </div>
                 {% endif %}
             </li>
