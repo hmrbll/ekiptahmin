@@ -99,6 +99,24 @@ class TestSlotPredictionFormSave:
         assert instance.pk is not None
         assert instance.home_score == 3
 
+    def test_draw_save_derives_penalty_winner_from_shootout_score(
+        self, user, prediction_round, r16_slot, team_tur, team_arg
+    ):
+        """The form has no penalty_winner field — the model derives it from
+        the (never-tied) shootout score."""
+        form = SlotPredictionForm(
+            data={
+                "home_team": team_tur.id, "away_team": team_arg.id,
+                "home_score": 1, "away_score": 1,
+                "home_penalties": 3, "away_penalties": 5,
+            },
+            **_form_kwargs(user, prediction_round, r16_slot),
+        )
+        assert "penalty_winner" not in form.fields
+        assert form.is_valid(), form.errors
+        instance = form.save()
+        assert instance.penalty_winner_id == team_arg.id
+
     def test_save_updates_existing_prediction(
         self, user, prediction_round, r16_slot, team_tur, team_arg
     ):
@@ -154,7 +172,6 @@ class TestStalePenaltyPayload:
                 "home_team": team_tur.id, "away_team": team_arg.id,
                 "home_score": 0, "away_score": 1,
                 # exactly what the browser resubmits from the hidden section
-                "penalty_winner": team_tur.id,
                 "home_penalties": 4, "away_penalties": 2,
             },
             instance=existing,
@@ -177,7 +194,6 @@ class TestStalePenaltyPayload:
             data={
                 "home_team": team_tur.id, "away_team": team_arg.id,
                 "home_score": 2, "away_score": 2,
-                "penalty_winner": team_arg.id,
                 "home_penalties": 3, "away_penalties": 5,
             },
             instance=existing,
@@ -186,5 +202,6 @@ class TestStalePenaltyPayload:
         assert form.is_valid(), form.errors
         form.save()
         existing.refresh_from_db()
+        # winner re-derived from the new shootout score (was team_tur)
         assert existing.penalty_winner_id == team_arg.id
         assert (existing.home_penalties, existing.away_penalties) == (3, 5)

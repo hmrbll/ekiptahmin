@@ -67,7 +67,7 @@ When a KO match goes to penalties (`ActualResult.went_to_penalties = True`), thr
 
 | Criterion | Wins when… | Open to |
 |-----------|------------|---------|
-| `penalty_winner` | named the team that advanced via penalties | **any** prediction — implied winner from a non-draw, or the chosen `penalty_winner` from a draw |
+| `penalty_winner` | named the team that advanced via penalties | **any** prediction — implied winner from a non-draw, or the `penalty_winner` derived from the shootout score on a draw (the user never picks it; `SlotPrediction.clean()` sets it from the never-tied shootout score) |
 | `penalty_score` | predicted the exact shootout score (e.g. 4–2) | **draw predictions only** (only they carry a shootout score) |
 | `penalty_diff` | predicted the shootout goal difference, signed home−away | **draw predictions only** |
 

@@ -182,7 +182,7 @@ class TestSlotPredictionSave:
         )
         assert r.status_code == 200
         # Error visible in the fragment
-        assert b"penalty_winner" in r.content or "penalt".encode("utf-8") in r.content
+        assert "Penaltı skoru girilmeli".encode("utf-8") in r.content
         assert not SlotPrediction.objects.filter(user=user, slot=r16_slot).exists()
 
     def test_carry_over_from_earlier_round(

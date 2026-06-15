@@ -14,8 +14,10 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.scoring.models import GanyanScore
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 
 from .cascade import downstream_slots, invalidate_stale_predictions
@@ -43,23 +45,49 @@ KNOCKOUT_LABELS = {
 # ---------- Public "all predictions" view ----------
 
 
-# Slot is treated as locked (predictions become public) when EITHER its
-# kickoff has passed OR an ActualResult has been entered. The latter covers
-# matches that admin tested ahead of schedule.
-def _slot_predictions_public(slot: BracketSlot) -> bool:
-    return slot.is_locked or hasattr(slot, "result")
+def _stages_still_editable(tournament: Tournament) -> set[int]:
+    """Stage ids that an OPEN prediction round can still edit.
+
+    A stage's predictions can still change while some round whose
+    ``editable_stages`` include that stage has a deadline in the future. Once
+    no such open round remains — its deadline passed, or admins closed the
+    stage by removing it from every round's ``editable_stages`` — submissions
+    for that stage are final and safe to reveal publicly. A stage that no
+    round can edit is therefore treated as closed (not in this set).
+    """
+    now = timezone.now()
+    open_stage_ids: set[int] = set()
+    for pr in tournament.prediction_rounds.prefetch_related("editable_stages"):
+        if pr.deadline > now:
+            open_stage_ids.update(s.id for s in pr.editable_stages.all())
+    return open_stage_ids
+
+
+# Predictions for a slot become public once the submission window for its
+# stage has closed — i.e. no open round can still edit that stage. An entered
+# ActualResult or a passed kickoff also reveal them as safety nets, covering
+# admin test-entry and live matches.
+def _slot_predictions_public(slot: BracketSlot, stages_still_editable: set[int]) -> bool:
+    if hasattr(slot, "result"):
+        return True
+    if slot.is_locked:
+        return True
+    return slot.stage_id not in stages_still_editable
 
 
 def predictions_all(request: HttpRequest) -> HttpResponse:
     """Match-by-match public view of every user's predictions.
 
-    No login required. Predictions are revealed only after a slot has
-    locked (kickoff passed or actual result entered) — pre-lock predictions
-    stay private so users don't copy each other.
+    No login required. A slot's predictions are revealed once its prediction
+    submission window has closed — no open round can still edit its stage —
+    before that they stay private so users don't copy each other. A passed
+    kickoff or an entered result also reveal them.
     """
     tournament = Tournament.objects.filter(is_active=True).first()
     if tournament is None:
         return render(request, "predictions/all.html", {"tournament": None})
+
+    stages_still_editable = _stages_still_editable(tournament)
 
     slots = list(
         BracketSlot.objects
@@ -86,6 +114,16 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
     for slot_id, _user_id in latest_by_slot_user.keys():
         prediction_counts[slot_id] = prediction_counts.get(slot_id, 0) + 1
 
+    # Ganyan points each user earned, per (slot, user). Only meaningful once a
+    # result is in, so limit the query to scored slots.
+    scored_slot_ids = [s.id for s in slots if hasattr(s, "result")]
+    points_by_slot_user: dict[tuple[int, int], object] = {}
+    if scored_slot_ids:
+        for gs in GanyanScore.objects.filter(slot_id__in=scored_slot_ids).only(
+            "slot_id", "user_id", "total"
+        ):
+            points_by_slot_user[(gs.slot_id, gs.user_id)] = gs.total
+
     matches = []
     for slot in slots:
         # Skip slots that don't have teams determined yet — there's nothing
@@ -93,13 +131,20 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         if not (slot.home_team_actual_id and slot.away_team_actual_id):
             continue
 
-        is_public = _slot_predictions_public(slot)
+        is_public = _slot_predictions_public(slot, stages_still_editable)
+        has_result = hasattr(slot, "result")
         slot_preds = []
         if is_public:
             slot_preds = sorted(
                 (p for (sid, _uid), p in latest_by_slot_user.items() if sid == slot.id),
                 key=lambda p: (p.user.nickname or p.user.email or "").lower(),
             )
+            # Attach earned ganyan points (None when the match isn't scored yet
+            # so the template can tell "0 puan" apart from "not played").
+            for p in slot_preds:
+                p.earned_points = (
+                    points_by_slot_user.get((slot.id, p.user_id)) if has_result else None
+                )
         matches.append({
             "slot": slot,
             "actual": getattr(slot, "result", None),
@@ -243,7 +288,7 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
                 user=request.user, slot=slot,
                 prediction_round__order__lt=pr.order,
             )
-            .select_related("home_team", "away_team", "penalty_winner")
+            .select_related("home_team", "away_team")
             .order_by("-prediction_round__order")
             .first()
         )
@@ -251,7 +296,6 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
             initial = {
                 "home_team": prev.home_team, "away_team": prev.away_team,
                 "home_score": prev.home_score, "away_score": prev.away_score,
-                "penalty_winner": prev.penalty_winner,
                 "home_penalties": prev.home_penalties,
                 "away_penalties": prev.away_penalties,
             }
@@ -270,7 +314,7 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
         or form.initial.get("away_team") != initial.get("away_team")
     ):
         for key in ("home_score", "away_score",
-                    "penalty_winner", "home_penalties", "away_penalties"):
+                    "home_penalties", "away_penalties"):
             form.initial.pop(key, None)
 
     display_home = slot.home_team_actual
