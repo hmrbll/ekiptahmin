@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.predictions.models import SlotPrediction
+from apps.scoring.models import GanyanScore
 from apps.tournament.models import ActualResult, BracketSlot, PredictionRound
 
 User = get_user_model()
@@ -152,6 +153,43 @@ class TestPredictionsAll:
         assert "GroupA-M1" in body
         assert "2–1" not in body
         assert "1 oyuncu tahmin etti" in body
+
+    def test_scored_match_shows_earned_points(
+        self, client, tournament, stage_group, prediction_round, group_slot, team_tur, team_bra,
+    ):
+        """Once a result is entered, each predictor's earned ganyan points show
+        next to their prediction."""
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=prediction_round, slot=group_slot,
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
+        )
+        ActualResult.objects.create(slot=group_slot, home_score=2, away_score=1)
+        # Pin a known payout regardless of whatever the recompute signal wrote.
+        GanyanScore.objects.update_or_create(
+            user=u, slot=group_slot,
+            defaults={"total": Decimal("7.50"), "outcome": GanyanScore.EXACT},
+        )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        assert "7,50" in body  # tr locale -> comma decimal separator
+        assert "puan" in body
+
+    def test_unscored_revealed_match_shows_no_points(
+        self, client, tournament, stage_group, prediction_round, team_tur, team_bra,
+    ):
+        """A revealed-but-unplayed match (locked, no result) shows predictions
+        without any points label."""
+        past = _past_slot(tournament, stage_group, team_tur, team_bra, "GroupA-M2")
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=prediction_round, slot=past,
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
+        )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        assert "GroupA-M2" in body
+        assert "puan" not in body
 
     def test_skips_slots_without_resolved_teams(
         self, client, tournament, prediction_round, r16_slot, group_slot,

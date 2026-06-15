@@ -65,9 +65,16 @@
                                 <a href="{% url 'leaderboard_user_detail' p.user.id %}" class="text-fg-soft hover:text-primary transition truncate min-w-0">
                                     {{ p.user.nickname|default:p.user.email }}
                                 </a>
-                                {% if p.penalty_winner %}
-                                <span class="text-xs text-fg-muted shrink-0">pen: {{ p.penalty_winner.code }}</span>
-                                {% endif %}
+                                <div class="flex items-center gap-2 shrink-0">
+                                    {% if p.penalty_winner %}
+                                    <span class="text-xs text-fg-muted">pen: {{ p.penalty_winner.code }}</span>
+                                    {% endif %}
+                                    {% if p.earned_points is not None %}
+                                    <span class="font-mono text-xs {% if p.earned_points > 0 %}text-primary font-semibold{% else %}text-fg-muted{% endif %}">
+                                        {{ p.earned_points|floatformat:2 }} <span class="font-normal text-fg-muted">puan</span>
+                                    </span>
+                                    {% endif %}
+                                </div>
                             </div>
                             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-xs text-fg-muted">
                                 <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">

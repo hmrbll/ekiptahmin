@@ -17,6 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.scoring.models import GanyanScore
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 
 from .cascade import downstream_slots, invalidate_stale_predictions
@@ -113,6 +114,16 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
     for slot_id, _user_id in latest_by_slot_user.keys():
         prediction_counts[slot_id] = prediction_counts.get(slot_id, 0) + 1
 
+    # Ganyan points each user earned, per (slot, user). Only meaningful once a
+    # result is in, so limit the query to scored slots.
+    scored_slot_ids = [s.id for s in slots if hasattr(s, "result")]
+    points_by_slot_user: dict[tuple[int, int], object] = {}
+    if scored_slot_ids:
+        for gs in GanyanScore.objects.filter(slot_id__in=scored_slot_ids).only(
+            "slot_id", "user_id", "total"
+        ):
+            points_by_slot_user[(gs.slot_id, gs.user_id)] = gs.total
+
     matches = []
     for slot in slots:
         # Skip slots that don't have teams determined yet — there's nothing
@@ -121,12 +132,19 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
             continue
 
         is_public = _slot_predictions_public(slot, stages_still_editable)
+        has_result = hasattr(slot, "result")
         slot_preds = []
         if is_public:
             slot_preds = sorted(
                 (p for (sid, _uid), p in latest_by_slot_user.items() if sid == slot.id),
                 key=lambda p: (p.user.nickname or p.user.email or "").lower(),
             )
+            # Attach earned ganyan points (None when the match isn't scored yet
+            # so the template can tell "0 puan" apart from "not played").
+            for p in slot_preds:
+                p.earned_points = (
+                    points_by_slot_user.get((slot.id, p.user_id)) if has_result else None
+                )
         matches.append({
             "slot": slot,
             "actual": getattr(slot, "result", None),
