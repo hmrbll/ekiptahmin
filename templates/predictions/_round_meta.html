@@ -22,7 +22,7 @@
     {% if not round.is_open %}
     <p class="text-xs text-warning-300 mt-2">
         {% if round.is_pending_results %}
-            {{ round.depends_on_stage.get_kind_display }} sonuçları admin tarafından girilince round açılacak.
+            {{ round.depends_on_stage.kind_label_tr }} sonuçları admin tarafından girilince round açılacak.
         {% else %}
             Bu round şu an tahmin almıyor. Mevcut tahminlerini görüntüleyebilirsin.
         {% endif %}

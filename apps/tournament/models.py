@@ -57,6 +57,19 @@ class Stage(models.Model):
         (FINAL, "Final"),
     ]
 
+    # Turkish UI label per stage. `get_kind_display` keeps the English choice
+    # label for the Django admin; user-facing templates use `kind_label_tr`.
+    # (Convention: UI in TR, admin/code in EN.)
+    KIND_LABELS_TR = {
+        GROUP: "Grup aşaması",
+        R32: "Son 32",
+        R16: "Son 16",
+        QF: "Çeyrek final",
+        SF: "Yarı final",
+        THIRD: "Üçüncülük maçı",
+        FINAL: "Final",
+    }
+
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="stages")
     kind = models.CharField(max_length=10, choices=KIND_CHOICES)
     order = models.PositiveSmallIntegerField(help_text="0 = Group, 6 = Final (defines progression)")
@@ -123,6 +136,11 @@ class Stage(models.Model):
     class Meta:
         ordering = ("tournament", "order")
         unique_together = (("tournament", "kind"),)
+
+    @property
+    def kind_label_tr(self) -> str:
+        """Turkish UI label for this stage (admin keeps the English display)."""
+        return self.KIND_LABELS_TR.get(self.kind, self.get_kind_display())
 
     def __str__(self) -> str:
         return f"{self.get_kind_display()} ({self.tournament.slug})"

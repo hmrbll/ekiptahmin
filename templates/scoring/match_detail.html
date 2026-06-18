@@ -16,7 +16,7 @@
             <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted mb-3">
                 <span class="font-mono">{{ slot.display_position }}</span>
                 <span>·</span>
-                <span class="uppercase tracking-wider">{{ slot.stage.get_kind_display }}</span>
+                <span class="uppercase tracking-wider">{{ slot.stage.kind_label_tr }}</span>
                 <span>·</span>
                 <span>{{ slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
                 {% if slot.venue %}<span>·</span><span class="truncate">{{ slot.venue }}</span>{% endif %}

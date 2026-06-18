@@ -15,99 +15,117 @@
             herkese görünür olur.
         </p>
 
-        {% if matches %}
-        <ul class="space-y-3 sm:space-y-4">
-            {% for m in matches %}
-            <li class="rounded-2xl border border-line bg-surface p-4 sm:p-5" data-slot-position="{{ m.slot.position }}">
-                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted mb-3">
-                    <span class="font-mono">{{ m.slot.display_position }}</span>
-                    <span>·</span>
-                    <span class="uppercase tracking-wider">{{ m.slot.stage.get_kind_display }}</span>
-                    <span>·</span>
-                    <span>{{ m.slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
-                    {% if m.slot.venue %}<span>·</span><span class="truncate">{{ m.slot.venue }}</span>{% endif %}
-                </div>
+        {% if sections %}
+        {# Tab bar — one pill per round (group matchdays, then knockout stages). #}
+        <nav class="mb-8 sm:mb-10" aria-label="Turlar">
+            <div id="all-tab-bar" class="flex flex-wrap gap-2.5" role="tablist">
+                {% for sec in sections %}
+                <button type="button" role="tab" data-tab="{{ sec.key }}"
+                        aria-selected="{% if sec.key == default_section_key %}true{% else %}false{% endif %}"
+                        class="all-tab-btn px-3 py-1.5 rounded-lg border text-xs transition hover:text-fg {% if sec.key == default_section_key %}bg-primary-hover/15 border-primary/40 text-primary font-medium{% else %}bg-surface border-line text-fg-muted{% endif %}">
+                    {{ sec.label }}
+                </button>
+                {% endfor %}
+            </div>
+        </nav>
 
-                <div class="mb-4">
-                    <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 sm:gap-3 items-center text-sm sm:text-lg">
-                        <div class="flex items-center gap-2 justify-end min-w-0 text-right">
-                            <span class="text-fg truncate">{{ m.slot.home_team_actual.name_tr }}</span>
-                            {% if m.slot.home_team_actual.flag_svg_path %}<img src="{% static m.slot.home_team_actual.flag_svg_path %}" alt="{{ m.slot.home_team_actual.code }}" class="h-6 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                        </div>
-                        {% if m.actual %}
-                        <span class="font-mono font-semibold text-fg-soft whitespace-nowrap px-1">{{ m.actual.home_score }}–{{ m.actual.away_score }}</span>
-                        {% else %}
-                        <span class="text-fg-muted px-1">vs</span>
-                        {% endif %}
-                        <div class="flex items-center gap-2 min-w-0">
-                            {% if m.slot.away_team_actual.flag_svg_path %}<img src="{% static m.slot.away_team_actual.flag_svg_path %}" alt="{{ m.slot.away_team_actual.code }}" class="h-6 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                            <span class="text-fg truncate">{{ m.slot.away_team_actual.name_tr }}</span>
-                        </div>
+        {% for sec in sections %}
+        <section class="all-tab-panel" data-panel="{{ sec.key }}" role="tabpanel"
+                 {% if sec.key != default_section_key %}hidden{% endif %}>
+            <ul class="space-y-3 sm:space-y-4">
+                {% for m in sec.matches %}
+                <li class="rounded-2xl border border-line bg-surface p-4 sm:p-5" data-slot-position="{{ m.slot.position }}">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted mb-3">
+                        <span class="font-mono">{{ m.slot.display_position }}</span>
+                        <span>·</span>
+                        <span class="uppercase tracking-wider">{{ m.slot.stage.kind_label_tr }}</span>
+                        <span>·</span>
+                        <span>{{ m.slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
+                        {% if m.slot.venue %}<span>·</span><span class="truncate">{{ m.slot.venue }}</span>{% endif %}
                     </div>
-                    {% if m.actual.went_to_penalties %}
-                    <div class="mt-1.5 text-xs text-fg-muted text-center">pen: {{ m.actual.penalty_winner.code }} {{ m.actual.home_penalties }}–{{ m.actual.away_penalties }}</div>
-                    {% endif %}
-                </div>
 
-                {% if m.is_public %}
-                {% if m.predictions %}
-                <details class="group border-t border-line pt-3">
-                    <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden text-xs uppercase tracking-wider text-fg-muted hover:text-fg-soft transition">
-                        <span>Tahminler ({{ m.predictions|length }})</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0 transition-transform group-open:rotate-180">
-                            <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </summary>
-                    <ul class="divide-y divide-line mt-2">
-                        {% for p in m.predictions %}
-                        <li class="py-2 text-sm">
-                            <div class="flex items-center justify-between gap-3 mb-1">
-                                <a href="{% url 'leaderboard_user_detail' p.user.id %}" class="text-fg-soft hover:text-primary transition truncate min-w-0">
-                                    {{ p.user.nickname|default:p.user.email }}
-                                </a>
-                                <div class="flex items-center gap-2 shrink-0">
-                                    {% if p.penalty_winner %}
-                                    <span class="text-xs text-fg-muted">pen: {{ p.penalty_winner.code }}</span>
-                                    {% endif %}
-                                    {% if p.earned_points is not None %}
-                                    <span class="font-mono text-xs {% if p.earned_points > 0 %}text-primary font-semibold{% else %}text-fg-muted{% endif %}">
-                                        {{ p.earned_points|floatformat:2 }} <span class="font-normal text-fg-muted">puan</span>
-                                    </span>
-                                    {% elif p.potential_points is not None %}
-                                    <span class="font-mono text-xs text-fg-muted" title="Bu tahmin birebir tutarsa kazanılabilecek en yüksek puan (ganyan havuzu, aynı tahmini yapanlara bölünür)">
-                                        en fazla {{ p.potential_points|floatformat:2 }} <span class="font-normal">puan</span>
-                                    </span>
-                                    {% endif %}
-                                </div>
+                    <div class="mb-4">
+                        <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 sm:gap-3 items-center text-sm sm:text-lg">
+                            <div class="flex items-center gap-2 justify-end min-w-0 text-right">
+                                <span class="text-fg truncate">{{ m.slot.home_team_actual.name_tr }}</span>
+                                {% if m.slot.home_team_actual.flag_svg_path %}<img src="{% static m.slot.home_team_actual.flag_svg_path %}" alt="{{ m.slot.home_team_actual.code }}" class="h-6 aspect-[4/3] rounded-sm shrink-0">{% endif %}
                             </div>
-                            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-xs text-fg-muted">
-                                <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
-                                    <span class="truncate">{{ p.home_team.name_tr }}</span>
-                                    {% if p.home_team.flag_svg_path %}<img src="{% static p.home_team.flag_svg_path %}" alt="{{ p.home_team.code }}" class="h-4 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                                </div>
-                                <span class="font-mono text-fg-soft whitespace-nowrap px-0.5">{{ p.home_score }}–{{ p.away_score }}</span>
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    {% if p.away_team.flag_svg_path %}<img src="{% static p.away_team.flag_svg_path %}" alt="{{ p.away_team.code }}" class="h-4 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                                    <span class="truncate">{{ p.away_team.name_tr }}</span>
-                                </div>
+                            {% if m.actual %}
+                            <span class="font-mono font-semibold text-fg-soft whitespace-nowrap px-1">{{ m.actual.home_score }}–{{ m.actual.away_score }}</span>
+                            {% else %}
+                            <span class="text-fg-muted px-1">vs</span>
+                            {% endif %}
+                            <div class="flex items-center gap-2 min-w-0">
+                                {% if m.slot.away_team_actual.flag_svg_path %}<img src="{% static m.slot.away_team_actual.flag_svg_path %}" alt="{{ m.slot.away_team_actual.code }}" class="h-6 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                                <span class="text-fg truncate">{{ m.slot.away_team_actual.name_tr }}</span>
                             </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </details>
-                {% else %}
-                <div class="border-t border-line pt-3 text-sm text-fg-muted">
-                    Bu maç için kayıtlı tahmin yok.
-                </div>
-                {% endif %}
-                {% else %}
-                <div class="border-t border-line pt-3 text-xs text-fg-muted">
-                    {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti — gönderim süresi dolunca görünür.{% else %}Henüz kimse tahmin etmedi.{% endif %}
-                </div>
-                {% endif %}
-            </li>
-            {% endfor %}
-        </ul>
+                        </div>
+                        {% if m.actual.went_to_penalties %}
+                        <div class="mt-1.5 text-xs text-fg-muted text-center">pen: {{ m.actual.penalty_winner.code }} {{ m.actual.home_penalties }}–{{ m.actual.away_penalties }}</div>
+                        {% endif %}
+                    </div>
+
+                    {% if m.is_public %}
+                    {% if m.predictions %}
+                    <details class="group border-t border-line pt-3">
+                        <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden text-xs uppercase tracking-wider text-fg-muted hover:text-fg-soft transition">
+                            <span>Tahminler ({{ m.predictions|length }})</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0 transition-transform group-open:rotate-180">
+                                <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </summary>
+                        <ul class="divide-y divide-line mt-2">
+                            {% for p in m.predictions %}
+                            <li class="py-2 text-sm">
+                                <div class="flex items-center justify-between gap-3 mb-1">
+                                    <a href="{% url 'leaderboard_user_detail' p.user.id %}" class="text-fg-soft hover:text-primary transition truncate min-w-0">
+                                        {{ p.user.nickname|default:p.user.email }}
+                                    </a>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        {% if p.penalty_winner %}
+                                        <span class="text-xs text-fg-muted">pen: {{ p.penalty_winner.code }}</span>
+                                        {% endif %}
+                                        {% if p.earned_points is not None %}
+                                        <span class="font-mono text-xs {% if p.earned_points > 0 %}text-primary font-semibold{% else %}text-fg-muted{% endif %}">
+                                            {{ p.earned_points|floatformat:2 }} <span class="font-normal text-fg-muted">puan</span>
+                                        </span>
+                                        {% elif p.potential_points is not None %}
+                                        <span class="font-mono text-xs text-fg-muted" title="Bu tahmin birebir tutarsa kazanılabilecek en yüksek puan (ganyan havuzu, aynı tahmini yapanlara bölünür)">
+                                            en fazla {{ p.potential_points|floatformat:2 }} <span class="font-normal">puan</span>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-xs text-fg-muted">
+                                    <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
+                                        <span class="truncate">{{ p.home_team.name_tr }}</span>
+                                        {% if p.home_team.flag_svg_path %}<img src="{% static p.home_team.flag_svg_path %}" alt="{{ p.home_team.code }}" class="h-4 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                                    </div>
+                                    <span class="font-mono text-fg-soft whitespace-nowrap px-0.5">{{ p.home_score }}–{{ p.away_score }}</span>
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        {% if p.away_team.flag_svg_path %}<img src="{% static p.away_team.flag_svg_path %}" alt="{{ p.away_team.code }}" class="h-4 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                                        <span class="truncate">{{ p.away_team.name_tr }}</span>
+                                    </div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                    {% else %}
+                    <div class="border-t border-line pt-3 text-sm text-fg-muted">
+                        Bu maç için kayıtlı tahmin yok.
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="border-t border-line pt-3 text-xs text-fg-muted">
+                        {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti — gönderim süresi dolunca görünür.{% else %}Henüz kimse tahmin etmedi.{% endif %}
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endfor %}
         {% else %}
         <div class="rounded-2xl border border-line bg-surface p-8 text-center">
             <p class="text-fg-muted">Henüz takımları belli olan maç yok.</p>
@@ -115,4 +133,39 @@
         {% endif %}
     </main>
 </div>
+
+{% if sections %}
+<script>
+// Round tabs: show one section at a time. The active tab is remembered in the
+// URL hash (so a refresh/share keeps the round) and otherwise defaults to the
+// server-chosen "current" round. No-JS users still see that default section.
+(function () {
+    const bar = document.getElementById("all-tab-bar");
+    if (!bar) return;
+    const buttons = Array.from(bar.querySelectorAll(".all-tab-btn"));
+    const panels = Array.from(document.querySelectorAll(".all-tab-panel"));
+    const keys = panels.map(p => p.dataset.panel);
+    const activeCls = ["bg-primary-hover/15", "border-primary/40", "text-primary", "font-medium"];
+    const idleCls = ["bg-surface", "border-line", "text-fg-muted"];
+
+    function activate(key) {
+        if (!keys.includes(key)) return;
+        panels.forEach(p => { p.hidden = p.dataset.panel !== key; });
+        buttons.forEach(b => {
+            const on = b.dataset.tab === key;
+            activeCls.forEach(c => b.classList.toggle(c, on));
+            idleCls.forEach(c => b.classList.toggle(c, !on));
+            b.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        if (window.history.replaceState) {
+            window.history.replaceState(null, "", "#" + key);
+        }
+    }
+
+    buttons.forEach(b => b.addEventListener("click", () => activate(b.dataset.tab)));
+    const fromHash = (window.location.hash || "").replace(/^#/, "");
+    activate(keys.includes(fromHash) ? fromHash : "{{ default_section_key|escapejs }}");
+})();
+</script>
+{% endif %}
 {% endblock %}

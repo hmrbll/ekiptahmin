@@ -14,7 +14,7 @@
 {% for stage, items in sections %}
 <section class="mb-10">
     <div class="flex items-baseline gap-3 mb-4">
-        <h3 class="text-sm uppercase tracking-wider text-fg-muted">{{ stage.get_kind_display }}</h3>
+        <h3 class="text-sm uppercase tracking-wider text-fg-muted">{{ stage.kind_label_tr }}</h3>
         <span class="text-xs text-fg-soft">{{ items|length }} maç</span>
     </div>
 
