@@ -9,6 +9,8 @@ Each group page has inline forms with auto-save (HTMX) and a live standings
 table. The summary collects all groups on one page (still editable).
 """
 
+import re
+
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -44,6 +46,68 @@ KNOCKOUT_LABELS = {
 
 
 # ---------- Public "all predictions" view ----------
+
+# Turkish ordinals for the three group matchdays (M1-2 → 1, M3-4 → 2, M5-6 → 3),
+# used to label the group tabs on the all-predictions page.
+GROUP_MATCHDAY_LABELS = {1: "İlk", 2: "İkinci", 3: "Üçüncü"}
+_GROUP_MATCH_NO_RE = re.compile(r"-M(\d+)$")
+
+
+def _group_matchday(position: str) -> int:
+    """Matchday (1/2/3) for a 'GroupX-Mn' slot. Each 4-team group plays its six
+    matches across three matchdays, two per day: M1-2 → 1, M3-4 → 2, M5-6 → 3."""
+    m = _GROUP_MATCH_NO_RE.search(position)
+    if not m:
+        return 3
+    return (int(m.group(1)) + 1) // 2
+
+
+def _slot_section(slot: BracketSlot) -> tuple[int, str, str]:
+    """(sort_order, key, label) for the all-predictions tab this slot belongs to.
+
+    Group matchdays come first (Grup İlk/İkinci/Üçüncü Maçlar), then the
+    knockout stages in bracket order (Son 32 → Final).
+    """
+    kind = slot.stage.kind
+    if kind == "GROUP":
+        md = _group_matchday(slot.position)
+        return (md - 1, f"group-md{md}", f"Grup {GROUP_MATCHDAY_LABELS[md]} Maçlar")
+    order = (
+        KNOCKOUT_STAGE_ORDER.index(kind)
+        if kind in KNOCKOUT_STAGE_ORDER
+        else len(KNOCKOUT_STAGE_ORDER)
+    )
+    return (3 + order, f"ko-{kind}", KNOCKOUT_LABELS.get(kind, slot.stage.get_kind_display()))
+
+
+def _group_matches_into_sections(matches: list[dict]) -> tuple[list[dict], str]:
+    """Bucket the kickoff-ordered match list into ordered tab sections.
+
+    Returns (sections, default_key). Each section is
+    {"key", "label", "matches"}; matches keep their kickoff order within it.
+    The default tab is the earliest section that still has an unplayed match
+    (the round "in progress"), falling back to the last section when all are
+    scored.
+    """
+    by_key: dict[str, dict] = {}
+    order_by_key: dict[str, int] = {}
+    for m in matches:
+        order, key, label = _slot_section(m["slot"])
+        sec = by_key.get(key)
+        if sec is None:
+            sec = by_key[key] = {"key": key, "label": label, "matches": []}
+            order_by_key[key] = order
+        sec["matches"].append(m)
+
+    sections = [by_key[k] for k in sorted(by_key, key=lambda k: order_by_key[k])]
+    if not sections:
+        return [], ""
+    default_key = sections[-1]["key"]
+    for sec in sections:
+        if any(not m["actual"] for m in sec["matches"]):
+            default_key = sec["key"]
+            break
+    return sections, default_key
 
 
 def _stages_still_editable(tournament: Tournament) -> set[int]:
@@ -163,9 +227,12 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
             "prediction_count": prediction_counts.get(slot.id, 0),
         })
 
+    sections, default_section_key = _group_matches_into_sections(matches)
+
     return render(request, "predictions/all.html", {
         "tournament": tournament,
-        "matches": matches,
+        "sections": sections,
+        "default_section_key": default_section_key,
     })
 
 

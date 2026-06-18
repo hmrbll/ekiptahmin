@@ -247,3 +247,67 @@ class TestPredictionsAll:
         # Group slot still appears (teams set); R16 doesn't.
         assert "GroupA-M1" in body
         assert "R16-1" not in body
+
+
+@pytest.mark.django_db
+class TestPredictionsAllTabs:
+    """Round tabs: group matchdays (İlk/İkinci/Üçüncü) + knockout stages."""
+
+    def _group_slot(self, tournament, stage_group, team_tur, team_bra, match_no, *, kickoff):
+        return BracketSlot.objects.create(
+            tournament=tournament, stage=stage_group, position=f"GroupA-M{match_no}",
+            scheduled_kickoff=kickoff, home_team_actual=team_tur, away_team_actual=team_bra,
+        )
+
+    def test_group_matchdays_become_separate_tabs(
+        self, client, tournament, stage_group, team_tur, team_bra,
+    ):
+        now = timezone.now()
+        # M1 → matchday 1, M3 → matchday 2, M5 → matchday 3.
+        self._group_slot(tournament, stage_group, team_tur, team_bra, 1, kickoff=now + timedelta(days=1))
+        self._group_slot(tournament, stage_group, team_tur, team_bra, 3, kickoff=now + timedelta(days=5))
+        self._group_slot(tournament, stage_group, team_tur, team_bra, 5, kickoff=now + timedelta(days=9))
+        r = client.get(reverse("predictions_all"))
+        keys = [s["key"] for s in r.context["sections"]]
+        labels = [s["label"] for s in r.context["sections"]]
+        assert keys == ["group-md1", "group-md2", "group-md3"]
+        assert labels == ["Grup İlk Maçlar", "Grup İkinci Maçlar", "Grup Üçüncü Maçlar"]
+        body = r.content.decode("utf-8")
+        assert "Grup İlk Maçlar" in body
+        assert "Grup Üçüncü Maçlar" in body
+
+    def test_knockout_stage_is_its_own_tab_after_groups(
+        self, client, tournament, stage_group, stage_r16, team_tur, team_bra,
+    ):
+        now = timezone.now()
+        self._group_slot(tournament, stage_group, team_tur, team_bra, 1, kickoff=now + timedelta(days=1))
+        BracketSlot.objects.create(
+            tournament=tournament, stage=stage_r16, position="R16-1",
+            scheduled_kickoff=now + timedelta(days=20),
+            home_team_actual=team_tur, away_team_actual=team_bra,
+        )
+        r = client.get(reverse("predictions_all"))
+        sections = {s["key"]: s["label"] for s in r.context["sections"]}
+        keys = [s["key"] for s in r.context["sections"]]
+        assert keys == ["group-md1", "ko-R16"]  # groups before knockout
+        assert sections["ko-R16"] == "Son 16"
+
+    def test_default_tab_is_earliest_round_with_an_unplayed_match(
+        self, client, tournament, stage_group, team_tur, team_bra,
+    ):
+        now = timezone.now()
+        md1 = self._group_slot(tournament, stage_group, team_tur, team_bra, 1, kickoff=now - timedelta(days=3))
+        self._group_slot(tournament, stage_group, team_tur, team_bra, 3, kickoff=now + timedelta(days=2))
+        # Matchday 1 fully played → default should advance to matchday 2.
+        ActualResult.objects.create(slot=md1, home_score=1, away_score=0)
+        r = client.get(reverse("predictions_all"))
+        assert r.context["default_section_key"] == "group-md2"
+
+    def test_default_tab_falls_back_to_first_when_all_unplayed(
+        self, client, tournament, stage_group, team_tur, team_bra,
+    ):
+        now = timezone.now()
+        self._group_slot(tournament, stage_group, team_tur, team_bra, 1, kickoff=now + timedelta(days=1))
+        self._group_slot(tournament, stage_group, team_tur, team_bra, 3, kickoff=now + timedelta(days=5))
+        r = client.get(reverse("predictions_all"))
+        assert r.context["default_section_key"] == "group-md1"
