@@ -174,12 +174,15 @@ class TestPredictionsAll:
         body = r.content.decode("utf-8")
         assert "7,50" in body  # tr locale -> comma decimal separator
         assert "puan" in body
+        # Scored matches show earned points, never the pre-result "en fazla" hint.
+        assert "en fazla" not in body
 
-    def test_unscored_revealed_match_shows_no_points(
+    def test_unscored_revealed_match_shows_potential_points(
         self, client, tournament, stage_group, prediction_round, team_tur, team_bra,
     ):
-        """A revealed-but-unplayed match (locked, no result) shows predictions
-        without any points label."""
+        """A revealed-but-unplayed match (locked, no result) shows, next to each
+        complete pick, the most it could earn if it lands exactly. Sole predictor
+        with default 100/100/100 pools and weight 1.0 → exact+diff+result = 300."""
         past = _past_slot(tournament, stage_group, team_tur, team_bra, "GroupA-M2")
         u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
         SlotPrediction.objects.create(
@@ -189,7 +192,51 @@ class TestPredictionsAll:
         r = client.get(reverse("predictions_all"))
         body = r.content.decode("utf-8")
         assert "GroupA-M2" in body
-        assert "puan" not in body
+        assert "en fazla" in body
+        assert "300,00" in body
+
+    def test_potential_splits_among_cowinners(
+        self, client, tournament, stage_group, prediction_round, team_tur, team_bra,
+    ):
+        """Two identical picks split each pool: the best case halves to 150,
+        not the 300 a sole winner would take — proving parimutuel division."""
+        past = _past_slot(tournament, stage_group, team_tur, team_bra, "GroupA-M2")
+        for i in range(2):
+            ui = User.objects.create_user(
+                email=f"u{i}@x.com", username=f"u{i}@x.com", nickname=f"U{i}",
+            )
+            SlotPrediction.objects.create(
+                user=ui, prediction_round=prediction_round, slot=past,
+                home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
+            )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        assert body.count("en fazla") == 2
+        assert "150,00" in body
+        assert "300,00" not in body
+
+    def test_unscored_incomplete_pick_hides_potential(
+        self, client, tournament, stage_r16, prediction_round, team_tur, team_bra, team_arg,
+    ):
+        """On a resolved knockout slot, a pick whose matchup no longer lines up
+        with the real fixture (made during the bracket-forecast phase) is not
+        "complete" — it can never score, so no max-puan hint is shown for it."""
+        past = BracketSlot.objects.create(
+            tournament=tournament, stage=stage_r16, position="R16-1",
+            scheduled_kickoff=timezone.now() - timedelta(hours=2),
+            home_team_actual=team_tur, away_team_actual=team_bra,
+        )
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        # Predicted away side ARG, but the real fixture resolved to BRA.
+        SlotPrediction.objects.create(
+            user=u, prediction_round=prediction_round, slot=past,
+            home_team=team_tur, away_team=team_arg, home_score=2, away_score=1,
+        )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        assert "R16-1" in body
+        assert "Me" in body
+        assert "en fazla" not in body
 
     def test_skips_slots_without_resolved_teams(
         self, client, tournament, prediction_round, r16_slot, group_slot,
