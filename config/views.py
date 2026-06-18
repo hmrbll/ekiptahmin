@@ -200,17 +200,6 @@ def home(request: HttpRequest) -> HttpResponse:
     })
 
 
-_STAGE_TR = {
-    Stage.GROUP: "Grup aşaması",
-    Stage.R32: "Son 32",
-    Stage.R16: "Son 16",
-    Stage.QF: "Çeyrek final",
-    Stage.SF: "Yarı final",
-    Stage.THIRD: "Üçüncülük maçı",
-    Stage.FINAL: "Final",
-}
-
-
 def rules(request: HttpRequest) -> HttpResponse:
     """Static-content page explaining the prediction format, rounds, scoring,
     penalties, and tiebreakers. Data is pulled from the active tournament so
@@ -223,7 +212,7 @@ def rules(request: HttpRequest) -> HttpResponse:
         stages = list(Stage.objects.filter(tournament=tournament).order_by("order"))
         stages_view = [
             {
-                "name_tr": _STAGE_TR.get(s.kind, s.get_kind_display()),
+                "name_tr": s.kind_label_tr,
                 "pool_exact": s.pool_exact,
                 "pool_diff": s.pool_diff,
                 "pool_result": s.pool_result,
@@ -248,13 +237,9 @@ def rules(request: HttpRequest) -> HttpResponse:
                 "deadline": r.deadline,
                 "weight": r.weight,
                 "depends_on_tr": (
-                    _STAGE_TR.get(r.depends_on_stage.kind, r.depends_on_stage.get_kind_display())
-                    if r.depends_on_stage else None
+                    r.depends_on_stage.kind_label_tr if r.depends_on_stage else None
                 ),
-                "editable_tr": [
-                    _STAGE_TR.get(s.kind, s.get_kind_display())
-                    for s in r.editable_stages.all()
-                ],
+                "editable_tr": [s.kind_label_tr for s in r.editable_stages.all()],
             }
             for r in rounds_qs
         ]

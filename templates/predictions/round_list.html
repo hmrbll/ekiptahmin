@@ -37,7 +37,7 @@
                         </div>
                         {% if r.depends_on_stage %}
                         <div class="text-xs text-fg-muted mt-2">
-                            Açılma şartı: <span class="text-fg-soft">{{ r.depends_on_stage.get_kind_display }}</span> sonuçları girilmeli
+                            Açılma şartı: <span class="text-fg-soft">{{ r.depends_on_stage.kind_label_tr }}</span> sonuçları girilmeli
                         </div>
                         {% endif %}
                     </div>
