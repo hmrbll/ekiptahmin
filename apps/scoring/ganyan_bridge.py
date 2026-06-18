@@ -5,6 +5,7 @@ dataclasses, runs `compute_slot`, and returns the per-user UserScore plus
 per-criterion PoolStats. The ORM upsert lives in `ganyan_cache.py`.
 """
 
+from decimal import Decimal
 from typing import Optional
 
 
@@ -102,3 +103,23 @@ def compute_pre_result_pools(slot: BracketSlot) -> list[ganyan.PoolStats]:
     predictions_by_user = _gather_predictions_by_user(slot)
     pools = _stage_pools(slot)
     return ganyan.compute_pre_result_pools(predictions_by_user, pools)
+
+
+def potential_max_scores_for_slot(
+    slot: BracketSlot, predictions: list[SlotPrediction],
+) -> dict[int, Decimal]:
+    """Best-case ganyan payout per user for an as-yet-unscored slot.
+
+    `predictions` is one SlotPrediction per user (the latest shown on the
+    all-predictions page). Returns {user_id: Decimal} only for predictions whose
+    matchup lines up with the slot's actual fixture; unreachable (wrong-matchup)
+    picks are omitted. Empty when the slot's teams aren't both set yet.
+    """
+    if not (slot.home_team_actual_id and slot.away_team_actual_id):
+        return {}
+    pools = _stage_pools(slot)
+    pred_by_user = {p.user_id: _build_prediction(p) for p in predictions}
+    return ganyan.potential_max_scores(
+        pred_by_user, pools,
+        slot.home_team_actual.code, slot.away_team_actual.code,
+    )

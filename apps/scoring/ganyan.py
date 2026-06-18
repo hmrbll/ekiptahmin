@@ -469,3 +469,70 @@ def compute_pre_result_pools(
 # Dummy result for breakdown_key — only the home/away team codes need to
 # "exist", and we only call it with criteria that don't read result fields.
 _DUMMY_RESULT = Result(home_team="", away_team="", home_score=0, away_score=0)
+
+
+# ---------- Pre-result "best case" payout ----------
+
+
+def _self_result(home_team: str, away_team: str, pred: Prediction) -> Result:
+    """The match's Result if it ended exactly as `pred` calls it.
+
+    Built on the actual teams (so a wrong-matchup prediction satisfies nothing);
+    a draw that carries shootout data is treated as having gone to penalties.
+    """
+    is_draw = pred.home_score == pred.away_score
+    has_shootout = pred.penalty_winner is not None or (
+        pred.home_penalties is not None and pred.away_penalties is not None
+    )
+    went_to_penalties = is_draw and has_shootout
+    return Result(
+        home_team=home_team,
+        away_team=away_team,
+        home_score=pred.home_score,
+        away_score=pred.away_score,
+        went_to_penalties=went_to_penalties,
+        penalty_winner=pred.penalty_winner if went_to_penalties else None,
+        home_penalties=pred.home_penalties if went_to_penalties else None,
+        away_penalties=pred.away_penalties if went_to_penalties else None,
+    )
+
+
+def potential_max_scores(
+    pred_by_user: dict[int, Prediction],
+    pools: StagePools,
+    home_team: str,
+    away_team: str,
+) -> dict[int, Decimal]:
+    """Best-case ganyan payout each user could still earn on a not-yet-scored
+    match, assuming it ends EXACTLY as they predicted (shootout included for a
+    draw-on-KO prediction).
+
+    Same parimutuel arithmetic as `compute_slot`, evaluated against each user's
+    own predicted outcome instead of a real result: under that hypothetical,
+    every criterion the user's prediction satisfies pays ``pool_c / |winners_c|``
+    (winners = users whose own prediction also satisfies c against it), scaled by
+    the user's round weight.
+
+    `home_team`/`away_team` are the match's actual team codes — known once both
+    sides are set. Predictions on a different matchup can never score this slot,
+    so they're dropped (absent from the returned map). Values are upper bounds in
+    the common single-round case; the live engine can only pay *more* — and only
+    when a co-winner's effective round turns out to sit elsewhere.
+    """
+    pool_by_criterion = _pool_map(pools)
+    # Only predictions on the actual fixture are reachable; the rest score nothing.
+    live = {
+        uid: p for uid, p in pred_by_user.items()
+        if p.home_team == home_team and p.away_team == away_team
+    }
+    out: dict[int, Decimal] = {}
+    for uid, pred in live.items():
+        hypothetical = _self_result(home_team, away_team, pred)
+        total = Decimal("0")
+        for c in CRITERIA:
+            if not satisfies(pred, hypothetical, c):
+                continue
+            winners = sum(1 for q in live.values() if satisfies(q, hypothetical, c))
+            total += (Decimal(pool_by_criterion[c]) / winners) * pred.round_weight
+        out[uid] = total
+    return out

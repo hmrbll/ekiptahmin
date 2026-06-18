@@ -73,6 +73,10 @@
                                     <span class="font-mono text-xs {% if p.earned_points > 0 %}text-primary font-semibold{% else %}text-fg-muted{% endif %}">
                                         {{ p.earned_points|floatformat:2 }} <span class="font-normal text-fg-muted">puan</span>
                                     </span>
+                                    {% elif p.potential_points is not None %}
+                                    <span class="font-mono text-xs text-fg-muted" title="Bu tahmin birebir tutarsa kazanılabilecek en yüksek puan (ganyan havuzu, aynı tahmini yapanlara bölünür)">
+                                        en fazla {{ p.potential_points|floatformat:2 }} <span class="font-normal">puan</span>
+                                    </span>
                                     {% endif %}
                                 </div>
                             </div>

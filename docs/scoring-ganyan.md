@@ -97,6 +97,14 @@ The stat columns (Doğru Skor / Doğru Fark / Doğru Sonuç) show **cumulative**
 
 An **Adet/Puan toggle** (client-side, persisted in localStorage) switches every stat cell between hit counts and points earned per criterion (`GanyanScore.score_exact/diff/result/penalty` sums — also cumulative by construction, since an exact hit wins all three regulation pools). "Yanlış" shows the count in both modes.
 
+## All-predictions page — pre-result "best case"
+
+On the public all-predictions page (`/predictions/all/`), once a match's predictions are revealed but **before** a result is entered, each pick shows the most it could still earn — labelled **"en fazla N puan"**. After the result is entered this is replaced by the actual earned `GanyanScore.total`.
+
+The best case is the parimutuel payout the pick would earn **if the match ended exactly as predicted** (`ganyan.potential_max_scores`): the pick wins every criterion its scoreline satisfies (a draw-on-KO pick carrying a shootout wins the three penalty pools too), and each pool is split among everyone whose own revealed pick would also win it under that hypothetical. So it differentiates picks the way real ganyan does — a lone scoreline shows the full pool, a popular one a thin slice.
+
+It is shown **only for "complete" picks** — those whose matchup lines up with the slot's actual fixture. A knockout pick made during the bracket-forecast phase whose teams no longer match the resolved fixture can never score, so no hint is shown for it. Values use the pick's own (latest shown) round weight and are upper bounds in the common single-round case; the live engine can only pay *more*, and only when a co-winner's effective round turns out to sit in a different round.
+
 ## Data model
 
 ### Modified

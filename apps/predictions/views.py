@@ -17,6 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.scoring.ganyan_bridge import potential_max_scores_for_slot
 from apps.scoring.models import GanyanScore
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 
@@ -101,7 +102,9 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
     preds_qs = (
         SlotPrediction.objects
         .filter(slot_id__in=slot_ids)
-        .select_related("user", "home_team", "away_team", "prediction_round")
+        .select_related(
+            "user", "home_team", "away_team", "penalty_winner", "prediction_round",
+        )
         .order_by("slot_id", "user_id", "-prediction_round__order")
     )
     latest_by_slot_user: dict[tuple[int, int], SlotPrediction] = {}
@@ -139,12 +142,19 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
                 (p for (sid, _uid), p in latest_by_slot_user.items() if sid == slot.id),
                 key=lambda p: (p.user.nickname or p.user.email or "").lower(),
             )
-            # Attach earned ganyan points (None when the match isn't scored yet
-            # so the template can tell "0 puan" apart from "not played").
+            # Scored match → show the points each pick earned (None when the
+            # match isn't scored, so the template tells "0 puan" from "not
+            # played"). Unscored match → show the most each *complete* pick (its
+            # matchup matches the real fixture) could still earn if it lands
+            # exactly; wrong-matchup picks are absent → label hidden.
+            potentials = (
+                {} if has_result else potential_max_scores_for_slot(slot, slot_preds)
+            )
             for p in slot_preds:
                 p.earned_points = (
                     points_by_slot_user.get((slot.id, p.user_id)) if has_result else None
                 )
+                p.potential_points = None if has_result else potentials.get(p.user_id)
         matches.append({
             "slot": slot,
             "actual": getattr(slot, "result", None),
