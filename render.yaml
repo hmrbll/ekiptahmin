@@ -40,12 +40,16 @@ services:
   # (UTC+3, no DST), so 10:00 UTC = 13:00 TRT and 05:00–09:00 UTC = 08:00–12:00 TRT.
   # NOTE: RESEND_API_KEY is sync:false — set it on EACH cron service in the
   # Render dashboard (separate from the web service), or no mail is delivered.
+  #
+  # Build is intentionally lean (pip only): the crons don't serve static/CSS and
+  # must NOT run migrate/seed/recompute — the web service owns those, and running
+  # them concurrently from three services against the one DB races at deploy time.
   - type: cron
     name: ekiptahmin-digest-morning
     runtime: python
     region: frankfurt
     schedule: "0 10 * * *"
-    buildCommand: "./build.sh"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "python manage.py send_daily_digest --mode morning"
     envVars:
       - key: PYTHON_VERSION
@@ -74,7 +78,7 @@ services:
     runtime: python
     region: frankfurt
     schedule: "0 5-9 * * *"
-    buildCommand: "./build.sh"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "python manage.py send_daily_digest --mode evening"
     envVars:
       - key: PYTHON_VERSION
