@@ -13,8 +13,31 @@ class User(AbstractUser):
     nickname = models.CharField(max_length=40, blank=True)
     timezone = models.CharField(max_length=64, default="Europe/Istanbul")
 
+    # Set by the Resend bounce/complaint webhook (Faz 1.3). When True the
+    # address is dropped from digest fan-out (see notifications.digest.
+    # digest_recipients). Reversible by staff in admin once the user fixes
+    # their mailbox — we never auto-deactivate the account.
+    BOUNCE = "bounce"
+    COMPLAINT = "complaint"
+    UNDELIVERABLE_REASONS = [(BOUNCE, "Bounced"), (COMPLAINT, "Complained")]
+    email_undeliverable = models.BooleanField(default=False)
+    email_undeliverable_at = models.DateTimeField(null=True, blank=True)
+    email_undeliverable_reason = models.CharField(
+        max_length=16, blank=True, choices=UNDELIVERABLE_REASONS,
+    )
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
+
+    def mark_email_undeliverable(self, reason: str) -> None:
+        """Flag this address as bouncing/complained (idempotent-ish; updates
+        the timestamp + reason each call)."""
+        self.email_undeliverable = True
+        self.email_undeliverable_at = timezone.now()
+        self.email_undeliverable_reason = reason
+        self.save(update_fields=[
+            "email_undeliverable", "email_undeliverable_at", "email_undeliverable_reason",
+        ])
 
     def get_short_name(self) -> str:
         # Django admin header bunu kullanır — email yerine nickname göster

@@ -67,6 +67,9 @@
                             {% if log.user and log.user.nickname %}
                             <div class="text-xs text-fg-muted">{{ log.user.nickname }}</div>
                             {% endif %}
+                            {% if log.user.email_undeliverable %}
+                            <div class="mt-0.5 inline-block rounded-full bg-danger/10 text-danger px-2 py-0.5 text-[11px] font-medium">⚠ teslim edilemiyor</div>
+                            {% endif %}
                         </td>
                         <td class="px-4 py-3 text-fg-soft max-w-xs truncate" title="{{ log.subject }}">{{ log.subject }}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-fg-muted font-mono text-xs">{{ log.slate_date|date:"d.m.Y"|default:"—" }}</td>

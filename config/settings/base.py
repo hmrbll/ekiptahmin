@@ -122,6 +122,9 @@ DEFAULT_FROM_EMAIL = env(
 # Reply-To routes user replies to a real inbox (ImprovMX forwards to admin).
 REPLY_TO_EMAIL = env("REPLY_TO_EMAIL", default="hello@ekiptahmin.com")
 RESEND_API_KEY = env("RESEND_API_KEY", default="")
+# Svix signing secret for the Resend bounce/complaint webhook (Faz 1.3).
+# Unset → the webhook endpoint rejects everything (see notifications.webhooks).
+RESEND_WEBHOOK_SECRET = env("RESEND_WEBHOOK_SECRET", default="")
 
 # Site
 SITE_URL = env("SITE_URL", default="http://localhost:8000")

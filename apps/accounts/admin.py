@@ -17,14 +17,17 @@ admin.site.unregister(Group)
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    list_display = ("email", "nickname", "is_active", "is_staff", "date_joined")
-    list_filter = ("is_active", "is_staff")
+    list_display = ("email", "nickname", "is_active", "is_staff", "email_undeliverable", "date_joined")
+    list_filter = ("is_active", "is_staff", "email_undeliverable")
     search_fields = ("email", "nickname", "username")
     ordering = ("-date_joined",)
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Profile", {"fields": ("email", "nickname", "first_name", "last_name", "timezone")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        # Set by the Resend webhook; uncheck `email_undeliverable` to resume
+        # sending digests to this address once the mailbox is fixed.
+        ("Email delivery", {"fields": ("email_undeliverable", "email_undeliverable_reason", "email_undeliverable_at")}),
         ("Dates", {"fields": ("last_login", "date_joined")}),
     )
     add_fieldsets = (

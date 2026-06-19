@@ -112,8 +112,10 @@ rows in Resend (all green?). Check Resend's **Emails** dashboard — every
 attempt is logged there with delivery status.
 
 **Resend dashboard shows "bounced" or "complained".**
-→ Recipient mailbox doesn't exist or marked us as spam. Resend will
-auto-suppress future sends to that address.
+→ Recipient mailbox doesn't exist or marked us as spam. Resend
+auto-suppresses future sends to that address; once the webhook is
+configured (see "Bounce/complaint webhook" below) we also flag the user
+locally and drop them from digest fan-out.
 
 ## Daily digest cron
 
@@ -157,9 +159,32 @@ login), invite-welcome, onboarding, and daily-digest mails — not just digests.
 Status meanings: `sent` (backend accepted — not proof of inbox delivery),
 `dropped` (dummy backend, `RESEND_API_KEY` unset), `rejected`, `failed`.
 
+## Bounce/complaint webhook (Faz 1.3)
+
+Resend POSTs delivery events to `https://ekiptahmin.com/ops/emails/webhook/resend/`
+(Svix-signed). On `email.bounced` / `email.complained` we flag the recipient
+`User` (`email_undeliverable=True` + reason + timestamp), which drops the
+address from digest fan-out (`digest_recipients`), and we flip their most
+recent `EmailLog` row to `bounced`/`complained` so it's visible on
+`/ops/emails/` (the recipient also shows a "⚠ teslim edilemiyor" badge).
+
+**Non-destructive by design:** we never auto-deactivate the account or revoke
+invites — a temporary bounce (full mailbox) shouldn't lock anyone out. To
+resume sending after the mailbox is fixed, uncheck `email_undeliverable` on the
+user in admin (Email delivery section).
+
+**Operational steps left (Hemre):**
+1. Resend dashboard → **Webhooks** → add endpoint
+   `https://ekiptahmin.com/ops/emails/webhook/resend/`, subscribe to
+   `email.bounced` and `email.complained`.
+2. Copy the endpoint's **signing secret** (`whsec_…`) → set
+   `RESEND_WEBHOOK_SECRET` on the Render **web** service (`sync:false`) and
+   redeploy. (Crons don't serve HTTP, so they don't need it.)
+3. Until the secret is set the endpoint returns **503** and rejects everything
+   — signature verification has no key to check against, and an unsigned public
+   endpoint that flags users would be abusable.
+
 ## What's NOT yet hooked up
 
-- **Bounce/complaint webhook (Faz 1.3)** — no automatic invite-revocation.
-  Manual for now via the Resend dashboard.
 - **Invite welcome auto-send** is wired: creating an Invite in admin
   triggers `send_invite_welcome` once on creation.
