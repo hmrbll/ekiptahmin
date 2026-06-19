@@ -115,13 +115,41 @@ attempt is logged there with delivery status.
 → Recipient mailbox doesn't exist or marked us as spam. Resend will
 auto-suppress future sends to that address.
 
+## Daily digest cron
+
+The only scheduled mails are the morning + evening daily digests
+(`templates/emails/daily_morning.html`, `daily_evening.html`). Round-opened /
+deadline-reminder mails were considered and **dropped** — there is no per-round
+notification cron. Preview each template at `/ops/emails/preview/` (staff-only).
+
+**Built and shipped:**
+- `python manage.py send_daily_digest --mode {morning,evening}` — see the
+  command's module docstring + `apps/notifications/digest.py` for the slate
+  windowing (13:00 Europe/Istanbul boundary), completeness gating, and the
+  12:00 partial-send fallback.
+- Two `type: cron` services in `render.yaml`: morning `0 10 * * *` (13:00 TRT),
+  evening `0 5-9 * * *` (08:00–12:00 TRT, hourly poll).
+- `EmailLog` model — one row per recipient per send; also the digest dedup key
+  (`kind` + `slate_date`) so the hourly evening poll sends exactly once.
+
+**Operational steps left (Hemre, in Render dashboard):**
+1. Set `RESEND_API_KEY` on **each** of the two cron services (it's `sync:false`,
+   so it is NOT inherited from the web service). Without it the cron runs but
+   silently drops every mail.
+2. Deploy `render.yaml` so the cron services are created, then watch the first
+   runs (Logs tab) — the command prints how many matches/recipients it handled.
+
+Testing knobs: `--dry-run` (render every recipient's mail, send nothing),
+`--date YYYY-MM-DD` (pin the slate), `--force` (ignore dedup + the
+results-incomplete wait).
+
 ## What's NOT yet hooked up
 
-- **Reminder + daily digest cron** — template mocks live in
-  `templates/emails/` (round_opened, round_deadline with 24h/12h/6h/30min
-  variants, daily_morning, daily_evening). Render Cron Job + the
-  `send_reminders` / `send_daily_digest` management commands are not yet
-  written. Preview each template at `/ops/emails/preview/` (staff-only).
+- **`/ops/emails/` tracking page (Faz 1.2)** — `EmailLog` rows exist now, but
+  the staff list view (sent/queued/bounced) is not built yet. Only the model +
+  digest logging shipped.
+- **Bounce/complaint webhook (Faz 1.3)** — no automatic invite-revocation.
+  Manual for now via the Resend dashboard.
 - **Invite welcome auto-send** is wired: creating an Invite in admin
   triggers `send_invite_welcome` once on creation.
 - Bounce/complaint webhook → no automatic invite-revocation. Manual for
