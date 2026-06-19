@@ -21,6 +21,7 @@ from apps.tournament.models import (
     BracketSlot,
     Tournament,
 )
+from apps.tournament.sections import group_matches_into_sections
 
 from .ganyan_leaderboard import describe_ties, leaderboard_for_tournament
 from .models import GanyanScore, MatchPool
@@ -168,7 +169,9 @@ def results_list(request: HttpRequest) -> HttpResponse:
             "slot__stage", "slot__home_team_actual", "slot__away_team_actual",
             "penalty_winner",
         )
-        .order_by("-slot__scheduled_kickoff")
+        # Chronological so each round tab reads match 1 → match 2; the round
+        # grouping below preserves this order within every section.
+        .order_by("slot__scheduled_kickoff")
     )
 
     slot_ids = [a.slot_id for a in actuals]
@@ -220,9 +223,12 @@ def results_list(request: HttpRequest) -> HttpResponse:
             "scores": scores_by_slot.get(actual.slot_id, []),
         })
 
+    sections, default_section_key = group_matches_into_sections(matches)
+
     return render(request, "scoring/results.html", {
         "tournament": tournament,
-        "matches": matches,
+        "sections": sections,
+        "default_section_key": default_section_key,
     })
 
 

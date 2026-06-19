@@ -17,20 +17,10 @@
 
         {% if sections %}
         {# Tab bar — one pill per round (group matchdays, then knockout stages). #}
-        <nav class="mb-8 sm:mb-10" aria-label="Turlar">
-            <div id="all-tab-bar" class="flex flex-wrap gap-2.5" role="tablist">
-                {% for sec in sections %}
-                <button type="button" role="tab" data-tab="{{ sec.key }}"
-                        aria-selected="{% if sec.key == default_section_key %}true{% else %}false{% endif %}"
-                        class="all-tab-btn px-3 py-1.5 rounded-lg border text-xs transition hover:text-fg {% if sec.key == default_section_key %}bg-primary-hover/15 border-primary/40 text-primary font-medium{% else %}bg-surface border-line text-fg-muted{% endif %}">
-                    {{ sec.label }}
-                </button>
-                {% endfor %}
-            </div>
-        </nav>
+        {% include "_round_tabs.html" %}
 
         {% for sec in sections %}
-        <section class="all-tab-panel" data-panel="{{ sec.key }}" role="tabpanel"
+        <section class="round-tab-panel" data-panel="{{ sec.key }}" role="tabpanel"
                  {% if sec.key != default_section_key %}hidden{% endif %}>
             <ul class="space-y-3 sm:space-y-4">
                 {% for m in sec.matches %}
@@ -133,39 +123,4 @@
         {% endif %}
     </main>
 </div>
-
-{% if sections %}
-<script>
-// Round tabs: show one section at a time. The active tab is remembered in the
-// URL hash (so a refresh/share keeps the round) and otherwise defaults to the
-// server-chosen "current" round. No-JS users still see that default section.
-(function () {
-    const bar = document.getElementById("all-tab-bar");
-    if (!bar) return;
-    const buttons = Array.from(bar.querySelectorAll(".all-tab-btn"));
-    const panels = Array.from(document.querySelectorAll(".all-tab-panel"));
-    const keys = panels.map(p => p.dataset.panel);
-    const activeCls = ["bg-primary-hover/15", "border-primary/40", "text-primary", "font-medium"];
-    const idleCls = ["bg-surface", "border-line", "text-fg-muted"];
-
-    function activate(key) {
-        if (!keys.includes(key)) return;
-        panels.forEach(p => { p.hidden = p.dataset.panel !== key; });
-        buttons.forEach(b => {
-            const on = b.dataset.tab === key;
-            activeCls.forEach(c => b.classList.toggle(c, on));
-            idleCls.forEach(c => b.classList.toggle(c, !on));
-            b.setAttribute("aria-selected", on ? "true" : "false");
-        });
-        if (window.history.replaceState) {
-            window.history.replaceState(null, "", "#" + key);
-        }
-    }
-
-    buttons.forEach(b => b.addEventListener("click", () => activate(b.dataset.tab)));
-    const fromHash = (window.location.hash || "").replace(/^#/, "");
-    activate(keys.includes(fromHash) ? fromHash : "{{ default_section_key|escapejs }}");
-})();
-</script>
-{% endif %}
 {% endblock %}
