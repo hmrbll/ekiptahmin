@@ -34,6 +34,42 @@ def _send(subject: str, body: str, html: str, recipient: str) -> None:
         logger.warning("mail.rejected to=%s subject=%r", recipient, subject)
 
 
+def send_logged(
+    subject: str, body: str, html: str, recipient: str, *,
+    kind: str, user=None, slate_date=None,
+):
+    """Send one mail and record an EmailLog row with the outcome.
+
+    Unlike `_send`, this never raises — a single bad recipient must not abort a
+    batch send (the daily digest fans out to the whole roster). The failure is
+    captured as an EmailLog(status=FAILED) row for follow-up. Returns the row.
+    """
+    # Imported here to avoid a model import at module load (keeps emails.py
+    # importable from places that run before app registry is ready).
+    from .models import EmailLog
+
+    backend = settings.EMAIL_BACKEND
+    status = EmailLog.SENT
+    error = ""
+    try:
+        _send(subject=subject, body=body, html=html, recipient=recipient)
+        if "dummy" in backend.lower():
+            status = EmailLog.DROPPED
+    except Exception as exc:  # noqa: BLE001 — we deliberately keep the batch going
+        status = EmailLog.FAILED
+        error = repr(exc)
+
+    return EmailLog.objects.create(
+        user=user,
+        email=recipient,
+        kind=kind,
+        subject=subject,
+        status=status,
+        slate_date=slate_date,
+        error=error,
+    )
+
+
 def send_invite_welcome(invite) -> None:
     """Sent when Hemre creates an Invite in admin. Carries the invite link
     (not a magic link) — the recipient still completes a minimal form

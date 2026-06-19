@@ -35,3 +35,65 @@ services:
         value: noreply@ekiptahmin.com
       - key: RESEND_API_KEY
         sync: false
+
+  # Daily digest cron jobs. Times are UTC; the app runs in Europe/Istanbul
+  # (UTC+3, no DST), so 10:00 UTC = 13:00 TRT and 05:00–09:00 UTC = 08:00–12:00 TRT.
+  # NOTE: RESEND_API_KEY is sync:false — set it on EACH cron service in the
+  # Render dashboard (separate from the web service), or no mail is delivered.
+  - type: cron
+    name: ekiptahmin-digest-morning
+    runtime: python
+    region: frankfurt
+    schedule: "0 10 * * *"
+    buildCommand: "./build.sh"
+    startCommand: "python manage.py send_daily_digest --mode morning"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ekiptahmin.com,www.ekiptahmin.com,.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ekiptahmin-db
+          property: connectionString
+      - key: SITE_URL
+        value: https://ekiptahmin.com
+      - key: DEFAULT_FROM_EMAIL
+        value: noreply@ekiptahmin.com
+      - key: RESEND_API_KEY
+        sync: false
+
+  - type: cron
+    name: ekiptahmin-digest-evening
+    runtime: python
+    region: frankfurt
+    schedule: "0 5-9 * * *"
+    buildCommand: "./build.sh"
+    startCommand: "python manage.py send_daily_digest --mode evening"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ekiptahmin.com,www.ekiptahmin.com,.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ekiptahmin-db
+          property: connectionString
+      - key: SITE_URL
+        value: https://ekiptahmin.com
+      - key: DEFAULT_FROM_EMAIL
+        value: noreply@ekiptahmin.com
+      - key: RESEND_API_KEY
+        sync: false

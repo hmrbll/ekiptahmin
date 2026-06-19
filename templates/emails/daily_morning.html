@@ -10,8 +10,11 @@
         {{ date|date:"j F l" }}
     </p>
 
-    <p style="font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+    <p style="font-size: 16px; line-height: 1.6; margin: 0 0 8px;">
         Selam {{ nickname }} 👋 Bugün <strong>{{ matches|length }} maç</strong> oynanacak. Tüm tahminler kilitlendi — herkes ne demiş, aşağıda:
+    </p>
+    <p style="font-size: 13px; line-height: 1.5; color: #6F7670; margin: 0 0 20px;">
+        Yanındaki <strong>en fazla N puan</strong>, o tahmin birebir tutarsa kazanılacak en yüksek ganyan payı — aynı tahmini yapan ne kadar azsa pay o kadar büyük.
     </p>
 
     {% for m in matches %}
@@ -23,11 +26,14 @@
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;">
             {% for p in m.predictions %}
             <tr>
-                <td style="padding: 5px 0; font-size: 14px; color: {% if p.is_self %}#2E6B3F{% else %}#3F4541{% endif %}; {% if p.is_self %}font-weight: 700;{% endif %}">
+                <td style="padding: 5px 0; font-size: 14px; color: {% if p.is_self %}#2E6B3F{% else %}#3F4541{% endif %}; {% if p.is_self %}font-weight: 700;{% endif %} width: 42%;">
                     {{ p.nickname }}{% if p.is_self %} <span style="font-size: 11px; color: #6F7670; font-weight: 500;">(sen)</span>{% endif %}
                 </td>
-                <td style="padding: 5px 0; text-align: right; font-size: 14px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; color: {% if p.prediction %}#1B201C{% else %}#C84132{% endif %};">
+                <td style="padding: 5px 0; text-align: center; font-size: 14px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; color: {% if p.prediction %}#1B201C{% else %}#C84132{% endif %}; width: 20%;">
                     {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %}
+                </td>
+                <td style="padding: 5px 0; text-align: right; font-size: 12px; color: #6F7670; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; width: 38%;">
+                    {% if p.potential is not None %}en fazla {{ p.potential|floatformat:2 }} puan{% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -44,8 +50,8 @@
     {% endif %}
 
     <p style="margin: 24px 0;">
-        <a href="{{ site_url }}" style="display: inline-block; background: #2E6B3F; color: #F6F1E4; font-weight: 600; padding: 12px 20px; border-radius: 10px; text-decoration: none;">
-            Ana sayfaya git →
+        <a href="{{ all_predictions_url }}" style="display: inline-block; background: #2E6B3F; color: #F6F1E4; font-weight: 600; padding: 12px 20px; border-radius: 10px; text-decoration: none;">
+            Tüm tahminleri gör →
         </a>
     </p>
 

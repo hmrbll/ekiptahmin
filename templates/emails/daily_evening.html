@@ -12,7 +12,7 @@
 
     <p style="font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
         Selam {{ nickname }} 👋
-        {% if daily_points > 0 %}Bugün <strong style="color: #2E6B3F;">+{{ daily_points }} puan</strong> kazandın.{% else %}Bugün puan kazanamadın — daha çok round var, devam!{% endif %}
+        {% if daily_points > 0 %}Bugün <strong style="color: #2E6B3F;">+{{ daily_points|floatformat:2 }} puan</strong> kazandın.{% else %}Bugün puan kazanamadın — daha çok round var, devam!{% endif %}
     </p>
 
     {# Per-match breakdown — sonuç + tüm tahminler + puanlar #}
@@ -22,7 +22,11 @@
     <div style="margin: 12px 0; padding: 16px; background: #FFFFFF; border: 1px solid #EAE9E6; border-radius: 12px;">
         <div style="display: block; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed #EAE9E6;">
             <span style="font-size: 16px; font-weight: 700; color: #1B201C;">{{ m.home }} — {{ m.away }}</span>
+            {% if m.pending %}
+            <span style="float: right; font-size: 12px; font-weight: 600; color: #6F7670; background: #EAE9E6; padding: 3px 10px; border-radius: 8px;">sonuç bekleniyor</span>
+            {% else %}
             <span style="float: right; font-size: 18px; font-weight: 800; color: #2E6B3F; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;">{{ m.result }}</span>
+            {% endif %}
         </div>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;">
             {% for p in m.predictions %}
@@ -34,16 +38,20 @@
                     {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %}
                 </td>
                 <td style="padding: 5px 0; text-align: right; width: 30%;">
-                    {% if p.chip == "exact" %}
-                        <span style="display: inline-block; background: #2E6B3F; color: #F6F1E4; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">+{{ p.points }} · birebir</span>
-                    {% elif p.chip == "diff" %}
-                        <span style="display: inline-block; background: #3FA45E; color: #F6F1E4; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">+{{ p.points }} · fark</span>
-                    {% elif p.chip == "result" %}
-                        <span style="display: inline-block; background: #D89A2A; color: #1B201C; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">+{{ p.points }} · sonuç</span>
-                    {% elif p.chip == "penalty" %}
-                        <span style="display: inline-block; background: #C2683E; color: #F6F1E4; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">+{{ p.points }} · pen.</span>
+                    {% if m.pending %}
+                        <span style="display: inline-block; color: #6F7670; font-size: 13px;">—</span>
+                    {% elif p.outcome == "exact" %}
+                        <span style="display: inline-block; background: #2E6B3F; color: #F6F1E4; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">{{ p.score|floatformat:2 }} · Tam skor</span>
+                    {% elif p.outcome == "diff" %}
+                        <span style="display: inline-block; background: #3FA45E; color: #F6F1E4; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">{{ p.score|floatformat:2 }} · Aynı fark</span>
+                    {% elif p.outcome == "result" %}
+                        <span style="display: inline-block; background: #D89A2A; color: #1B201C; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">{{ p.score|floatformat:2 }} · Doğru sonuç</span>
+                    {% elif p.outcome == "penalty" %}
+                        <span style="display: inline-block; background: #C2683E; color: #F6F1E4; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">{{ p.score|floatformat:2 }} · Penaltı</span>
+                    {% elif p.outcome == "no_prediction" %}
+                        <span style="display: inline-block; background: #EAE9E6; color: #6F7670; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">Tahmin yok</span>
                     {% else %}
-                        <span style="display: inline-block; background: #EAE9E6; color: #6F7670; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">+0</span>
+                        <span style="display: inline-block; background: #EAE9E6; color: #6F7670; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px;">Yanlış</span>
                     {% endif %}
                 </td>
             </tr>
@@ -69,8 +77,8 @@
                 <tr style="{% if row.is_self %}background: #EEF7F0;{% endif %}">
                     <td style="padding: 8px 0; font-size: 14px; color: {% if row.is_self %}#2E6B3F{% else %}#1B201C{% endif %}; font-weight: 700; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; width: 14%;">#{{ row.rank }}</td>
                     <td style="padding: 8px 0; font-size: 14px; color: {% if row.is_self %}#2E6B3F{% else %}#1B201C{% endif %}; {% if row.is_self %}font-weight: 700;{% endif %} width: 46%;">{{ row.nickname }}{% if row.is_self %} <span style="font-size: 11px; color: #6F7670; font-weight: 500;">(sen)</span>{% endif %}</td>
-                    <td style="padding: 8px 0; text-align: right; font-size: 13px; color: {% if row.daily > 0 %}#2E6B3F{% else %}#6F7670{% endif %}; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; width: 20%;">{% if row.daily > 0 %}+{{ row.daily }}{% else %}—{% endif %}</td>
-                    <td style="padding: 8px 0; text-align: right; font-size: 14px; color: #1B201C; font-weight: 700; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; width: 20%;">{{ row.total }}</td>
+                    <td style="padding: 8px 0; text-align: right; font-size: 13px; color: {% if row.daily > 0 %}#2E6B3F{% else %}#6F7670{% endif %}; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; width: 20%;">{% if row.daily > 0 %}+{{ row.daily|floatformat:2 }}{% else %}—{% endif %}</td>
+                    <td style="padding: 8px 0; text-align: right; font-size: 14px; color: #1B201C; font-weight: 700; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; width: 20%;">{{ row.total|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
