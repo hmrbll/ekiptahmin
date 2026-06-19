@@ -29,11 +29,14 @@ def _build_prediction(pred: SlotPrediction) -> ganyan.Prediction:
 
 
 def _build_result(actual: ActualResult) -> ganyan.Result:
+    # exact/diff/result judge the 120' score for ET knockout matches, else the
+    # 90' score (see ActualResult.effective_*_score). Penalty criteria are
+    # separate and unaffected (a penalty match is a draw at both 90' and 120').
     return ganyan.Result(
         home_team=actual.slot.home_team_actual.code if actual.slot.home_team_actual_id else "",
         away_team=actual.slot.away_team_actual.code if actual.slot.away_team_actual_id else "",
-        home_score=actual.home_score,
-        away_score=actual.away_score,
+        home_score=actual.effective_home_score,
+        away_score=actual.effective_away_score,
         went_to_penalties=actual.went_to_penalties,
         penalty_winner=actual.penalty_winner.code if actual.penalty_winner_id else None,
         home_penalties=actual.home_penalties,

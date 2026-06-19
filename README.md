@@ -26,6 +26,8 @@ ekiptahmin.com/
 │   │                           - engine.py  (legacy bracket, staff-only)
 │   ├── leaderboard/            (placeholder app, scoring app owns aggregation)
 │   ├── notifications/          Scheduled/lifecycle emails + staff-only preview
+│   ├── liveresults/            football-data.org live sync (client, score map,
+│   │                           MatchSync, throttled trigger, homepage module)
 │   └── public/                 Homepage, live data feeds, public views
 ├── config/
 │   ├── settings/{base,dev,prod}.py
@@ -108,6 +110,11 @@ python manage.py seed_wc2026             # (re)load WC 2026 fixture data
 python manage.py tailwind build          # one-shot Tailwind production build
 pytest                                   # run all tests
 ruff check . && ruff format .            # lint + format
+
+# Live results (needs FOOTBALL_DATA_API_KEY in .env) — see docs/live-results.md
+python manage.py fd_probe --finished     # read-only API probe (no DB writes)
+python manage.py map_external_ids        # map match ids onto bracket slots
+python manage.py sync_live_results --dry-run   # one sync pass, preview only
 ```
 
 ### Where do dev emails go?
@@ -217,6 +224,7 @@ Sunday Pitch palette, **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500
 ## Documentation
 
 - [docs/scoring-ganyan.md](docs/scoring-ganyan.md) — Active scoring mechanic: parimutuel pool model with per-stage pool sizes and round-weight effective-round picking.
+- [docs/live-results.md](docs/live-results.md) — football-data.org live sync: score mapping, match identity, throttled trigger, bracket resolver, and the 120'-vs-90' knockout scoring rule.
 - [docs/admin.md](docs/admin.md) — Django admin module reference
 - [docs/email_setup.md](docs/email_setup.md) — Email infrastructure (Resend SMTP + DNS)
 - [docs/dev_workflow.md](docs/dev_workflow.md) — Branch model, CI, release flow, prod-data sync
@@ -225,6 +233,8 @@ Sunday Pitch palette, **light theme only**. Chalk (`#F6F1E4`) page bg, pitch-500
 ### Scoring at a glance
 
 Each match has fixed pools per criterion: regulation (exact / diff / result, 100 each) plus — on knockout matches that go to penalties — three penalty pools (penalty_winner / penalty_score / penalty_diff, 50 each). Pools split equally among users who get that criterion right — single-prediction wins pay the full pool, consensus picks pay a thin slice. For each `(user, match)` the engine picks ONE **effective round** (the round whose prediction + weight maximises the user's payout); criteria are paid from that round only. Pools that no one hits **burn**. Pool sizes are admin-tunable and persist across deploys (seed sets them only on first creation).
+
+For knockout matches the regulation criteria are judged on the **120' score when the match went to extra time**, otherwise the 90' score (group matches never go to ET, so always 90'). See [docs/live-results.md](docs/live-results.md#knockout-scoring-rule-120-vs-90).
 
 Legacy bracket scoring (`apps/scoring/engine.py`, `SlotScore`) still runs in parallel for staff comparison at `/legacy/leaderboard/`, `/legacy/results/`, `/legacy/scoring-diff/` — see [docs/scoring-ganyan.md](docs/scoring-ganyan.md) for the full spec and rationale.
 

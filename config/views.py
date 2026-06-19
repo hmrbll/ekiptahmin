@@ -4,6 +4,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
+from apps.liveresults.models import MatchSync
 from apps.predictions.models import SlotPrediction
 from apps.scoring.ganyan_leaderboard import leaderboard_for_tournament
 from apps.scoring.models import GanyanScore
@@ -113,15 +114,13 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     return chips
 
 
-def home(request: HttpRequest) -> HttpResponse:
-    """Overview dashboard. Same modules for everyone — anonymous visitors
-    just don't get the personal greeting and the per-row "your prediction"
-    / "points you earned" lines.
-    """
-    tournament = Tournament.objects.filter(is_active=True).first()
-    if tournament is None:
-        return render(request, "home.html", {"tournament": None})
+def _grid_context(request: HttpRequest, tournament) -> dict:
+    """Build the three dashboard columns (upcoming / recent / leaderboard).
 
+    Shared by `home` (initial full-page render) and `home_grid` (the HTMX
+    partial polled every 30s so a finished match lands in 'Son sonuçlar' and
+    the leaderboard moves without a manual refresh).
+    """
     now = timezone.now()
     viewer = request.user if request.user.is_authenticated else None
 
@@ -160,10 +159,18 @@ def home(request: HttpRequest) -> HttpResponse:
         for s in upcoming_slots
     ]
 
-    # --- Recent results ---
+    # --- Recent results (excluding matches currently in play — those show in
+    # the live module above, not here, so a live score isn't duplicated). ---
+    live_slot_ids = set(
+        MatchSync.objects
+        .filter(slot__tournament=tournament,
+                status__in=MatchSync.LIVE_STATUSES, finalized=False)
+        .values_list("slot_id", flat=True)
+    )
     recent_actuals = list(
         ActualResult.objects
         .filter(slot__tournament=tournament)
+        .exclude(slot_id__in=live_slot_ids)
         .select_related(
             "slot__stage", "slot__home_team_actual", "slot__away_team_actual",
             "penalty_winner",
@@ -192,12 +199,29 @@ def home(request: HttpRequest) -> HttpResponse:
     entries = leaderboard_for_tournament(tournament)
     top = entries[:LEADERBOARD_LIMIT]
 
-    return render(request, "home.html", {
-        "tournament": tournament,
-        "upcoming": upcoming,
-        "recent": recent,
-        "leaderboard_top": top,
-    })
+    return {"upcoming": upcoming, "recent": recent, "leaderboard_top": top}
+
+
+def home(request: HttpRequest) -> HttpResponse:
+    """Overview dashboard. Same modules for everyone — anonymous visitors
+    just don't get the personal greeting and the per-row "your prediction"
+    / "points you earned" lines.
+    """
+    tournament = Tournament.objects.filter(is_active=True).first()
+    if tournament is None:
+        return render(request, "home.html", {"tournament": None})
+    ctx = {"tournament": tournament, **_grid_context(request, tournament)}
+    return render(request, "home.html", ctx)
+
+
+def home_grid(request: HttpRequest) -> HttpResponse:
+    """HTMX partial: the three dashboard columns, polled every 30s so results
+    and the leaderboard stay live without a full-page refresh."""
+    tournament = Tournament.objects.filter(is_active=True).first()
+    if tournament is None:
+        return render(request, "_home_grid.html", {"tournament": None})
+    ctx = {"tournament": tournament, **_grid_context(request, tournament)}
+    return render(request, "_home_grid.html", ctx)
 
 
 def rules(request: HttpRequest) -> HttpResponse:

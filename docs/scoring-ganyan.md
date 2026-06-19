@@ -75,6 +75,22 @@ All three require the predicted matchup (home/away teams) to line up with the ac
 
 This replaces the legacy `penalty_loser_pct = 0.60` mechanic with a pool-based one.
 
+## Extra time (knockout): 120' vs 90'
+
+The regulation criteria (exact / diff / result) judge the **120' score when a
+knockout match went to extra time**, otherwise the 90' score. A match won in
+extra time is a draw at 90', so judging on 90' would deny credit to everyone who
+called the decisive scoreline — judging on 120' rewards them. Penalty criteria
+are unaffected (a shootout match is a draw at both 90' and 120').
+
+Group matches never go to extra time, so this collapses to "always 90'" there.
+The single source of truth is `ActualResult.effective_home_score` /
+`effective_away_score` (120' when `went_to_extra_time` and the `*_score_aet`
+fields are set, else 90'); the ganyan bridge and the result-display templates
+both read it. The legacy engine stays on the original 90'-only basis as a frozen
+reference. The 120' score is captured automatically by the live sync; see
+[live-results.md](live-results.md).
+
 ## Tiebreaker chain
 
 For the leaderboard, sort by (descending unless noted):

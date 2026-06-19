@@ -1,0 +1,61 @@
+{% load static %}
+{# Inner content for the #live-scores poller; renders nothing when no match is in play. #}
+{% if live %}
+<section class="mb-4 rounded-2xl border border-danger-500/30 bg-danger-500/5 p-5">
+    <div class="flex items-center gap-2 mb-4">
+        <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger-500 opacity-60"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-danger-500"></span>
+        </span>
+        <h2 class="text-sm font-semibold text-danger-500">CANLI</h2>
+        <span class="text-xs text-fg-muted">{{ live|length }} maç oynanıyor</span>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for item in live %}
+        <div class="rounded-xl border border-line bg-surface p-3" data-slot-position="{{ item.slot.position }}">
+            <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
+                <a href="{% url 'match_detail' item.slot.id %}" class="font-mono hover:text-primary transition">{{ item.slot.display_position }}</a>
+                <span class="font-semibold text-danger-500">
+                    {% if item.sync.minute %}{{ item.sync.minute }}{% if item.sync.injury_time %}+{{ item.sync.injury_time }}{% endif %}′{% else %}CANLI{% endif %}
+                </span>
+            </div>
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
+                <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
+                    <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
+                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                </div>
+                <span class="font-mono font-semibold whitespace-nowrap px-0.5">
+                    {% if item.actual %}{{ item.actual.effective_home_score }}–{{ item.actual.effective_away_score }}{% else %}–{% endif %}
+                </span>
+                <div class="flex items-center gap-1.5 min-w-0">
+                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
+                    <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
+                </div>
+            </div>
+            {% if item.actual.went_to_penalties %}
+            <div class="mt-1 text-center text-[11px] text-fg-muted">
+                penaltılar {{ item.actual.home_penalties|default:0 }}–{{ item.actual.away_penalties|default:0 }}
+            </div>
+            {% endif %}
+            {% if user.is_authenticated %}
+            <div class="mt-1.5 text-xs">
+                {% if item.viewer_score %}
+                <span class="text-fg-muted">Şu an:</span>
+                <span class="font-mono font-semibold {% if item.viewer_score.total > 0 %}text-primary{% else %}text-fg-muted{% endif %}">
+                    {{ item.viewer_score.total|floatformat:2 }}
+                </span>
+                <span class="text-fg-muted">puan</span>
+                {% else %}
+                <span class="text-fg-muted">— tahminin yok</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            <a href="{% url 'match_detail' item.slot.id %}" class="mt-2 inline-block text-[11px] text-primary hover:underline">
+                Ganyan tablosu →
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
