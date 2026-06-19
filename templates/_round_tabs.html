@@ -1,0 +1,51 @@
+{% comment %}
+Round tab bar + toggle script, shared by the all-predictions page and the
+results log. Expects `sections` (list of {key, label}) and `default_section_key`.
+Each page renders its own panels as:
+  <section class="round-tab-panel" data-panel="{{ sec.key }}"
+           {% if sec.key != default_section_key %}hidden{% endif %}>...</section>
+The active tab is remembered in the URL hash (so a refresh/share keeps the
+round) and otherwise defaults to the server-chosen "current" round. No-JS users
+still see that default section.
+{% endcomment %}
+<nav class="mb-8 sm:mb-10" aria-label="Turlar">
+    <div class="round-tab-bar flex flex-wrap gap-2.5" role="tablist" data-default-key="{{ default_section_key }}">
+        {% for sec in sections %}
+        <button type="button" role="tab" data-tab="{{ sec.key }}"
+                aria-selected="{% if sec.key == default_section_key %}true{% else %}false{% endif %}"
+                class="round-tab-btn px-3 py-1.5 rounded-lg border text-xs transition hover:text-fg {% if sec.key == default_section_key %}bg-primary-hover/15 border-primary/40 text-primary font-medium{% else %}bg-surface border-line text-fg-muted{% endif %}">
+            {{ sec.label }}
+        </button>
+        {% endfor %}
+    </div>
+</nav>
+
+<script>
+(function () {
+    const bar = document.querySelector(".round-tab-bar");
+    if (!bar) return;
+    const buttons = Array.from(bar.querySelectorAll(".round-tab-btn"));
+    const panels = Array.from(document.querySelectorAll(".round-tab-panel"));
+    const keys = panels.map(p => p.dataset.panel);
+    const activeCls = ["bg-primary-hover/15", "border-primary/40", "text-primary", "font-medium"];
+    const idleCls = ["bg-surface", "border-line", "text-fg-muted"];
+
+    function activate(key) {
+        if (!keys.includes(key)) return;
+        panels.forEach(p => { p.hidden = p.dataset.panel !== key; });
+        buttons.forEach(b => {
+            const on = b.dataset.tab === key;
+            activeCls.forEach(c => b.classList.toggle(c, on));
+            idleCls.forEach(c => b.classList.toggle(c, !on));
+            b.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        if (window.history.replaceState) {
+            window.history.replaceState(null, "", "#" + key);
+        }
+    }
+
+    buttons.forEach(b => b.addEventListener("click", () => activate(b.dataset.tab)));
+    const fromHash = (window.location.hash || "").replace(/^#/, "");
+    activate(keys.includes(fromHash) ? fromHash : bar.dataset.defaultKey);
+})();
+</script>
