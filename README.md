@@ -9,6 +9,7 @@
 - **Hosting:** Render (Starter plan, Frankfurt)
 - **Email:** Resend (SMTP)
 - **Auth:** Magic link (passwordless), invite-gated signup
+- **Monitoring:** Sentry (errors only, prod; no-op unless `SENTRY_DSN` is set)
 
 ## Project Structure
 
@@ -152,7 +153,11 @@ Merging a PR into `main` (see [Development Workflow](#development-workflow)) tri
 python manage.py createsuperuser
 ```
 
-`RESEND_API_KEY` must be set manually in Render dashboard → Environment. Without it, the prod email backend is `dummy` (sign-up forms succeed but no mail is delivered).
+Some env vars are `sync: false` in [render.yaml](render.yaml) — Render does **not** populate them, you set each manually in the dashboard (per service where it applies):
+
+- `RESEND_API_KEY` — web + **both** digest crons (not inherited from web). Without it the prod email backend is `dummy`: forms succeed but no mail is delivered. See [docs/email_setup.md](docs/email_setup.md).
+- `RESEND_WEBHOOK_SECRET` — web only. Svix secret for the bounce/complaint webhook; unset → the endpoint rejects everything (503).
+- `SENTRY_DSN` — web + both crons. Unset → Sentry is a no-op (no error reporting).
 
 ### Launch / ops commands
 

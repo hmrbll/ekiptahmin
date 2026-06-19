@@ -35,6 +35,8 @@ services:
         value: noreply@ekiptahmin.com
       - key: RESEND_API_KEY
         sync: false
+      - key: SENTRY_DSN
+        sync: false
       # Svix signing secret for the Resend bounce/complaint webhook (Faz 1.3).
       # Only the web service serves the endpoint, so the crons don't need it.
       - key: RESEND_WEBHOOK_SECRET
@@ -76,6 +78,8 @@ services:
         value: noreply@ekiptahmin.com
       - key: RESEND_API_KEY
         sync: false
+      - key: SENTRY_DSN
+        sync: false
 
   - type: cron
     name: ekiptahmin-digest-evening
@@ -104,4 +108,6 @@ services:
       - key: DEFAULT_FROM_EMAIL
         value: noreply@ekiptahmin.com
       - key: RESEND_API_KEY
+        sync: false
+      - key: SENTRY_DSN
         sync: false
