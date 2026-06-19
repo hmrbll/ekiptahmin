@@ -13,6 +13,7 @@ def healthz(request):
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("home/grid/", views.home_grid, name="home_grid"),
     path("rules/", views.rules, name="rules"),
     path("healthz/", healthz, name="healthz"),
     # /admin/results/... must come BEFORE Django admin so it doesn't fall
@@ -24,6 +25,7 @@ urlpatterns = [
     path("", include("apps.scoring.urls")),
     path("legacy/", include("apps.scoring.legacy_urls")),
     path("ops/emails/", include("apps.notifications.urls")),
+    path("", include("apps.liveresults.urls")),
 ]
 
 if settings.DEBUG:

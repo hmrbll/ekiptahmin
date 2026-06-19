@@ -21,152 +21,18 @@
             <p class="text-xs mb-6 sm:mb-8"><a href="{% url 'rules' %}" class="text-primary hover:underline">Nasıl oynanıyor? →</a></p>
             {% endif %}
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {# Live matches: HTMX polls every 30s; innerHTML swap keeps the trigger alive across refreshes. #}
+            <div id="live-scores"
+                 hx-get="{% url 'live_scores' %}"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML"></div>
 
-                {# Upcoming matches #}
-                <div class="rounded-2xl border border-line bg-surface p-5 flex flex-col">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-sm font-semibold text-fg-soft">Sıradaki maçlar</h2>
-                        <span class="text-xs text-fg-muted">{{ upcoming|length }} maç</span>
-                    </div>
-                    {% if upcoming %}
-                    <ul class="space-y-3 flex-1">
-                        {% for item in upcoming %}
-                        <li class="rounded-xl border border-line bg-surface p-3" data-slot-position="{{ item.slot.position }}">
-                            <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
-                                <a href="{% url 'match_detail' item.slot.id %}" class="font-mono hover:text-primary transition">{{ item.slot.display_position }}</a>
-                                <span>{{ item.slot.scheduled_kickoff|date:"d M H:i" }}</span>
-                            </div>
-                            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
-                                <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
-                                    <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
-                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                                </div>
-                                <span class="text-fg-muted text-xs px-0.5">vs</span>
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                                    <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
-                                </div>
-                            </div>
-                            {% if user.is_authenticated %}
-                            <div class="mt-1.5 text-xs">
-                                {% if item.prediction %}
-                                <span class="text-fg-muted">Tahminin:</span>
-                                <span class="font-mono text-primary">{{ item.prediction.home_score }}–{{ item.prediction.away_score }}</span>
-                                {% else %}
-                                <span class="text-warning-300">— tahmin yok</span>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                            {% if item.chips %}
-                            <div class="mt-2 flex flex-wrap gap-1">
-                                {% for chip in item.chips %}{% include "_prediction_chip.html" with chip=chip %}{% endfor %}
-                            </div>
-                            <a href="{% url 'match_detail' item.slot.id %}" class="mt-2 inline-block text-[11px] text-primary hover:underline">
-                                Ganyan tablosu →
-                            </a>
-                            {% endif %}
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <div class="flex-1 flex items-center justify-center text-sm text-fg-muted">
-                        Yaklaşan maç yok.
-                    </div>
-                    {% endif %}
-                    <a href="{% url 'predictions_all' %}" class="mt-4 text-xs text-primary hover:text-primary transition">
-                        Tüm tahminler →
-                    </a>
-                </div>
-
-                {# Recent results #}
-                <div class="rounded-2xl border border-line bg-surface p-5 flex flex-col">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-sm font-semibold text-fg-soft">Son sonuçlar</h2>
-                        <span class="text-xs text-fg-muted">{{ recent|length }} maç</span>
-                    </div>
-                    {% if recent %}
-                    <ul class="space-y-3 flex-1">
-                        {% for item in recent %}
-                        <li class="rounded-xl border border-line bg-surface p-3" data-slot-position="{{ item.slot.position }}">
-                            <div class="flex items-center justify-between text-xs text-fg-muted mb-1.5">
-                                <a href="{% url 'match_detail' item.slot.id %}" class="font-mono hover:text-primary transition">{{ item.slot.display_position }}</a>
-                                <span>{{ item.slot.scheduled_kickoff|date:"d M" }}</span>
-                            </div>
-                            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
-                                <div class="flex items-center gap-1.5 justify-end min-w-0 text-right">
-                                    <span class="truncate">{{ item.slot.home_team_actual.name_tr }}</span>
-                                    {% if item.slot.home_team_actual.flag_svg_path %}<img src="{% static item.slot.home_team_actual.flag_svg_path %}" alt="{{ item.slot.home_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                                </div>
-                                <span class="font-mono font-semibold whitespace-nowrap px-0.5">{{ item.actual.home_score }}–{{ item.actual.away_score }}</span>
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    {% if item.slot.away_team_actual.flag_svg_path %}<img src="{% static item.slot.away_team_actual.flag_svg_path %}" alt="{{ item.slot.away_team_actual.code }}" class="h-5 aspect-[4/3] rounded-sm shrink-0">{% endif %}
-                                    <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
-                                </div>
-                            </div>
-                            {% if user.is_authenticated %}
-                            <div class="mt-1.5 text-xs">
-                                {% if item.viewer_score %}
-                                <span class="text-fg-muted">Aldığın:</span>
-                                <span class="font-mono font-semibold {% if item.viewer_score.total > 0 %}text-primary{% else %}text-fg-muted{% endif %}">
-                                    {{ item.viewer_score.total|floatformat:2 }}
-                                </span>
-                                {% else %}
-                                <span class="text-fg-muted">— puan yok</span>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                            {% if item.chips %}
-                            <div class="mt-2 flex flex-wrap gap-1">
-                                {% for chip in item.chips %}{% include "_prediction_chip.html" with chip=chip %}{% endfor %}
-                            </div>
-                            {% endif %}
-                            <a href="{% url 'match_detail' item.slot.id %}" class="mt-2 inline-block text-[11px] text-primary hover:underline">
-                                Ganyan tablosu →
-                            </a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <div class="flex-1 flex items-center justify-center text-sm text-fg-muted">
-                        Henüz sonuç girilmedi.
-                    </div>
-                    {% endif %}
-                    <a href="{% url 'results' %}" class="mt-4 text-xs text-primary hover:text-primary transition">
-                        Tüm sonuçlar →
-                    </a>
-                </div>
-
-                {# Leaderboard top #}
-                <div class="rounded-2xl border border-line bg-surface p-5 flex flex-col">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-sm font-semibold text-fg-soft">Puan durumu</h2>
-                        <span class="text-xs text-fg-muted">İlk {{ leaderboard_top|length }}</span>
-                    </div>
-                    {% if leaderboard_top %}
-                    <ul class="space-y-1 flex-1 text-sm">
-                        {% for entry in leaderboard_top %}
-                        <li class="flex items-center justify-between py-1.5 px-2 rounded-lg {% if user.is_authenticated and entry.user.id == user.id %}bg-primary/5 border border-primary/20{% endif %}">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="font-mono text-xs text-fg-muted w-5 text-right">{{ entry.rank }}</span>
-                                <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="truncate text-fg-soft hover:text-primary transition">
-                                    {{ entry.nickname }}
-                                </a>
-                            </div>
-                            <span class="font-mono font-semibold text-fg-soft ml-2">{{ entry.total|floatformat:2 }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <div class="flex-1 flex items-center justify-center text-sm text-fg-muted">
-                        Henüz puan kaydedilmedi.
-                    </div>
-                    {% endif %}
-                    <a href="{% url 'leaderboard' %}" class="mt-4 text-xs text-primary hover:text-primary transition">
-                        Detaylar →
-                    </a>
-                </div>
-
+            {# Dashboard columns polled every 30s so results + leaderboard refresh without a full reload. #}
+            <div id="home-grid"
+                 hx-get="{% url 'home_grid' %}"
+                 hx-trigger="every 30s"
+                 hx-swap="innerHTML">
+                {% include "_home_grid.html" %}
             </div>
         </section>
 

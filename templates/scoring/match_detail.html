@@ -28,7 +28,7 @@
                     {% if slot.home_team_actual.flag_svg_path %}<img src="{% static slot.home_team_actual.flag_svg_path %}" alt="{{ slot.home_team_actual.code }}" class="h-7 aspect-[4/3] rounded-sm shrink-0">{% endif %}
                 </div>
                 <span class="font-mono font-bold text-fg-soft whitespace-nowrap px-1">
-                    {% if actual %}{{ actual.home_score }}–{{ actual.away_score }}{% else %}—{% endif %}
+                    {% if actual %}{{ actual.effective_home_score }}–{{ actual.effective_away_score }}{% else %}—{% endif %}
                 </span>
                 <div class="flex items-center gap-2 min-w-0">
                     {% if slot.away_team_actual.flag_svg_path %}<img src="{% static slot.away_team_actual.flag_svg_path %}" alt="{{ slot.away_team_actual.code }}" class="h-7 aspect-[4/3] rounded-sm shrink-0">{% endif %}
@@ -38,6 +38,10 @@
             {% if actual.went_to_penalties %}
             <div class="mt-2 text-xs text-fg-muted text-center">
                 Penaltılarla: {{ actual.penalty_winner.code }} kazandı ({{ actual.home_penalties }}–{{ actual.away_penalties }})
+            </div>
+            {% elif actual.went_to_extra_time %}
+            <div class="mt-2 text-xs text-fg-muted text-center">
+                Uzatmada belli oldu (90′: {{ actual.home_score }}–{{ actual.away_score }})
             </div>
             {% endif %}
         </div>

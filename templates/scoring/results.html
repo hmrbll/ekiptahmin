@@ -39,7 +39,7 @@
                                 <span class="text-fg truncate">{{ m.slot.home_team_actual.name_tr|default:"?" }}</span>
                                 {% if m.slot.home_team_actual.flag_svg_path %}<img src="{% static m.slot.home_team_actual.flag_svg_path %}" alt="{{ m.slot.home_team_actual.code }}" class="h-6 aspect-[4/3] rounded-sm shrink-0">{% endif %}
                             </div>
-                            <span class="font-mono font-semibold text-fg-soft whitespace-nowrap px-1">{{ m.actual.home_score }}–{{ m.actual.away_score }}</span>
+                            <span class="font-mono font-semibold text-fg-soft whitespace-nowrap px-1">{{ m.actual.effective_home_score }}–{{ m.actual.effective_away_score }}</span>
                             <div class="flex items-center gap-2 min-w-0">
                                 {% if m.slot.away_team_actual.flag_svg_path %}<img src="{% static m.slot.away_team_actual.flag_svg_path %}" alt="{{ m.slot.away_team_actual.code }}" class="h-6 aspect-[4/3] rounded-sm shrink-0">{% endif %}
                                 <span class="text-fg truncate">{{ m.slot.away_team_actual.name_tr|default:"?" }}</span>
@@ -47,6 +47,8 @@
                         </div>
                         {% if m.actual.went_to_penalties %}
                         <div class="mt-1.5 text-xs text-fg-muted text-center">pen: {{ m.actual.penalty_winner.code }} {{ m.actual.home_penalties }}–{{ m.actual.away_penalties }}</div>
+                        {% elif m.actual.went_to_extra_time %}
+                        <div class="mt-1.5 text-xs text-fg-muted text-center">uzatma</div>
                         {% endif %}
                     </div>
 

@@ -436,6 +436,13 @@ class ActualResult(models.Model):
     went_to_extra_time = models.BooleanField(default=False)
     went_to_penalties = models.BooleanField(default=False)
 
+    # Score after extra time (120'), when played. Scoring stays 90'-based; these
+    # exist so the bracket resolver can decide an ET-without-penalties winner
+    # (90' is a draw, so home_score/away_score alone can't). Null for matches
+    # decided in regulation.
+    home_score_aet = models.PositiveSmallIntegerField(null=True, blank=True)
+    away_score_aet = models.PositiveSmallIntegerField(null=True, blank=True)
+
     # Penalty details (only populated when went_to_penalties=True)
     penalty_winner = models.ForeignKey(
         Team,
@@ -454,6 +461,38 @@ class ActualResult(models.Model):
         null=True,
         blank=True,
     )
+
+    # Who last wrote this result. Audit only — does NOT gate the live sync
+    # (the poller may overwrite a manual entry; the only stop is MatchSync.finalized).
+    SOURCE_MANUAL = "MANUAL"
+    SOURCE_API = "API"
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, "Manual entry"),
+        (SOURCE_API, "football-data.org live sync"),
+    ]
+    source = models.CharField(
+        max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MANUAL,
+    )
+
+    @property
+    def went_to_extra_time_with_score(self) -> bool:
+        """ET was played AND we recorded the 120' score (so it's usable)."""
+        return bool(
+            self.went_to_extra_time
+            and self.home_score_aet is not None
+            and self.away_score_aet is not None
+        )
+
+    @property
+    def effective_home_score(self) -> int:
+        """Scoreline predictions are judged against (and shown as the result):
+        the 120' score when the match went to extra time, else the 90' score.
+        Knockout-only in practice — group matches never go to ET."""
+        return self.home_score_aet if self.went_to_extra_time_with_score else self.home_score
+
+    @property
+    def effective_away_score(self) -> int:
+        return self.away_score_aet if self.went_to_extra_time_with_score else self.away_score
 
     def __str__(self) -> str:
         score = f"{self.home_score}-{self.away_score}"

@@ -89,6 +89,17 @@ class TestHomeAnonymous:
         # Header offers the login pill
         assert "Giriş yap" in body
 
+    def test_home_grid_partial_renders_columns(self, client, t, group_stage, tur, bra):
+        """The HTMX-polled grid partial returns the three columns on its own
+        (so the dashboard can refresh without a full-page reload)."""
+        _slot(t, group_stage, "GroupA-M1", timezone.now() + timedelta(days=1), tur, bra)
+        r = client.get(reverse("home_grid"))
+        assert r.status_code == 200
+        body = r.content.decode("utf-8")
+        assert "Sıradaki maçlar" in body
+        assert "Son sonuçlar" in body
+        assert "Puan durumu" in body
+
     def test_guest_does_not_see_per_row_personal_lines(
         self, client, t, group_stage, pre_round, tur, bra,
     ):

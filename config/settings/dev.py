@@ -32,3 +32,12 @@ MIDDLEWARE = [
 
 # django-tailwind reload
 INTERNAL_IPS = ["127.0.0.1"]
+
+# WhiteNoise: keep autorefresh on so dev and tests behave like `runserver`.
+# WhiteNoise derives autorefresh from DEBUG by default; the Django test runner
+# forces DEBUG=False, which flips autorefresh off and makes the middleware
+# eagerly scan STATIC_ROOT (staticfiles/) at init. That dir only exists after
+# `collectstatic` (prod build), so under pytest it doesn't — emitting a
+# "No directory at: .../staticfiles/" UserWarning on every request. Pinning it
+# True (the real dev value anyway) removes the eager scan and the noise.
+WHITENOISE_AUTOREFRESH = True

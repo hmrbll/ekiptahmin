@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.scoring",
     "apps.leaderboard",
     "apps.notifications",
+    "apps.liveresults",
 ]
 
 MIDDLEWARE = [
@@ -125,6 +126,13 @@ RESEND_API_KEY = env("RESEND_API_KEY", default="")
 # Svix signing secret for the Resend bounce/complaint webhook (Faz 1.3).
 # Unset → the webhook endpoint rejects everything (see notifications.webhooks).
 RESEND_WEBHOOK_SECRET = env("RESEND_WEBHOOK_SECRET", default="")
+
+# Live results — football-data.org (Faz 2). Unset key → the live sync is a
+# no-op and fd_probe refuses to run; nothing else breaks. Read in both dev and
+# prod so finished matches can be tested locally before prod is wired up.
+FOOTBALL_DATA_API_KEY = env("FOOTBALL_DATA_API_KEY", default="")
+FOOTBALL_DATA_BASE_URL = env("FOOTBALL_DATA_BASE_URL", default="https://api.football-data.org/v4")
+FOOTBALL_DATA_COMPETITION = env("FOOTBALL_DATA_COMPETITION", default="WC")
 
 # Site
 SITE_URL = env("SITE_URL", default="http://localhost:8000")

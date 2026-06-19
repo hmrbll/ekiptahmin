@@ -17,6 +17,7 @@ from django.dispatch import receiver
 
 from apps.predictions.models import SlotPrediction
 from apps.tournament.models import ActualResult
+from apps.tournament.resolver import resolve_bracket
 
 from .cache import recompute_slot_for_all_users, recompute_slot_for_user
 from .ganyan_cache import recompute_slot as recompute_ganyan_slot
@@ -27,6 +28,10 @@ from .models import SlotScore
 def _on_actual_result_saved(sender, instance: ActualResult, **kwargs):
     recompute_slot_for_all_users(instance.slot)
     recompute_ganyan_slot(instance.slot)
+    # Our code owns the bracket tree: propagate this result into downstream
+    # slot team assignments (group → R32, knockout winner/loser → next slot).
+    # Saving BracketSlots fires no scoring signals, so no recursion.
+    resolve_bracket(instance.slot.tournament)
 
 
 @receiver(post_delete, sender=ActualResult)

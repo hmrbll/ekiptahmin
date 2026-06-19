@@ -80,11 +80,13 @@
                                 {% if row.actual %}
                                 <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1.5 items-center text-sm">
                                     <span class="truncate text-right">{{ row.slot.home_team_actual.name_tr|default:"?" }}</span>
-                                    <span class="font-mono text-fg-soft whitespace-nowrap px-1">{{ row.actual.home_score }}–{{ row.actual.away_score }}</span>
+                                    <span class="font-mono text-fg-soft whitespace-nowrap px-1">{{ row.actual.effective_home_score }}–{{ row.actual.effective_away_score }}</span>
                                     <span class="truncate">{{ row.slot.away_team_actual.name_tr|default:"?" }}</span>
                                 </div>
                                 {% if row.actual.went_to_penalties %}
                                 <div class="text-xs text-fg-muted mt-1 text-center">pen: {{ row.actual.penalty_winner.code }} {{ row.actual.home_penalties }}–{{ row.actual.away_penalties }}</div>
+                                {% elif row.actual.went_to_extra_time %}
+                                <div class="text-xs text-fg-muted mt-1 text-center">uzatma</div>
                                 {% endif %}
                                 {% else %}
                                 <div class="text-sm text-fg-muted">— henüz girilmedi</div>
