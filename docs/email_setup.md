@@ -143,14 +143,23 @@ Testing knobs: `--dry-run` (render every recipient's mail, send nothing),
 `--date YYYY-MM-DD` (pin the slate), `--force` (ignore dedup + the
 results-incomplete wait).
 
+## Staff tracking page — `/ops/emails/` (Faz 1.2)
+
+Staff-only audit of every logged outbound mail, newest first, filterable by
+status and kind, paginated (50/page). Linked from the header ("Mailler", staff
+only). `/ops/emails/preview/` still hosts the template previews.
+
+**Full audit:** every lifecycle sender now routes through
+`apps.notifications.emails.send_logged`, so the page shows magic-link (signup/
+login), invite-welcome, onboarding, and daily-digest mails — not just digests.
+`send_logged` never raises: a hard SMTP error is captured as a `FAILED`
+`EmailLog` row (visible here) instead of a 500 on the sign-up/login form.
+Status meanings: `sent` (backend accepted — not proof of inbox delivery),
+`dropped` (dummy backend, `RESEND_API_KEY` unset), `rejected`, `failed`.
+
 ## What's NOT yet hooked up
 
-- **`/ops/emails/` tracking page (Faz 1.2)** — `EmailLog` rows exist now, but
-  the staff list view (sent/queued/bounced) is not built yet. Only the model +
-  digest logging shipped.
 - **Bounce/complaint webhook (Faz 1.3)** — no automatic invite-revocation.
   Manual for now via the Resend dashboard.
 - **Invite welcome auto-send** is wired: creating an Invite in admin
   triggers `send_invite_welcome` once on creation.
-- Bounce/complaint webhook → no automatic invite-revocation. Manual for
-  now via the Resend dashboard.

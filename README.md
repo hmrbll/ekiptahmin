@@ -113,9 +113,11 @@ ruff check . && ruff format .            # lint + format
 
 In dev, a custom file backend writes each email as a `.eml` file to `_dev_emails/`. Double-click the latest one — it opens in the Windows mail viewer (or any mail client) with full HTML rendering, so you can click the magic link directly.
 
-### Email previews
+### Email previews & audit
 
-Staff users can render every email template with realistic dummy data at `/ops/emails/preview/`. Each variant (round-open kinds, reminder urgency levels, daily digests) is its own slug — see [apps/notifications/views.py](apps/notifications/views.py) for the registry. Production senders pass the same context shape.
+Staff users can render every email template with realistic dummy data at `/ops/emails/preview/`. Each variant (invite, magic-link signup/login, daily digests) is its own slug — see [apps/notifications/views.py](apps/notifications/views.py) for the registry. Production senders pass the same context shape.
+
+`/ops/emails/` (staff-only, linked as "Mailler" in the header) is the audit log of every mail actually sent — filterable by status/kind, paginated. Every lifecycle sender routes through `send_logged`, which records an `EmailLog` row and never raises, so a failed send surfaces here as a `FAILED` row instead of erroring the form.
 
 ## Development Workflow
 

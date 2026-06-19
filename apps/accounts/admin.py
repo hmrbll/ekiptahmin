@@ -4,6 +4,7 @@ from django.contrib.auth.models import Group
 from django.utils.html import format_html
 
 from apps.notifications.emails import send_invite_welcome
+from apps.notifications.models import EmailLog
 
 from .models import Invite, User
 
@@ -78,8 +79,8 @@ class InviteAdmin(admin.ModelAdmin):
         # Send the welcome email exactly once, on creation. Edits to note /
         # expires_at don't re-trigger.
         if is_new and obj.email:
-            try:
-                send_invite_welcome(obj)
+            log = send_invite_welcome(obj)
+            if log.status == EmailLog.FAILED:
+                messages.error(request, f"Invite email failed ({obj.email}): {log.error}")
+            else:
                 messages.success(request, f"Invite email sent: {obj.email}")
-            except Exception as exc:
-                messages.error(request, f"Invite email failed ({obj.email}): {exc}")
