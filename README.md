@@ -9,6 +9,7 @@
 - **Hosting:** Render (Starter plan, Frankfurt)
 - **Email:** Resend (SMTP)
 - **Auth:** Magic link (passwordless), invite-gated signup
+- **Monitoring:** Sentry (errors only, prod; no-op unless `SENTRY_DSN` is set)
 
 ## Project Structure
 
@@ -113,9 +114,11 @@ ruff check . && ruff format .            # lint + format
 
 In dev, a custom file backend writes each email as a `.eml` file to `_dev_emails/`. Double-click the latest one — it opens in the Windows mail viewer (or any mail client) with full HTML rendering, so you can click the magic link directly.
 
-### Email previews
+### Email previews & audit
 
-Staff users can render every email template with realistic dummy data at `/ops/emails/preview/`. Each variant (round-open kinds, reminder urgency levels, daily digests) is its own slug — see [apps/notifications/views.py](apps/notifications/views.py) for the registry. Production senders pass the same context shape.
+Staff users can render every email template with realistic dummy data at `/ops/emails/preview/`. Each variant (invite, magic-link signup/login, daily digests) is its own slug — see [apps/notifications/views.py](apps/notifications/views.py) for the registry. Production senders pass the same context shape.
+
+`/ops/emails/` (staff-only, linked as "Mailler" in the header) is the audit log of every mail actually sent — filterable by status/kind, paginated. Every lifecycle sender routes through `send_logged`, which records an `EmailLog` row and never raises, so a failed send surfaces here as a `FAILED` row instead of erroring the form.
 
 ## Development Workflow
 
@@ -150,7 +153,11 @@ Merging a PR into `main` (see [Development Workflow](#development-workflow)) tri
 python manage.py createsuperuser
 ```
 
-`RESEND_API_KEY` must be set manually in Render dashboard → Environment. Without it, the prod email backend is `dummy` (sign-up forms succeed but no mail is delivered).
+Some env vars are `sync: false` in [render.yaml](render.yaml) — Render does **not** populate them, you set each manually in the dashboard (per service where it applies):
+
+- `RESEND_API_KEY` — web + **both** digest crons (not inherited from web). Without it the prod email backend is `dummy`: forms succeed but no mail is delivered. See [docs/email_setup.md](docs/email_setup.md).
+- `RESEND_WEBHOOK_SECRET` — web only. Svix secret for the bounce/complaint webhook; unset → the endpoint rejects everything (503).
+- `SENTRY_DSN` — web + both crons. Unset → Sentry is a no-op (no error reporting).
 
 ### Launch / ops commands
 

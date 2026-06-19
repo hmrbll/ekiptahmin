@@ -30,6 +30,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Invite
 from apps.notifications.emails import send_onboarding_link
+from apps.notifications.models import EmailLog
 
 
 class Command(BaseCommand):
@@ -104,10 +105,9 @@ class Command(BaseCommand):
                     email=email, note=f"onboarding: {nick}", expires_at=expires_at,
                 )
 
-            try:
-                send_onboarding_link(user, invite)
-            except Exception as exc:
-                self.stdout.write(self.style.ERROR(f"  failed   {nick} <{email}>: {exc}"))
+            log = send_onboarding_link(user, invite)
+            if log.status == EmailLog.FAILED:
+                self.stdout.write(self.style.ERROR(f"  failed   {nick} <{email}>: {log.error}"))
                 failed += 1
                 continue
 

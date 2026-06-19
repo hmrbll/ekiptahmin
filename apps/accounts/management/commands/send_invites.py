@@ -33,6 +33,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Invite
 from apps.notifications.emails import send_invite_welcome
+from apps.notifications.models import EmailLog
 
 
 class Command(BaseCommand):
@@ -108,9 +109,14 @@ class Command(BaseCommand):
 
             try:
                 invite = existing or Invite.objects.create(email=email, note=row_note)
-                send_invite_welcome(invite)
             except Exception as exc:
                 self.stdout.write(self.style.ERROR(f"  failed   {email}: {exc}"))
+                failed += 1
+                continue
+
+            log = send_invite_welcome(invite)
+            if log.status == EmailLog.FAILED:
+                self.stdout.write(self.style.ERROR(f"  failed   {email}: {log.error}"))
                 failed += 1
                 continue
 

@@ -57,3 +57,20 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+
+# Error monitoring — Sentry. No-op unless SENTRY_DSN is set, so the web service
+# and both digest crons stay quiet until Hemre creates a project and sets the
+# DSN in Render. Errors only (no performance tracing) to stay within the free
+# tier. The Django integration is auto-enabled by the SDK. RENDER_GIT_COMMIT is
+# injected by Render, so events are tagged with the deployed release.
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=env("SENTRY_ENVIRONMENT", default="production"),
+        release=env("RENDER_GIT_COMMIT", default=None),
+        traces_sample_rate=0,
+        send_default_pii=False,
+    )

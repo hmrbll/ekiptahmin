@@ -35,6 +35,12 @@ services:
         value: noreply@ekiptahmin.com
       - key: RESEND_API_KEY
         sync: false
+      - key: SENTRY_DSN
+        sync: false
+      # Svix signing secret for the Resend bounce/complaint webhook (Faz 1.3).
+      # Only the web service serves the endpoint, so the crons don't need it.
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
 
   # Daily digest cron jobs. Times are UTC; the app runs in Europe/Istanbul
   # (UTC+3, no DST), so 10:00 UTC = 13:00 TRT and 05:00–09:00 UTC = 08:00–12:00 TRT.
@@ -72,6 +78,8 @@ services:
         value: noreply@ekiptahmin.com
       - key: RESEND_API_KEY
         sync: false
+      - key: SENTRY_DSN
+        sync: false
 
   - type: cron
     name: ekiptahmin-digest-evening
@@ -100,4 +108,6 @@ services:
       - key: DEFAULT_FROM_EMAIL
         value: noreply@ekiptahmin.com
       - key: RESEND_API_KEY
+        sync: false
+      - key: SENTRY_DSN
         sync: false

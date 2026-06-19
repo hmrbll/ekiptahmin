@@ -386,10 +386,14 @@ def evening_context(tournament, slate_date, recipient, *, matches=None, leaderbo
 
 
 def digest_recipients() -> list:
-    """Active users with an email address."""
+    """Active users with a deliverable email address. Excludes addresses the
+    Resend webhook flagged as bounced/complained (Faz 1.3)."""
     User = get_user_model()
     return list(
-        User.objects.filter(is_active=True).exclude(email="").order_by("id")
+        User.objects
+        .filter(is_active=True, email_undeliverable=False)
+        .exclude(email="")
+        .order_by("id")
     )
 
 

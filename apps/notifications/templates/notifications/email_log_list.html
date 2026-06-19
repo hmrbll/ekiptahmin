@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Mailler · ekiptahmin.com{% endblock %}
+
+{% block content %}
+<div class="min-h-full">
+    {% include "predictions/_header.html" %}
+
+    <main class="mx-auto w-full max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
+        <header class="mb-6">
+            <p class="text-xs uppercase tracking-wider text-fg-soft mb-2">Ops</p>
+            <h1 class="text-2xl sm:text-3xl font-display font-bold text-fg">Mailler</h1>
+            <p class="mt-2 text-sm text-fg-muted">
+                Gönderilen tüm maillerin kaydı (en yeni üstte). Toplam {{ total }} kayıt.
+                <a href="{% url 'notifications:preview_index' %}" class="text-primary hover:underline">Şablon önizleme →</a>
+            </p>
+        </header>
+
+        {# Filters — GET form, no JS #}
+        <form method="get" class="mb-8 flex flex-wrap items-end gap-3">
+            <label class="flex flex-col gap-1 text-xs text-fg-soft">
+                Durum
+                <select name="status" class="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg">
+                    <option value="">Hepsi</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="flex flex-col gap-1 text-xs text-fg-soft">
+                Tür
+                <select name="kind" class="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg">
+                    <option value="">Hepsi</option>
+                    {% for value, label in kind_choices %}
+                    <option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-fg hover:bg-page-subtle transition">
+                Filtrele
+            </button>
+            {% if status or kind %}
+            <a href="{% url 'notifications:email_log_list' %}" class="px-2 py-2 text-sm text-fg-muted hover:text-fg transition">Temizle</a>
+            {% endif %}
+        </form>
+
+        {% if page.object_list %}
+        <div class="overflow-x-auto rounded-2xl border border-line bg-surface">
+            <table class="w-full text-sm">
+                <thead class="text-xs uppercase tracking-wider text-fg-muted border-b border-line">
+                    <tr>
+                        <th class="text-left px-4 py-3 font-medium">Tarih</th>
+                        <th class="text-left px-4 py-3 font-medium">Tür</th>
+                        <th class="text-left px-4 py-3 font-medium">Alıcı</th>
+                        <th class="text-left px-4 py-3 font-medium">Konu</th>
+                        <th class="text-left px-4 py-3 font-medium">Slate</th>
+                        <th class="text-left px-4 py-3 font-medium">Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in page.object_list %}
+                    <tr class="border-b border-line last:border-b-0 align-top">
+                        <td class="px-4 py-3 whitespace-nowrap text-fg-soft font-mono text-xs">{{ log.created_at|date:"d.m.Y H:i" }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-fg-soft">{{ log.get_kind_display }}</td>
+                        <td class="px-4 py-3">
+                            <div class="text-fg">{{ log.email }}</div>
+                            {% if log.user and log.user.nickname %}
+                            <div class="text-xs text-fg-muted">{{ log.user.nickname }}</div>
+                            {% endif %}
+                            {% if log.user.email_undeliverable %}
+                            <div class="mt-0.5 inline-block rounded-full bg-danger/10 text-danger px-2 py-0.5 text-[11px] font-medium">⚠ teslim edilemiyor</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-fg-soft max-w-xs truncate" title="{{ log.subject }}">{{ log.subject }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-fg-muted font-mono text-xs">{{ log.slate_date|date:"d.m.Y"|default:"—" }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {% if log.status == "sent" %}
+                            <span class="inline-block rounded-full bg-success/10 text-success px-2.5 py-1 text-xs font-medium">{{ log.get_status_display }}</span>
+                            {% elif log.status == "dropped" %}
+                            <span class="inline-block rounded-full bg-fg-muted/10 text-fg-muted px-2.5 py-1 text-xs font-medium">{{ log.get_status_display }}</span>
+                            {% elif log.status == "rejected" %}
+                            <span class="inline-block rounded-full bg-warning/10 text-warning-300 px-2.5 py-1 text-xs font-medium">{{ log.get_status_display }}</span>
+                            {% else %}
+                            <span class="inline-block rounded-full bg-danger/10 text-danger px-2.5 py-1 text-xs font-medium">{{ log.get_status_display }}</span>
+                            {% endif %}
+                            {% if log.error %}
+                            <div class="mt-1 text-xs text-danger font-mono max-w-xs truncate" title="{{ log.error }}">{{ log.error }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page.has_other_pages %}
+        <nav class="mt-5 flex items-center justify-between text-sm">
+            {% if page.has_previous %}
+            <a href="?page={{ page.previous_page_number }}{% if status %}&status={{ status }}{% endif %}{% if kind %}&kind={{ kind }}{% endif %}"
+               class="rounded-lg border border-line bg-surface px-3 py-2 text-fg-soft hover:bg-page-subtle transition">← Önceki</a>
+            {% else %}
+            <span class="rounded-lg border border-line px-3 py-2 text-fg-muted/50">← Önceki</span>
+            {% endif %}
+            <span class="text-fg-muted">Sayfa {{ page.number }} / {{ page.paginator.num_pages }}</span>
+            {% if page.has_next %}
+            <a href="?page={{ page.next_page_number }}{% if status %}&status={{ status }}{% endif %}{% if kind %}&kind={{ kind }}{% endif %}"
+               class="rounded-lg border border-line bg-surface px-3 py-2 text-fg-soft hover:bg-page-subtle transition">Sonraki →</a>
+            {% else %}
+            <span class="rounded-lg border border-line px-3 py-2 text-fg-muted/50">Sonraki →</span>
+            {% endif %}
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="rounded-2xl border border-line bg-surface p-8 text-center">
+            <p class="text-fg-muted">
+                {% if status or kind %}Bu filtreye uyan mail yok.{% else %}Henüz loglanmış mail yok.{% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

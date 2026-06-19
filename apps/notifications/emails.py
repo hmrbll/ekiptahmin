@@ -70,29 +70,39 @@ def send_logged(
     )
 
 
-def send_invite_welcome(invite) -> None:
+def send_invite_welcome(invite):
     """Sent when Hemre creates an Invite in admin. Carries the invite link
     (not a magic link) — the recipient still completes a minimal form
-    (nickname only) so they choose their own display name."""
+    (nickname only) so they choose their own display name.
+
+    Routed through `send_logged`: it lands in the /ops/emails/ audit and never
+    raises. Returns the EmailLog row so callers can branch on `.status`."""
+    from .models import EmailLog
+
     invite_url = f"{settings.SITE_URL}/invite/{invite.code}/"
     context = {
         "invite_url": invite_url,
         "invite": invite,
         "site_url": settings.SITE_URL,
     }
-    _send(
+    return send_logged(
         subject="ekiptahmin.com — davetiyen geldi",
         body=render_to_string("emails/invite_welcome.txt", context),
         html=render_to_string("emails/invite_welcome.html", context),
         recipient=invite.email,
+        kind=EmailLog.INVITE_WELCOME,
     )
 
 
-def send_onboarding_link(user, invite) -> None:
+def send_onboarding_link(user, invite):
     """Sent by the `onboard_players` command for a pre-created account. The
     invite link logs the user straight in (no signup form), so the copy says
     'your account is ready'. The link is long-lived and reusable — see
-    apps.accounts.views.invite_signup for the auto-login branch."""
+    apps.accounts.views.invite_signup for the auto-login branch.
+
+    Returns the EmailLog row (see send_invite_welcome)."""
+    from .models import EmailLog
+
     invite_url = f"{settings.SITE_URL}/invite/{invite.code}/"
     nickname = user.nickname or user.email.split("@")[0]
     context = {
@@ -100,9 +110,11 @@ def send_onboarding_link(user, invite) -> None:
         "invite_url": invite_url,
         "site_url": settings.SITE_URL,
     }
-    _send(
+    return send_logged(
         subject=f"{nickname}, ekiptahmin.com hesabın hazır",
         body=render_to_string("emails/onboarding.txt", context),
         html=render_to_string("emails/onboarding.html", context),
         recipient=user.email,
+        kind=EmailLog.ONBOARDING,
+        user=user,
     )

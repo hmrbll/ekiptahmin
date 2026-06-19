@@ -15,9 +15,14 @@ outcome badge (keys match GanyanScore.outcome / scoring.views._OUTCOME_BADGE).
 from decimal import Decimal
 
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.paginator import Paginator
 from django.http import Http404
 from django.shortcuts import render
 from django.utils import timezone
+
+from .models import EmailLog
+
+EMAIL_LOG_PAGE_SIZE = 50
 
 # (slug, template_name, display label)
 EMAIL_PREVIEWS = [
@@ -166,6 +171,34 @@ def _sample_context(slug: str, request=None) -> dict:
         }
 
     return base
+
+
+@staff_member_required
+def email_log_list(request):
+    """Staff-only audit of every logged outbound mail (newest first).
+
+    Filterable by status and kind via GET params; paginated. Powers the
+    /ops/emails/ tracking page (Faz 1.2). Only mails sent through
+    `send_logged` appear here — see apps.notifications.emails.
+    """
+    qs = EmailLog.objects.select_related("user").order_by("-created_at")
+    status = request.GET.get("status", "")
+    kind = request.GET.get("kind", "")
+    if status:
+        qs = qs.filter(status=status)
+    if kind:
+        qs = qs.filter(kind=kind)
+
+    paginator = Paginator(qs, EMAIL_LOG_PAGE_SIZE)
+    page = paginator.get_page(request.GET.get("page"))
+    return render(request, "notifications/email_log_list.html", {
+        "page": page,
+        "total": paginator.count,
+        "status": status,
+        "kind": kind,
+        "status_choices": EmailLog.STATUS_CHOICES,
+        "kind_choices": EmailLog.KIND_CHOICES,
+    })
 
 
 @staff_member_required

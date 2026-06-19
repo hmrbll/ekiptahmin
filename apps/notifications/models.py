@@ -38,11 +38,17 @@ class EmailLog(models.Model):
     DROPPED = "dropped"
     REJECTED = "rejected"
     FAILED = "failed"
+    # Set asynchronously by the Resend webhook (Faz 1.3), after the original
+    # send — not an outcome we can know at send time.
+    BOUNCED = "bounced"
+    COMPLAINED = "complained"
     STATUS_CHOICES = [
         (SENT, "Gönderildi"),
         (DROPPED, "Düştü (dummy backend)"),
         (REJECTED, "Reddedildi"),
         (FAILED, "Hata"),
+        (BOUNCED, "Geri döndü (bounce)"),
+        (COMPLAINED, "Şikayet (spam)"),
     ]
     # Statuses that count as "this digest slate has been handled" for dedup.
     HANDLED_STATUSES = (SENT, DROPPED)
@@ -81,3 +87,14 @@ class EmailLog(models.Model):
         return cls.objects.filter(
             kind=kind, slate_date=slate_date, status__in=cls.HANDLED_STATUSES,
         ).exists()
+
+    @classmethod
+    def mark_latest_undeliverable(cls, email: str, status: str):
+        """Flip the most recent logged mail to `email` to a bounced/complained
+        status, so the bounce is visible on /ops/emails/. Returns the row (or
+        None if we never logged a mail to that address)."""
+        log = cls.objects.filter(email__iexact=email).order_by("-created_at").first()
+        if log is not None:
+            log.status = status
+            log.save(update_fields=["status"])
+        return log

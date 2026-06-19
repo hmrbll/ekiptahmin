@@ -1,11 +1,8 @@
-import logging
-
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from sesame.utils import get_query_string
 
-logger = logging.getLogger(__name__)
+from apps.notifications.emails import send_logged
 
 
 def _confirm_url(user) -> str:
@@ -13,41 +10,18 @@ def _confirm_url(user) -> str:
     return f"{settings.SITE_URL}/auth/confirm/{qs}"
 
 
-def _send(subject: str, body: str, html: str, recipient: str) -> None:
-    """Send a transactional email, surfacing failures to logs.
+def send_signup_magic_link(user, *, invite=None):
+    """Magic-link activation mail.
 
-    The dummy backend (used when RESEND_API_KEY is unset) returns 1 here too,
-    so a successful return is NOT proof of delivery. The startup-time warning
-    in prod settings + the explicit log line below is what makes silent drops
-    visible.
+    Routed through `send_logged` so it shows up in the /ops/emails/ audit and
+    never raises — a hard SMTP error becomes a FAILED EmailLog row rather than
+    a 500 on the sign-up form (the account is already created at this point;
+    the user can re-request a link from the login page). Returns the row.
 
-    Uses EmailMultiAlternatives (not send_mail) so we can attach a Reply-To
-    header that points at a real inbox — helps deliverability and lets users
-    actually reply to magic-link mails when they need help.
+    `send_logged` attaches the Reply-To header (smtp deliverability) for us.
     """
-    backend = settings.EMAIL_BACKEND
-    msg = EmailMultiAlternatives(
-        subject=subject,
-        body=body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[recipient],
-        reply_to=[settings.REPLY_TO_EMAIL],
-    )
-    msg.attach_alternative(html, "text/html")
-    try:
-        accepted = msg.send(fail_silently=False)
-    except Exception:
-        logger.exception("mail.failed to=%s subject=%r backend=%s", recipient, subject, backend)
-        raise
-    if "dummy" in backend.lower():
-        logger.warning("mail.dropped to=%s subject=%r (dummy backend)", recipient, subject)
-    elif accepted:
-        logger.info("mail.sent to=%s subject=%r", recipient, subject)
-    else:
-        logger.warning("mail.rejected to=%s subject=%r", recipient, subject)
+    from apps.notifications.models import EmailLog
 
-
-def send_signup_magic_link(user, *, invite=None) -> None:
     confirm_url = _confirm_url(user)
     context = {
         "nickname": user.nickname,
@@ -55,24 +29,32 @@ def send_signup_magic_link(user, *, invite=None) -> None:
         "invite": invite,
         "site_url": settings.SITE_URL,
     }
-    _send(
+    return send_logged(
         subject="ekiptahmin.com — hesabını aktif et",
         body=render_to_string("emails/magic_link_signup.txt", context),
         html=render_to_string("emails/magic_link_signup.html", context),
         recipient=user.email,
+        kind=EmailLog.MAGIC_LINK_SIGNUP,
+        user=user,
     )
 
 
-def send_login_magic_link(user) -> None:
+def send_login_magic_link(user):
+    """Magic-link login mail. See send_signup_magic_link for the logging /
+    never-raises contract. Returns the EmailLog row."""
+    from apps.notifications.models import EmailLog
+
     confirm_url = _confirm_url(user)
     context = {
         "nickname": user.nickname,
         "confirm_url": confirm_url,
         "site_url": settings.SITE_URL,
     }
-    _send(
+    return send_logged(
         subject="ekiptahmin.com — giriş linkin",
         body=render_to_string("emails/magic_link_login.txt", context),
         html=render_to_string("emails/magic_link_login.html", context),
         recipient=user.email,
+        kind=EmailLog.MAGIC_LINK_LOGIN,
+        user=user,
     )
