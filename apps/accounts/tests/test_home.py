@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.liveresults.models import MatchSync
 from apps.predictions.models import SlotPrediction
 from apps.tournament.models import (
     ActualResult,
@@ -362,3 +363,47 @@ class TestHomeAuthenticated:
         body = r.content.decode("utf-8")
         # The count chip on the leaderboard module reflects the cap.
         assert "İlk 12" in body
+
+
+@pytest.mark.django_db
+class TestHomeRecentLiveBoundary:
+    """The 'Son sonuçlar' module and the live module share one definition of
+    'currently live' (status IN_PLAY/PAUSED, not finalized, within the per-stage
+    live cap). These pin that boundary so a match can't fall into the gap.
+    """
+
+    def _recent_section(self, body: str) -> str:
+        # The recent-results column sits between its header and the leaderboard.
+        return body.split("Son sonuçlar")[1].split("Puan durumu")[0]
+
+    def test_recent_results_include_match_stuck_in_play_past_cap(
+        self, client, t, group_stage, tur, bra,
+    ):
+        """Regression: a match whose MatchSync is stuck IN_PLAY (FINISHED never
+        arrived) but is already past its live cap must surface in 'Son sonuçlar'.
+        Before the fix it fell into the gap — dropped from the live module
+        (capped out) yet still excluded from recent results as 'live' — so it
+        showed nowhere despite having a scored ActualResult.
+        """
+        now = timezone.now()
+        # GROUP cap is 140 min; 3h past kickoff is well beyond it.
+        slot = _slot(t, group_stage, "GroupA-M9", now - timedelta(hours=3), tur, bra)
+        MatchSync.objects.create(slot=slot, external_id="99", status="IN_PLAY")
+        ActualResult.objects.create(slot=slot, home_score=0, away_score=1, source="API")
+
+        r = client.get(reverse("home"))
+        assert "GroupA-M9" in self._recent_section(r.content.decode("utf-8"))
+
+    def test_recent_results_exclude_match_currently_live(
+        self, client, t, group_stage, tur, bra,
+    ):
+        """A genuinely in-play match (within its cap) shows in the live module,
+        not in 'Son sonuçlar' — so the same live score isn't shown in both.
+        """
+        now = timezone.now()
+        slot = _slot(t, group_stage, "GroupA-M8", now - timedelta(minutes=20), tur, bra)
+        MatchSync.objects.create(slot=slot, external_id="98", status="IN_PLAY")
+        ActualResult.objects.create(slot=slot, home_score=1, away_score=0, source="API")
+
+        r = client.get(reverse("home"))
+        assert "GroupA-M8" not in self._recent_section(r.content.decode("utf-8"))

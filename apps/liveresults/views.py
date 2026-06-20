@@ -12,13 +12,11 @@ from __future__ import annotations
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.utils import timezone
 
 from apps.scoring.models import GanyanScore
 from apps.tournament.models import ActualResult, Tournament
 
-from .models import MatchSync
-from .sync import live_cap, maybe_sync_live
+from .sync import live_syncs, maybe_sync_live
 
 
 def live_scores(request: HttpRequest) -> HttpResponse:
@@ -28,18 +26,7 @@ def live_scores(request: HttpRequest) -> HttpResponse:
     items: list[dict] = []
     if tournament is not None:
         viewer = request.user if request.user.is_authenticated else None
-        now = timezone.now()
-        syncs = [
-            ms for ms in (
-                MatchSync.objects
-                .filter(slot__tournament=tournament,
-                        status__in=MatchSync.LIVE_STATUSES, finalized=False)
-                .select_related("slot__stage", "slot__home_team_actual", "slot__away_team_actual")
-                .order_by("slot__scheduled_kickoff")
-            )
-            # Drop matches stuck IN_PLAY past their cap (FINISHED never arrived).
-            if now <= ms.slot.scheduled_kickoff + live_cap(ms.slot.stage.kind)
-        ]
+        syncs = live_syncs(tournament)
         slot_ids = [ms.slot_id for ms in syncs]
         actuals = {
             a.slot_id: a for a in ActualResult.objects.filter(slot_id__in=slot_ids)

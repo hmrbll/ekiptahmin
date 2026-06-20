@@ -4,7 +4,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from apps.liveresults.models import MatchSync
+from apps.liveresults.sync import live_syncs
 from apps.predictions.models import SlotPrediction
 from apps.scoring.ganyan_leaderboard import leaderboard_for_tournament
 from apps.scoring.models import GanyanScore
@@ -160,13 +160,11 @@ def _grid_context(request: HttpRequest, tournament) -> dict:
     ]
 
     # --- Recent results (excluding matches currently in play — those show in
-    # the live module above, not here, so a live score isn't duplicated). ---
-    live_slot_ids = set(
-        MatchSync.objects
-        .filter(slot__tournament=tournament,
-                status__in=MatchSync.LIVE_STATUSES, finalized=False)
-        .values_list("slot_id", flat=True)
-    )
+    # the live module above, not here, so a live score isn't duplicated).
+    # Uses the same `live_syncs` definition as the live module (cap included), so
+    # a match stuck IN_PLAY past its cap is no longer "live" and resurfaces here
+    # instead of vanishing from both. ---
+    live_slot_ids = {ms.slot_id for ms in live_syncs(tournament, now=now)}
     recent_actuals = list(
         ActualResult.objects
         .filter(slot__tournament=tournament)
