@@ -90,8 +90,11 @@ FINISHED ever arrives (manual entry / API gap), it also stops once we're past
 the match's expected end + 30 min — per stage, since knockouts run longer:
 `live_cap` = **140 min** after kickoff for group (≈110' play + 30' grace),
 **180 min** for knockout (extra time + penalties + grace). The same cap bounds
-the homepage "CANLI" module, so a match stuck `IN_PLAY` (FINISHED missed) still
-drops off after its cap. `sync_live_matches` returns immediately (no API call)
+the display via `live_syncs()` — the one definition of "currently live" shared
+by the homepage "CANLI" module (which renders those rows) *and* the "Son
+sonuçlar" list (which excludes their slots). Because both honour the cap, a
+match stuck `IN_PLAY` (FINISHED missed) drops off the live module after its cap
+**and** resurfaces in recent results, instead of vanishing from both. `sync_live_matches` returns immediately (no API call)
 when nothing is in the window — this is what keeps a forgotten open tab from
 polling football-data overnight. `maybe_sync_live` adds a 45s throttle + a cache
 lock so concurrent visitors trigger at most one external call. **Assumes a single

@@ -96,6 +96,31 @@ def slots_in_live_window(tournament: Tournament, now=None):
     return [s for s in candidates if now <= s.scheduled_kickoff + live_cap(s.stage.kind)]
 
 
+def live_syncs(tournament: Tournament, now=None) -> list[MatchSync]:
+    """MatchSync rows for matches that are *currently* live, kickoff-ordered.
+
+    "Currently live" = provider status IN_PLAY/PAUSED, not finalized, AND still
+    within the per-stage `live_cap`. A match stuck IN_PLAY past its cap (FINISHED
+    never arrived — API gap or a manually entered result) is NOT live: it has
+    dropped out of the poller's window and belongs in "recent results" instead.
+
+    Single source of truth shared by the homepage live module (which renders
+    these rows) and the recent-results list (which excludes their slot ids). The
+    two MUST agree on the cap, otherwise a capped-out match falls into the gap —
+    hidden from the live module yet still treated as "live" by recent results,
+    so it shows nowhere even though it has a scored ActualResult.
+    """
+    now = now or timezone.now()
+    rows = (
+        MatchSync.objects
+        .filter(slot__tournament=tournament,
+                status__in=MatchSync.LIVE_STATUSES, finalized=False)
+        .select_related("slot__stage", "slot__home_team_actual", "slot__away_team_actual")
+        .order_by("slot__scheduled_kickoff")
+    )
+    return [ms for ms in rows if now <= ms.slot.scheduled_kickoff + live_cap(ms.slot.stage.kind)]
+
+
 def _penalty_winner_team(slot: BracketSlot, side: str | None):
     if side == "HOME":
         return slot.home_team_actual
