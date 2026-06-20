@@ -22,6 +22,10 @@ still see that default section.
 
 <script>
 (function () {
+    // This partial is included before the panels it controls, so wait for the
+    // full document to parse before querying them — otherwise `panels` is empty
+    // and no tab but the server-rendered default would ever switch.
+    function init() {
     const bar = document.querySelector(".round-tab-bar");
     if (!bar) return;
     const buttons = Array.from(bar.querySelectorAll(".round-tab-btn"));
@@ -47,5 +51,12 @@ still see that default section.
     buttons.forEach(b => b.addEventListener("click", () => activate(b.dataset.tab)));
     const fromHash = (window.location.hash || "").replace(/^#/, "");
     activate(keys.includes(fromHash) ? fromHash : bar.dataset.defaultKey);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
 })();
 </script>
