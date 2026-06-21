@@ -25,6 +25,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from apps.liveresults.models import MatchSync
 from apps.predictions.models import SlotPrediction
 from apps.scoring.ganyan_bridge import potential_max_scores_for_slot
 from apps.scoring.ganyan_leaderboard import leaderboard_for_tournament
@@ -92,17 +93,44 @@ def slate_slots(tournament, slate_date) -> list:
     return [s for s in slots if s.home_team_actual_id and s.away_team_actual_id]
 
 
+def final_result_slot_ids(slot_ids) -> set:
+    """Slot ids whose ActualResult is *final* — not a live running score.
+
+    Final ⇔ a human entered it (``source=MANUAL``) OR the live sync captured the
+    end (``MatchSync.finalized`` or ``status=FINISHED``). A ``source=API`` result
+    whose MatchSync is still IN_PLAY/PAUSED is the live *running* score, NOT final
+    — this is what made the 08:00 evening digest fire with a non-final 0-3 (the
+    match was still in play). ``finalize_stale_syncs`` (run by the live-sync cron)
+    flips a match that's over but missed its FINISHED poll, so relying on the
+    flag alone is unsafe until that cron has run — hence the ``status=FINISHED``
+    fallback too. A live match is never FINISHED, so this can't misread one.
+    """
+    slot_ids = list(slot_ids)
+    if not slot_ids:
+        return set()
+    final = set()
+    for sid, source, finalized, status in (
+        ActualResult.objects
+        .filter(slot_id__in=slot_ids)
+        .values_list("slot_id", "source", "slot__live_sync__finalized", "slot__live_sync__status")
+    ):
+        if (source == ActualResult.SOURCE_MANUAL
+                or finalized
+                or status == MatchSync.STATUS_FINISHED):
+            final.add(sid)
+    return final
+
+
 def slate_is_complete(tournament, slate_date):
-    """True/False if every slate match has a result; None if the slate is empty."""
+    """True/False if every slate match has a *final* result; None if empty.
+
+    "Final" excludes a live running score still being polled — see
+    ``final_result_slot_ids``."""
     slots = slate_slots(tournament, slate_date)
     if not slots:
         return None
-    with_result = set(
-        ActualResult.objects
-        .filter(slot_id__in=[s.id for s in slots])
-        .values_list("slot_id", flat=True)
-    )
-    return all(s.id in with_result for s in slots)
+    final_ids = final_result_slot_ids(s.id for s in slots)
+    return all(s.id in final_ids for s in slots)
 
 
 # ---------- Prediction reveal gate (mirrors predictions.views.predictions_all) ----------
@@ -235,6 +263,7 @@ def build_evening_matches(tournament, slate_date) -> list:
     slots = slate_slots(tournament, slate_date)
     slot_ids = [s.id for s in slots]
     actuals = {a.slot_id: a for a in ActualResult.objects.filter(slot_id__in=slot_ids)}
+    final_ids = final_result_slot_ids(slot_ids)
 
     score_rows = (
         GanyanScore.objects
@@ -274,9 +303,9 @@ def build_evening_matches(tournament, slate_date) -> list:
 
     matches = []
     for slot in slots:
-        actual = actuals.get(slot.id)
-        if actual is None:
-            # Pending — surface everyone's locked pick, no score yet.
+        if slot.id not in final_ids:
+            # Pending — no *final* result yet (a live running score is not shown).
+            # Surface everyone's locked pick, no score.
             slot_preds = sorted(
                 (p for (sid, _uid), p in latest.items() if sid == slot.id),
                 key=lambda p: _nickname(p.user).lower(),
@@ -294,6 +323,7 @@ def build_evening_matches(tournament, slate_date) -> list:
             })
             continue
 
+        actual = actuals[slot.id]  # final (in final_ids) ⇒ ActualResult present
         rows = sorted(
             scores_by_slot.get(slot.id, []),
             key=lambda s: (-s.total, _nickname(s.user).lower()),

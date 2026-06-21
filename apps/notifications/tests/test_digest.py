@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.utils import timezone
 
+from apps.liveresults.models import MatchSync
 from apps.notifications import digest
 from apps.notifications.models import EmailLog
 from apps.predictions.models import SlotPrediction
@@ -124,6 +125,19 @@ def _result(slot, home, away):
     return ActualResult.objects.create(slot=slot, home_score=home, away_score=away)
 
 
+def _api_result(slot, home, away, *, status=MatchSync.STATUS_IN_PLAY, finalized=False):
+    """A live-sync result: ActualResult(source=API) + its MatchSync bookkeeping.
+    Defaults to a still-running match (IN_PLAY, not finalized) — i.e. a running
+    score that must NOT count as a final result for the evening digest."""
+    ar = ActualResult.objects.create(
+        slot=slot, home_score=home, away_score=away, source=ActualResult.SOURCE_API,
+    )
+    MatchSync.objects.create(
+        slot=slot, external_id=f"ext-{slot.id}", status=status, finalized=finalized,
+    )
+    return ar
+
+
 @pytest.mark.django_db
 def test_morning_sends_to_all_recipients_with_potential(slate):
     call_command("send_daily_digest", "--mode", "morning", "--date", "2026-06-18")
@@ -158,6 +172,37 @@ def test_evening_incomplete_before_noon_waits(slate, monkeypatch):
 
     call_command("send_daily_digest", "--mode", "evening", "--date", "2026-06-18")
     assert EmailLog.objects.filter(kind=EmailLog.DAILY_EVENING).count() == 0
+
+
+@pytest.mark.django_db
+def test_running_api_score_is_not_final(slate, monkeypatch):
+    """The 08:00 regression: a match still IN_PLAY has a running ActualResult
+    but is NOT final, so the slate is incomplete and the digest must wait."""
+    _result(slate.s1, 2, 1)                               # final (manual)
+    _api_result(slate.s2, 0, 3)                           # running 0-3, IN_PLAY
+    monkeypatch.setattr(digest, "is_evening_final_poll", lambda now=None: False)
+
+    assert digest.slate_is_complete(slate.t, SLATE) is False
+    call_command("send_daily_digest", "--mode", "evening", "--date", "2026-06-18")
+    assert EmailLog.objects.filter(kind=EmailLog.DAILY_EVENING).count() == 0
+
+    # ...and it shows as pending (no running score leaked into the result line).
+    pending = [m for m in digest.build_evening_matches(slate.t, SLATE) if m["pending"]]
+    assert len(pending) == 1
+    assert pending[0]["result"] is None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "status, finalized",
+    [(MatchSync.STATUS_FINISHED, False), (MatchSync.STATUS_IN_PLAY, True)],
+)
+def test_final_api_score_completes_slate(slate, status, finalized):
+    """An API result counts as final once FINISHED is captured — either via the
+    status (FINISHED) or finalize_stale_syncs setting the flag on a stuck row."""
+    _result(slate.s1, 2, 1)
+    _api_result(slate.s2, 0, 4, status=status, finalized=finalized)
+    assert digest.slate_is_complete(slate.t, SLATE) is True
 
 
 @pytest.mark.django_db
