@@ -56,6 +56,10 @@ python manage.py map_external_ids [--dry-run]
 # One sync pass (the homepage trigger runs the same core automatically).
 python manage.py sync_live_results [--dry-run]
 
+# Finalize matches that are over but missed their FINISHED poll (idempotent).
+# Runs on the live-sync cron right after each sync pass.
+python manage.py finalize_stale_syncs [--dry-run]
+
 # Recompute bracket team assignments from current results (idempotent).
 python manage.py resolve_bracket
 ```
@@ -100,6 +104,19 @@ polling football-data overnight. `maybe_sync_live` adds a 45s throttle + a cache
 lock so concurrent visitors trigger at most one external call. **Assumes a single
 web instance** (the throttle is per-process); revisit if web scales horizontally.
 
+## Guaranteed server-side poll (cron)
+
+The visitor trigger only fires while someone is on the homepage, so a match that
+finishes with nobody watching — or a dead-of-night kickoff — never gets its final
+score polled, and a missed `FINISHED` leaves `MatchSync` stuck `IN_PLAY` past its
+cap (shown in neither the live module nor recent results until a human fixes it).
+The **`ekiptahmin-live-sync` cron** (`render.yaml`, every 5 min) closes that gap:
+`sync_live_results` (a no-op when nothing is in the live window) then
+`finalize_stale_syncs` (flips over-but-unfinalized rows). Both are idempotent and
+run safely alongside the visitor trigger, which still drives snappy in-play
+updates for active viewers. **The cron needs its own `FOOTBALL_DATA_API_KEY`** in
+the Render dashboard (`sync:false`), separate from the web service.
+
 ## Bracket resolver (`apps/tournament/resolver.py`)
 
 Our code, not the API, decides who advances. `resolve_bracket(tournament)` runs
@@ -130,8 +147,9 @@ templates. See also [scoring-ganyan.md](scoring-ganyan.md).
 
 ## Rollout
 
-1. Buy a football-data plan; put `FOOTBALL_DATA_API_KEY` in the Render web
-   service env (the live trigger runs in the web process — no cron needed).
+1. Buy a football-data plan; put `FOOTBALL_DATA_API_KEY` in **both** the Render
+   web service env (the visitor trigger) **and** the `ekiptahmin-live-sync` cron
+   env (the guaranteed poll) — each is `sync:false`, so set them in the dashboard.
 2. `python manage.py fd_probe --finished` to confirm coverage + mapping.
 3. `python manage.py map_external_ids` once (re-run after each knockout round as
    teams resolve).

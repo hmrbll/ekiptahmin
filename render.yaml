@@ -111,3 +111,45 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+
+  # Live-result sync. The homepage trigger (maybe_sync_live) only fires while a
+  # visitor is on the site, so a match that finishes with nobody watching — or a
+  # match in the dead-of-night window — never gets its final score polled, and a
+  # missed FINISHED leaves MatchSync stuck IN_PLAY forever. This cron is the
+  # guaranteed server-side poll: sync_live_results captures scores (cheap no-op
+  # when nothing is in the live window) and finalize_stale_syncs flips matches
+  # that are over but missed their FINISHED signal. Both are idempotent and run
+  # safely alongside the visitor trigger.
+  # NOTE: FOOTBALL_DATA_API_KEY is sync:false — set it on THIS cron service in
+  # the Render dashboard (separate from the web service), or it can't reach the
+  # provider and silently no-ops.
+  - type: cron
+    name: ekiptahmin-live-sync
+    runtime: python
+    region: frankfurt
+    schedule: "*/5 * * * *"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py sync_live_results && python manage.py finalize_stale_syncs"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ekiptahmin.com,www.ekiptahmin.com,.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ekiptahmin-db
+          property: connectionString
+      - key: SITE_URL
+        value: https://ekiptahmin.com
+      - key: DEFAULT_FROM_EMAIL
+        value: noreply@ekiptahmin.com
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

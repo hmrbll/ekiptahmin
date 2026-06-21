@@ -163,8 +163,9 @@ python manage.py createsuperuser
 Some env vars are `sync: false` in [render.yaml](render.yaml) — Render does **not** populate them, you set each manually in the dashboard (per service where it applies):
 
 - `RESEND_API_KEY` — web + **both** digest crons (not inherited from web). Without it the prod email backend is `dummy`: forms succeed but no mail is delivered. See [docs/email_setup.md](docs/email_setup.md).
+- `FOOTBALL_DATA_API_KEY` — web (visitor trigger) + the `ekiptahmin-live-sync` cron (the guaranteed poll). Unset on either → that path silently no-ops. See [docs/live-results.md](docs/live-results.md).
 - `RESEND_WEBHOOK_SECRET` — web only. Svix secret for the bounce/complaint webhook; unset → the endpoint rejects everything (503).
-- `SENTRY_DSN` — web + both crons. Unset → Sentry is a no-op (no error reporting).
+- `SENTRY_DSN` — web + all three crons. Unset → Sentry is a no-op (no error reporting).
 
 ### Launch / ops commands
 
