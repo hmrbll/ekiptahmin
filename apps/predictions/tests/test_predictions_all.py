@@ -215,18 +215,20 @@ class TestPredictionsAll:
         assert "150,00" in body
         assert "300,00" not in body
 
-    def test_unscored_incomplete_pick_hides_potential(
+    def test_unscored_wrong_matchup_pick_excluded(
         self, client, tournament, stage_r16, prediction_round, team_tur, team_bra, team_arg,
     ):
-        """On a resolved knockout slot, a pick whose matchup no longer lines up
-        with the real fixture (made during the bracket-forecast phase) is not
-        "complete" — it can never score, so no max-puan hint is shown for it."""
+        """On a resolved knockout slot, a pick whose matchup doesn't line up with
+        the real fixture (made during the bracket-forecast phase) is excluded
+        from the match card entirely — it can never score this fixture, so
+        listing it under the real teams would be misleading. The card instead
+        notes that the slot was predicted but nobody hit the matchup."""
         past = BracketSlot.objects.create(
             tournament=tournament, stage=stage_r16, position="R16-1",
             scheduled_kickoff=timezone.now() - timedelta(hours=2),
             home_team_actual=team_tur, away_team_actual=team_bra,
         )
-        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Zlatan")
         # Predicted away side ARG, but the real fixture resolved to BRA.
         SlotPrediction.objects.create(
             user=u, prediction_round=prediction_round, slot=past,
@@ -235,8 +237,16 @@ class TestPredictionsAll:
         r = client.get(reverse("predictions_all"))
         body = r.content.decode("utf-8")
         assert "R16-1" in body
-        assert "Me" in body
+        # The wrong-matchup pick is not listed under the real fixture.
+        match = next(
+            m for sec in r.context["sections"] for m in sec["matches"]
+            if m["slot"].position == "R16-1"
+        )
+        assert match["predictions"] == []
+        assert "Zlatan" not in body
         assert "en fazla" not in body
+        # ...but the card acknowledges the slot was predicted (wrong matchup).
+        assert "kimse bu eşleşmeyi tutturamadı" in body
 
     def test_skips_slots_without_resolved_teams(
         self, client, tournament, prediction_round, r16_slot, group_slot,

@@ -123,7 +123,9 @@ Once a match's predictions are revealed but **before** a result is entered, each
 
 The best case is the parimutuel payout the pick would earn **if the match ended exactly as predicted** (`ganyan.potential_max_scores`): the pick wins every criterion its scoreline satisfies (a draw-on-KO pick carrying a shootout wins the three penalty pools too), and each pool is split among everyone whose own revealed pick would also win it under that hypothetical. So it differentiates picks the way real ganyan does — a lone scoreline shows the full pool, a popular one a thin slice.
 
-It is shown **only for "complete" picks** — those whose matchup lines up with the slot's actual fixture. A knockout pick made during the bracket-forecast phase whose teams no longer match the resolved fixture can never score, so no hint is shown for it. Values use the pick's own (latest shown) round weight and are upper bounds in the common single-round case; the live engine can only pay *more*, and only when a co-winner's effective round turns out to sit in a different round.
+The card lists **only picks on the slot's actual fixture** — both predicted teams must line up with the resolved matchup (the engine's `_matchup_correct` rule, strict home AND away). In a knockout each player predicted their own bracket, so most of a slot's stored predictions are for a *different* matchup (different teams reaching here); those can never score it and are filtered out of the card entirely rather than listed with a zero. When a slot was predicted but nobody hit the matchup, the card shows **"N oyuncu tahmin etti, ama kimse bu eşleşmeyi tutturamadı"** in place of a prediction list. For group matches the fixture is fixed, so the filter is a no-op.
+
+Because every listed pick is therefore "complete", the **"en fazla N puan"** hint is shown for all of them. Its values use the pick's own (latest shown) round weight and are upper bounds in the common single-round case; the live engine can only pay *more*, and only when a co-winner's effective round turns out to sit in a different round.
 
 ## Data model
 

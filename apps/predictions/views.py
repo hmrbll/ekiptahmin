@@ -132,8 +132,21 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         has_result = hasattr(slot, "result")
         slot_preds = []
         if is_public:
+            # Only picks on the actual fixture belong on this match's card. In a
+            # knockout every user predicted their own bracket, so most "latest
+            # predictions for this slot" are really for a different matchup
+            # (different teams reaching here) — listing them under the real
+            # fixture is noise and they can never score it anyway. The matchup
+            # rule mirrors the ganyan engine's `_matchup_correct` (strict home
+            # AND away), so what's shown equals what can earn points. For group
+            # matches the fixture is fixed, so this filter is a no-op.
             slot_preds = sorted(
-                (p for (sid, _uid), p in latest_by_slot_user.items() if sid == slot.id),
+                (
+                    p for (sid, _uid), p in latest_by_slot_user.items()
+                    if sid == slot.id
+                    and p.home_team_id == slot.home_team_actual_id
+                    and p.away_team_id == slot.away_team_actual_id
+                ),
                 key=lambda p: (p.user.nickname or p.user.email or "").lower(),
             )
             # Scored match → show the points each pick earned (None when the
