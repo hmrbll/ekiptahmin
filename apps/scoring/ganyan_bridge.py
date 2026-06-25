@@ -126,3 +126,27 @@ def potential_max_scores_for_slot(
         pred_by_user, pools,
         slot.home_team_actual.code, slot.away_team_actual.code,
     )
+
+
+def potential_max_scores_for_slot_multi(
+    slot: BracketSlot, predictions_by_user: dict[int, list[SlotPrediction]],
+) -> dict[int, list[Decimal]]:
+    """Per-prediction best-case payout for the all-predictions card.
+
+    `predictions_by_user` maps a user id to that user's picks on this slot — one
+    per round, already filtered to the slot's actual fixture and ordered by
+    round. Returns ``{user_id: [Decimal aligned to each list]}`` so the caller
+    can drop one "en fazla" onto every row. Empty when the slot's teams aren't
+    both set yet.
+    """
+    if not (slot.home_team_actual_id and slot.away_team_actual_id):
+        return {}
+    pools = _stage_pools(slot)
+    pred_objs = {
+        uid: [_build_prediction(p) for p in preds]
+        for uid, preds in predictions_by_user.items()
+    }
+    return ganyan.potential_max_scores_multi(
+        pred_objs, pools,
+        slot.home_team_actual.code, slot.away_team_actual.code,
+    )

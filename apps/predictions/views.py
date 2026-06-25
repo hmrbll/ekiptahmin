@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.scoring.ganyan_bridge import potential_max_scores_for_slot
+from apps.scoring.ganyan_bridge import potential_max_scores_for_slot_multi
 from apps.scoring.models import GanyanScore
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 from apps.tournament.sections import (
@@ -91,7 +91,9 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         .order_by("scheduled_kickoff")
     )
 
-    # Fetch the latest prediction per (user, slot) across rounds in one pass.
+    # Fetch every prediction for these slots across all rounds in one pass. We
+    # keep all rounds (not just the latest) so a user who predicted the same
+    # fixture in several rounds shows one row per round, each with its weight.
     slot_ids = [s.id for s in slots]
     preds_qs = (
         SlotPrediction.objects
@@ -99,27 +101,28 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         .select_related(
             "user", "home_team", "away_team", "penalty_winner", "prediction_round",
         )
-        .order_by("slot_id", "user_id", "-prediction_round__order")
+        .order_by("slot_id", "prediction_round__order")
     )
-    latest_by_slot_user: dict[tuple[int, int], SlotPrediction] = {}
+    preds_by_slot: dict[int, list[SlotPrediction]] = {}
+    predictors_by_slot: dict[int, set[int]] = {}
     for p in preds_qs:
-        latest_by_slot_user.setdefault((p.slot_id, p.user_id), p)
+        preds_by_slot.setdefault(p.slot_id, []).append(p)
+        predictors_by_slot.setdefault(p.slot_id, set()).add(p.user_id)
 
-    # Count, per slot, how many distinct users predicted (used for the
-    # pre-lock "N kişi tahmin etti" hint).
-    prediction_counts: dict[int, int] = {}
-    for slot_id, _user_id in latest_by_slot_user.keys():
-        prediction_counts[slot_id] = prediction_counts.get(slot_id, 0) + 1
+    # Distinct predictor count per slot (any matchup) — drives the pre-lock
+    # "N kişi tahmin etti" hint and the "nobody hit the matchup" note.
+    prediction_counts = {sid: len(uids) for sid, uids in predictors_by_slot.items()}
 
-    # Ganyan points each user earned, per (slot, user). Only meaningful once a
-    # result is in, so limit the query to scored slots.
+    # Ganyan points each user earned, per (slot, user): (total, effective_round_id).
+    # The engine credits a single round per user, so the points belong on that
+    # one round's row. Only meaningful once a result is in.
     scored_slot_ids = [s.id for s in slots if hasattr(s, "result")]
-    points_by_slot_user: dict[tuple[int, int], object] = {}
+    points_by_slot_user: dict[tuple[int, int], tuple] = {}
     if scored_slot_ids:
         for gs in GanyanScore.objects.filter(slot_id__in=scored_slot_ids).only(
-            "slot_id", "user_id", "total"
+            "slot_id", "user_id", "total", "effective_round"
         ):
-            points_by_slot_user[(gs.slot_id, gs.user_id)] = gs.total
+            points_by_slot_user[(gs.slot_id, gs.user_id)] = (gs.total, gs.effective_round_id)
 
     matches = []
     for slot in slots:
@@ -133,35 +136,65 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         slot_preds = []
         if is_public:
             # Only picks on the actual fixture belong on this match's card. In a
-            # knockout every user predicted their own bracket, so most "latest
-            # predictions for this slot" are really for a different matchup
-            # (different teams reaching here) — listing them under the real
-            # fixture is noise and they can never score it anyway. The matchup
-            # rule mirrors the ganyan engine's `_matchup_correct` (strict home
-            # AND away), so what's shown equals what can earn points. For group
-            # matches the fixture is fixed, so this filter is a no-op.
+            # knockout every user predicted their own bracket, so most picks for
+            # this slot are really for a different matchup (different teams
+            # reaching here) — listing them under the real fixture is noise and
+            # they can never score it anyway. The matchup rule mirrors the ganyan
+            # engine's `_matchup_correct` (strict home AND away), so what's shown
+            # equals what can earn points. For group matches the fixture is
+            # fixed, so this filter is a no-op.
+            matching = [
+                p for p in preds_by_slot.get(slot.id, [])
+                if p.home_team_id == slot.home_team_actual_id
+                and p.away_team_id == slot.away_team_actual_id
+            ]
+            # A user may have predicted the same fixture in several rounds; group
+            # their picks so points land on the right round and pools aren't
+            # double-counted.
+            by_user: dict[int, list[SlotPrediction]] = {}
+            for p in matching:
+                by_user.setdefault(p.user_id, []).append(p)
+
+            if has_result:
+                # The engine scores one round per user. Put the earned total on
+                # that round's row; the user's other rounds carry no points (they
+                # didn't count). Fall back to the sole row when the effective
+                # round is unknown (e.g. legacy rows without it set).
+                for uid, preds in by_user.items():
+                    for p in preds:
+                        p.earned_points = None
+                        p.potential_points = None
+                    entry = points_by_slot_user.get((slot.id, uid))
+                    if entry is None:
+                        continue
+                    total, eff_round_id = entry
+                    eff_row = next(
+                        (p for p in preds if p.prediction_round_id == eff_round_id), None
+                    )
+                    if eff_row is None and len(preds) == 1:
+                        eff_row = preds[0]
+                    if eff_row is not None:
+                        eff_row.earned_points = total
+            else:
+                # Pre-result: each pick shows its own best case if it lands
+                # exactly — so the rows are comparable across rounds/weights.
+                potentials = potential_max_scores_for_slot_multi(slot, by_user)
+                for uid, preds in by_user.items():
+                    for p, val in zip(preds, potentials.get(uid, [])):
+                        p.earned_points = None
+                        p.potential_points = val
+
+            # Weight badge per row: the multiplier of the round this pick is from.
+            for p in matching:
+                p.round_weight = p.prediction_round.weight
+
             slot_preds = sorted(
-                (
-                    p for (sid, _uid), p in latest_by_slot_user.items()
-                    if sid == slot.id
-                    and p.home_team_id == slot.home_team_actual_id
-                    and p.away_team_id == slot.away_team_actual_id
+                matching,
+                key=lambda p: (
+                    (p.user.nickname or p.user.email or "").lower(),
+                    p.prediction_round.order,
                 ),
-                key=lambda p: (p.user.nickname or p.user.email or "").lower(),
             )
-            # Scored match → show the points each pick earned (None when the
-            # match isn't scored, so the template tells "0 puan" from "not
-            # played"). Unscored match → show the most each *complete* pick (its
-            # matchup matches the real fixture) could still earn if it lands
-            # exactly; wrong-matchup picks are absent → label hidden.
-            potentials = (
-                {} if has_result else potential_max_scores_for_slot(slot, slot_preds)
-            )
-            for p in slot_preds:
-                p.earned_points = (
-                    points_by_slot_user.get((slot.id, p.user_id)) if has_result else None
-                )
-                p.potential_points = None if has_result else potentials.get(p.user_id)
         matches.append({
             "slot": slot,
             "actual": getattr(slot, "result", None),

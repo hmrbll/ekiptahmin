@@ -536,3 +536,60 @@ def potential_max_scores(
             total += (Decimal(pool_by_criterion[c]) / winners) * pred.round_weight
         out[uid] = total
     return out
+
+
+def potential_max_scores_multi(
+    preds_by_user: dict[int, list[Prediction]],
+    pools: StagePools,
+    home_team: str,
+    away_team: str,
+) -> dict[int, list[Decimal]]:
+    """Per-prediction best case, for users who may carry one pick per round.
+
+    Like `potential_max_scores`, but it keeps every round a user predicted
+    instead of collapsing to one — the all-predictions card lists each pick on
+    its own row with its round weight, so each row needs its own "en fazla". A
+    pick's best case is the payout it would earn if the match ended exactly as
+    it calls it (a draw-on-KO pick carrying a shootout wins the penalty pools
+    too).
+
+    Co-winner denominators count distinct USERS, not predictions: a user with
+    two picks that both satisfy a criterion still dilutes that pool by one — the
+    live engine only ever scores one round per user, so the same user can't take
+    two slices of the same pool.
+
+    Returns ``{user_id: [Decimal aligned to the input list]}``. A pick on a
+    different matchup can never score this fixture and yields ``0``; pass lists
+    already filtered to the real fixture for a clean one-value-per-real-pick map.
+    """
+    pool_by_criterion = _pool_map(pools)
+
+    def _user_wins(criterion: str, hypothetical: Result) -> int:
+        """Distinct users holding at least one fixture pick that satisfies it."""
+        return sum(
+            1 for preds in preds_by_user.values()
+            if any(
+                p.home_team == home_team and p.away_team == away_team
+                and satisfies(p, hypothetical, criterion)
+                for p in preds
+            )
+        )
+
+    out: dict[int, list[Decimal]] = {}
+    for uid, preds in preds_by_user.items():
+        row_scores: list[Decimal] = []
+        for pred in preds:
+            if pred.home_team != home_team or pred.away_team != away_team:
+                row_scores.append(Decimal("0"))
+                continue
+            hypothetical = _self_result(home_team, away_team, pred)
+            total = Decimal("0")
+            for c in CRITERIA:
+                if not satisfies(pred, hypothetical, c):
+                    continue
+                # winners >= 1: this pick's own user always counts.
+                winners = _user_wins(c, hypothetical)
+                total += (Decimal(pool_by_criterion[c]) / winners) * pred.round_weight
+            row_scores.append(total)
+        out[uid] = row_scores
+    return out
