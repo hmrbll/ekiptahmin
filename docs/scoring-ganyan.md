@@ -20,15 +20,38 @@ W_c           = unique users whose at-least-one round prediction satisfies c
 base_payout_c = pool_c / |W_c|             # if |W_c| == 0 the pool burns
 ```
 
-For each user `U` who predicted `M`, pick the **effective round** `R*`:
+For each user `U` who predicted `M`, pick the **effective round** `R*` against
+the **nominal** pools (each criterion at its full `pool_c`, before any dilution):
 
 ```
-score_UMR    = Σ_c [ sat(pred_UMR, c) × base_payout_c ]
-R*           = argmax over rounds R of (score_UMR × round_weight_R)
-score(U, M)  = score_UMR* × round_weight_R*
+nominal_UMR  = Σ_c [ sat(pred_UMR, c) × pool_c ]          # full pools, not base_payout
+R*           = argmax over rounds R of (nominal_UMR × round_weight_R)   # ties → earliest R
+score(U, M)  = Σ_c [ sat(pred_UMR*, c) × base_payout_c ] × round_weight_R*
 ```
 
-Tüm kriterler aynı turdan alınır (single effective round per user-match) — bu mevcut sistemin "max-puan-turu" mantığıyla uyumludur.
+`R*` is chosen against the full pools, so it depends only on `U`'s **own**
+predictions — never on how the crowd splits the pools. Scoring then applies the
+diluted `base_payout_c`. All criteria are taken from that single effective round.
+
+### Effective-round selection is decoupled (no fixed-point)
+
+Choosing `R*` against the diluted `base_payout_c` (the old rule) was circular:
+`base_payout_c` depends on `|W_c|`, which depends on everyone's effective rounds,
+which depends on `base_payout_c`. That needed a fixed-point iteration and could
+land on different equilibria depending on the starting guess. Selecting against
+the **nominal** pools removes the dependency entirely — every user's pick is a
+pure function of their own predictions, so the whole slot resolves in **one
+deterministic pass with a unique result**.
+
+The trade: in the rare "flip" case — a later, much-lighter-weight round holding a
+**higher tier** than an earlier heavier round — the diluted payouts could have
+made that later round pay the user marginally more. Under the nominal rule the
+user is scored on their nominal-best round instead, slightly under that
+theoretical max. This is only reachable when a user predicted the same match
+across rounds whose weights differ by more than ~⅓ (i.e. QF/SF/Final matches at
+the current weight schedule); group/R32/R16 matches never reach it. The
+deterministic, one-pass, explainable outcome is the deliberate choice. Pinned by
+`apps/scoring/tests/test_ganyan_effective_round.py`.
 
 ### Example
 
@@ -40,22 +63,26 @@ Result: 1-0. Stage pool = (exact=100, diff=100, result=100).
 | B    | —           | 2-1                |
 | C    | 1-0         | 1-0                |
 
-- N = 3 (A, B, C predicted M somewhere)
+Effective round per user (nominal pools = 100 each):
+
+- A: Pre 2-1 → {diff,result} → nominal (100+100)×1.0 = **200**; Grup 3-0 → {result} → 100×0.8 = 80 → **Pre**
+- B: only Grup 2-1 → **Grup**
+- C: Pre 1-0 → {exact,diff,result} → 300×1.0 = **300**; Grup → 300×0.8 = 240 → **Pre**
+
+Winner counts from those effective picks:
+
+- N = 3 (A, B, C predicted M)
 - Exact winners: {C} → base = 100/1 = 100
-- Diff winners: {A (Pre), B (Grup-sonra), C} → base = 100/3 = 33.33
+- Diff winners: {A, B, C} → base = 100/3 = 33.33
 - Result winners: {A, B, C} → base = 100/3 = 33.33
 
-Per-user effective round and score:
+Match scores:
 
-| User | Round | sat(exact/diff/result) | Round score | × weight | Match score |
-|------|-------|------------------------|-------------|----------|-------------|
-| A    | Pre   | (0, 0, 33.33)          | 33.33       | × 1.0    | **33.33**   |
-| A    | Grup  | (0, 0, 33.33)          | 33.33       | × 0.8    | 26.67       |
-| B    | Grup  | (0, 33.33, 33.33)      | 66.67       | × 0.8    | **53.33**   |
-| C    | Pre   | (100, 33.33, 33.33)    | 166.67      | × 1.0    | **166.67**  |
-| C    | Grup  | (100, 33.33, 33.33)    | 166.67      | × 0.8    | 133.33      |
-
-Highlighted row per user is the effective round.
+| User | R*   | base payouts (exact/diff/result) | × weight | Match score |
+|------|------|----------------------------------|----------|-------------|
+| A    | Pre  | (0, 33.33, 33.33) = 66.67        | × 1.0    | **66.67**   |
+| B    | Grup | (0, 33.33, 33.33) = 66.67        | × 0.8    | **53.33**   |
+| C    | Pre  | (100, 33.33, 33.33) = 166.67     | × 1.0    | **166.67**  |
 
 ### Burn condition
 

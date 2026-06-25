@@ -12,14 +12,20 @@ Mechanic — for one match (BracketSlot) at a time:
    penalty_score / penalty_diff) score the shootout, and only apply on knockout
    matches that actually went to penalties.
 3. For each user we pick ONE effective round — the one that maximizes the
-   user's weighted total payout. The effective round's prediction supplies
-   the user's per-criterion payouts; other rounds don't earn.
+   user's weighted total against the NOMINAL pools (every criterion valued at
+   its full size). This depends only on the user's own predictions, so it is
+   deterministic and order-independent; the effective round's prediction
+   supplies the user's per-criterion payouts, other rounds don't earn.
 4. base_payout_c = pool_c / |W_c|, where W_c = users whose effective round
    satisfies c. Pool burns if no one is in W_c.
 
-The effective-round choice depends on base_payouts (which depend on |W_c|,
-which depends on effective rounds) → fixed-point. We iterate to convergence
-(typically 1-2 passes for ~30 users). See docs/scoring-ganyan.md.
+Picking against the nominal (full) pools instead of the diluted payouts keeps
+each user's choice decoupled from everyone else's: one pass, one unique result,
+no fixed-point iteration. In the rare case where dilution would have made a
+different round pay a user more (only reachable when a later, much-lighter round
+holds a higher-tier prediction), that user is scored slightly under their
+theoretical max — the deterministic, explainable outcome is the deliberate
+trade. See docs/scoring-ganyan.md.
 
 Outcome label (mutually exclusive, highest tier): EXACT > DIFF > RESULT >
 PENALTY > MISS. The single PENALTY tier fires when a user earned from any
@@ -306,7 +312,6 @@ def compute_slot(
     predictions_by_user: dict[int, list[Prediction]],
     result: Result,
     pools: StagePools,
-    max_iterations: int = 10,
 ) -> tuple[dict[int, UserScore], list[PoolStats]]:
     """Score one match for all users who predicted it.
 
@@ -319,36 +324,30 @@ def compute_slot(
 
     pool_by_criterion = _pool_map(pools)
 
-    # ---- Iterate to fixed point. ----
-    # Initial guess: pool sizes as payouts (independent of |W_c|).
-    payouts: dict[str, Decimal] = {c: Decimal(pool_by_criterion[c]) for c in CRITERIA}
+    # ---- Pick each user's effective round (single deterministic pass). ----
+    # The effective round maximizes the user's weighted total against the
+    # NOMINAL pools (each criterion at its full size). That choice depends only
+    # on the user's own predictions — not on how the crowd splits the pools — so
+    # there is no circular dependency and no iteration: one pass, one unique
+    # result. (Scoring then uses the diluted payouts below.)
+    nominal_payouts: dict[str, Decimal] = {c: Decimal(pool_by_criterion[c]) for c in CRITERIA}
     effective: dict[int, tuple[Prediction, dict[str, bool]]] = {}
+    for uid, preds in predictions_by_user.items():
+        best_pred, _, best_sat = _pick_effective_round(preds, result, nominal_payouts)
+        effective[uid] = (best_pred, best_sat)
 
-    for _ in range(max_iterations):
-        new_effective = {}
-        for uid, preds in predictions_by_user.items():
-            best_pred, _, best_sat = _pick_effective_round(preds, result, payouts)
-            new_effective[uid] = (best_pred, best_sat)
-
-        # Recompute W_c from current effective-round picks.
-        winner_count = {c: 0 for c in CRITERIA}
-        for _pred, sat in new_effective.values():
-            for c in CRITERIA:
-                if sat[c]:
-                    winner_count[c] += 1
-
-        new_payouts = {
-            c: (Decimal(pool_by_criterion[c]) / winner_count[c]) if winner_count[c] else Decimal("0")
-            for c in CRITERIA
-        }
-
-        if new_effective == effective and new_payouts == payouts:
-            payouts = new_payouts
-            effective = new_effective
-            break
-        effective = new_effective
-        payouts = new_payouts
-    # If we ran out of iterations, last computed `effective` + `payouts` are used.
+    # ---- Diluted payouts from the fixed effective picks. ----
+    # base_payout_c = pool_c / |W_c|, where W_c = users whose effective round
+    # satisfies c. Pool burns (payout 0) when no effective pick satisfies c.
+    winner_count = {c: 0 for c in CRITERIA}
+    for _pred, sat in effective.values():
+        for c in CRITERIA:
+            if sat[c]:
+                winner_count[c] += 1
+    payouts = {
+        c: (Decimal(pool_by_criterion[c]) / winner_count[c]) if winner_count[c] else Decimal("0")
+        for c in CRITERIA
+    }
 
     # ---- Build UserScore rows. ----
     user_scores: dict[int, UserScore] = {}
@@ -382,11 +381,7 @@ def compute_slot(
     predictor_count = sum(
         1 for pred, _sat in effective.values() if _matchup_correct(pred, result)
     )
-    winner_count = {c: 0 for c in CRITERIA}
-    for _pred, sat in effective.values():
-        for c in CRITERIA:
-            if sat[c]:
-                winner_count[c] += 1
+    # winner_count was already tallied above (drives both payouts and PoolStats).
 
     # Breakdown counts use each user's effective-round prediction (avoids
     # double-counting users who predicted differently across rounds), and
