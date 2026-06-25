@@ -195,7 +195,8 @@ class MatchPool(models.Model):
     )
     predictor_count = models.PositiveIntegerField(
         default=0,
-        help_text="Total unique users who predicted this slot in any round (= N).",
+        help_text="Users whose effective pick is on the actual fixture (= N). "
+                  "Wrong-matchup picks (a different bracket) are excluded.",
     )
     winner_count = models.PositiveIntegerField(
         default=0,

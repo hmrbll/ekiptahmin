@@ -159,7 +159,7 @@ Each pick is its own row, tagged with a **round-weight badge** — e.g. `(0,85x)
   - `pool_size` (snapshot of `Stage.pool_<criterion>` at compute time)
   - `winner_count` (|W_c|)
   - `base_payout` (`pool_size / winner_count` or null if burned)
-  - `predictor_count` (N — total unique predictors for slot)
+  - `predictor_count` (N — users whose effective pick is on the actual fixture; wrong-matchup picks from a different bracket are excluded, matching the breakdown)
   - `breakdown` (JSON: `{prediction_value: count}` for the ganyan tablosu UI)
   - `computed_at`
   - Unique on (slot, criterion).

@@ -374,7 +374,14 @@ def compute_slot(
         )
 
     # ---- Build PoolStats rows. ----
-    predictor_count = len(predictions_by_user)
+    # N counts only users whose effective pick is on the actual fixture — the
+    # same picks the breakdown shows. A knockout slot collects predictions from
+    # everyone's bracket, but a pick on a different matchup (e.g. USA-MEX for
+    # what turned out to be BRA-ARG) didn't predict *this* match, so it neither
+    # appears in the breakdown nor counts toward N.
+    predictor_count = sum(
+        1 for pred, _sat in effective.values() if _matchup_correct(pred, result)
+    )
     winner_count = {c: 0 for c in CRITERIA}
     for _pred, sat in effective.values():
         for c in CRITERIA:
@@ -382,10 +389,8 @@ def compute_slot(
                 winner_count[c] += 1
 
     # Breakdown counts use each user's effective-round prediction (avoids
-    # double-counting users who predicted differently across rounds).
-    # Wrong-matchup predictions (e.g. user predicted USA-MEX for what turned
-    # out to be BRA-ARG) are excluded from breakdowns — they still count as
-    # predictors of the slot (N), but their score/diff bucket doesn't apply.
+    # double-counting users who predicted differently across rounds), and
+    # exclude wrong-matchup picks — consistent with N above.
     breakdowns = {c: {} for c in CRITERIA}
     for pred, _sat in effective.values():
         if not _matchup_correct(pred, result):
