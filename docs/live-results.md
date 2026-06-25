@@ -132,6 +132,27 @@ and is idempotent:
 Winner determination mirrors scoring: penalties → shootout winner; otherwise the
 higher **effective** score (120' if the match went to extra time, else 90').
 
+## Staff result-entry wizard (`/admin/results/`, `apps/scoring/admin_views.py`)
+
+A staff-only fallback for entering or correcting scores by hand — the live sync
+is the normal path, writing `ActualResult` (`source=API`) automatically on
+FINISHED. The wizard mirrors the prediction wizard's step structure and saves
+each row over HTMX.
+
+- **Teams are never picked when known.** A knockout row shows its teams as fixed
+  labels with SVG flags, exactly like group rows — the bracket resolver fills
+  them from prior results (groups → R32 → R16 → …). A **team picker** appears
+  only for a knockout slot that hasn't resolved yet (e.g. its feeding round isn't
+  played). Its options are `Name (CODE)` — no flag emoji, which Windows renders
+  as a bare two-letter code in a `<select>`.
+- **Penalties are derived, not a checkbox.** A level knockout score *is* a
+  shootout, so entering equal scores reveals the penalty winner + score fields
+  automatically; `ActualResult.went_to_penalties` is computed from the draw
+  (`ActualResultForm.clean`), never toggled. A decisive score clears the shootout
+  fields. (The raw Django `ActualResult` admin still exposes the boolean.)
+- The "Went to extra time" flag stays a manual checkbox — see the manual-ET
+  follow-up below.
+
 ## Knockout scoring rule (120' vs 90')
 
 For knockout matches, the regulation criteria (exact / diff / result) are judged

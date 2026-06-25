@@ -20,7 +20,7 @@
             <h2 class="text-xl font-semibold text-fg-soft mb-3">Group {{ group.letter }}</h2>
             <ul class="space-y-3">
                 {% for item in group.items %}
-                {% include "admin_results/_slot_row.html" with slot=item.slot actual=item.actual result_form=item.result_form teams_form=item.teams_form %}
+                {% include "admin_results/_slot_row.html" with slot=item.slot actual=item.actual result_form=item.result_form teams_form=item.teams_form is_draw=item.is_draw %}
                 {% endfor %}
             </ul>
         </section>
