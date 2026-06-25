@@ -329,7 +329,10 @@ class TestSaveViewInvalidation:
 
 
 @pytest.mark.django_db
-class TestCarryOverPrefillSkippedWhenMatchupChanged:
+class TestPreviousPickReference:
+    """The previous round's pick is shown read-only as a reference (never
+    prefilled into the inputs), and only while its matchup still lines up."""
+
     def _make_prev_round(self, tournament, stages, order=0, days_ago=1):
         prev = PredictionRound.objects.create(
             tournament=tournament, name=f"Prev-{order}", order=order,
@@ -338,7 +341,7 @@ class TestCarryOverPrefillSkippedWhenMatchupChanged:
         prev.editable_stages.set(stages)
         return prev
 
-    def test_prefill_dropped_when_derived_matchup_differs(
+    def test_no_reference_when_derived_matchup_differs(
         self, client, user, tournament, full_round,
         r32_a, r32_b, r16_cascaded,
         stage_group, stage_r32, stage_r16, stage_qf,
@@ -362,13 +365,15 @@ class TestCarryOverPrefillSkippedWhenMatchupChanged:
 
         assert r.status_code == 200
         content = r.content.decode()
-        # Matchup changed (BRA vs ARG now) → the 19-3 scoreline must not carry
-        # over; the score input renders empty.
+        # Score never prefills; the input renders empty.
         assert re.search(r'name="home_score"\s+value=""', content)
         assert not re.search(r'name="home_score"\s+value="19"', content)
+        # Matchup changed (BRA vs ARG now) → the old 19-3 pick is irrelevant here
+        # and must NOT show as a reference.
+        assert "19–3" not in content
         assert team_bra.name_tr in content
 
-    def test_prefill_kept_when_matchup_unchanged(
+    def test_reference_shown_when_matchup_unchanged(
         self, client, user, tournament, full_round,
         r32_a, r32_b, r16_cascaded,
         stage_group, stage_r32, stage_r16, stage_qf,
@@ -390,4 +395,74 @@ class TestCarryOverPrefillSkippedWhenMatchupChanged:
             "predict_knockout_stage_step", args=[full_round.id, "R16"]))
 
         assert r.status_code == 200
-        assert re.search(r'name="home_score"\s+value="19"', r.content.decode())
+        content = r.content.decode()
+        # The 19-3 score is NOT prefilled — it's shown as a labelled reference.
+        assert not re.search(r'name="home_score"\s+value="19"', content)
+        assert re.search(r'name="home_score"\s+value=""', content)
+        assert "19–3" in content
+        assert "Prev-0" in content  # the source round's name
+
+    def test_all_prior_rounds_shown_earliest_first(
+        self, client, user, tournament, full_round,
+        r32_a, r32_b, r16_cascaded,
+        stage_group, stage_r32, stage_r16, stage_qf,
+        team_tur, team_bra, team_arg, team_ger,
+    ):
+        # Open round is order 2; two closed earlier rounds both predicted the
+        # same R16 matchup with different scores.
+        full_round.order = 2
+        full_round.save()
+        stages = [stage_group, stage_r32, stage_r16, stage_qf]
+        r0 = self._make_prev_round(tournament, stages, order=0, days_ago=2)
+        r1 = self._make_prev_round(tournament, stages, order=1, days_ago=1)
+        r1.weight = Decimal("0.85")  # distinct weight → distinct badge
+        r1.save()
+        for rnd, r16_score in ((r0, (1, 2)), (r1, (3, 0))):
+            _predict(user, rnd, r32_a, team_tur, team_bra, 2, 1)
+            _predict(user, rnd, r32_b, team_arg, team_ger, 1, 0)
+            _predict(user, rnd, r16_cascaded, team_tur, team_arg, *r16_score)
+        # Same winners again in the open round → matchup unchanged.
+        _predict(user, full_round, r32_a, team_tur, team_bra, 2, 1)
+        _predict(user, full_round, r32_b, team_arg, team_ger, 1, 0)
+
+        client.force_login(user)
+        r = client.get(reverse(
+            "predict_knockout_stage_step", args=[full_round.id, "R16"]))
+        content = r.content.decode()
+        # BOTH prior rounds' picks show as references, earliest round first.
+        assert "Prev-0" in content and "Prev-1" in content
+        assert "1–2" in content and "3–0" in content
+        assert content.index("Prev-0") < content.index("Prev-1")
+        # Each reference carries its round's weight multiplier.
+        assert "(1,00x)" in content and "(0,85x)" in content
+        # Still nothing prefilled into the editable score input.
+        assert re.search(r'name="home_score"\s+value=""', content)
+
+    def test_references_persist_after_current_round_pick(
+        self, client, user, tournament, full_round,
+        r32_a, r32_b, r16_cascaded,
+        stage_group, stage_r32, stage_r16, stage_qf,
+        team_tur, team_bra, team_arg, team_ger,
+    ):
+        full_round.order = 1
+        full_round.save()
+        prev = self._make_prev_round(
+            tournament, [stage_group, stage_r32, stage_r16, stage_qf])
+        _predict(user, prev, r32_a, team_tur, team_bra, 2, 1)
+        _predict(user, prev, r32_b, team_arg, team_ger, 1, 0)
+        _predict(user, prev, r16_cascaded, team_tur, team_arg, 19, 3)
+
+        # Same winners + a fresh R16 pick THIS round (matchup unchanged).
+        _predict(user, full_round, r32_a, team_tur, team_bra, 2, 1)
+        _predict(user, full_round, r32_b, team_arg, team_ger, 1, 0)
+        _predict(user, full_round, r16_cascaded, team_tur, team_arg, 5, 0)
+
+        client.force_login(user)
+        r = client.get(reverse(
+            "predict_knockout_stage_step", args=[full_round.id, "R16"]))
+        content = r.content.decode()
+        # This round's pick is in the inputs...
+        assert re.search(r'name="home_score"\s+value="5"', content)
+        # ...and the earlier round's pick still shows as a reference below it.
+        assert "Prev-0" in content
+        assert "19–3" in content

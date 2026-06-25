@@ -118,6 +118,14 @@
             </div>
         </div>
 
+        {% for ref in prev_refs %}
+        <div class="text-xs text-fg-muted">
+            <span class="text-fg-soft">{{ ref.prediction_round.name }}</span> tahminin
+            <span class="font-mono text-fg-muted">({{ ref.prediction_round.weight|floatformat:2 }}x)</span>:
+            <span class="font-mono">{{ ref.home_score }}–{{ ref.away_score }}</span>{% if ref.penalty_winner %} <span>(pen: {{ ref.penalty_winner.code }})</span>{% endif %}
+        </div>
+        {% endfor %}
+
         {% if slot.stage.kind != "GROUP" %}
         <div class="penalty-section hidden mt-2 rounded-xl border border-line bg-surface/40 p-3"
              data-penalty-section="{{ slot.id }}">

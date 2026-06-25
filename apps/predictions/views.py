@@ -334,41 +334,43 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
     )
     instance = this_round_pred
     initial: dict = {}
-    if instance is None and not readonly:
-        prev = (
+    priors: list = []
+    if not readonly:
+        priors = list(
             SlotPrediction.objects
             .filter(
                 user=request.user, slot=slot,
                 prediction_round__order__lt=pr.order,
             )
-            .select_related("home_team", "away_team")
-            .order_by("-prediction_round__order")
-            .first()
+            .select_related(
+                "home_team", "away_team", "penalty_winner", "prediction_round",
+            )
+            .order_by("prediction_round__order")  # earliest round first
         )
-        if prev:
-            initial = {
-                "home_team": prev.home_team, "away_team": prev.away_team,
-                "home_score": prev.home_score, "away_score": prev.away_score,
-                "home_penalties": prev.home_penalties,
-                "away_penalties": prev.away_penalties,
-            }
+        if instance is None and priors:
+            # No pick yet this round: seed only the teams from the most recent
+            # prior pick (for free-dropdown slots and the matchup compare below).
+            # The score is deliberately NOT carried over — each round is a fresh
+            # pick; prior picks are shown read-only as references instead.
+            latest = priors[-1]
+            initial = {"home_team": latest.home_team, "away_team": latest.away_team}
 
     form = SlotPredictionForm(
         instance=instance, initial=initial,
         user=request.user, prediction_round=pr, slot=slot,
     )
 
-    # Carry-over prefill only makes sense while the matchup is the same match.
-    # If the derived teams (written into form.initial by the form itself)
-    # differ from the previous round's teams, drop the stale scoreline so the
-    # slot renders as never predicted.
-    if instance is None and initial and (
-        form.initial.get("home_team") != initial.get("home_team")
-        or form.initial.get("away_team") != initial.get("away_team")
-    ):
-        for key in ("home_score", "away_score",
-                    "home_penalties", "away_penalties"):
-            form.initial.pop(key, None)
+    # Surface EVERY prior round's pick whose matchup still lines up with this
+    # slot's matchup, read-only, earliest round first — and keep showing them
+    # even after a pick exists for THIS round, so the user can always compare.
+    # Compare by team id: form.initial holds Team objects for locked/derived
+    # sides but plain ids (from the instance) on free dropdowns.
+    dh, da = form.initial.get("home_team"), form.initial.get("away_team")
+    derived_home_id, derived_away_id = getattr(dh, "id", dh), getattr(da, "id", da)
+    prev_refs = [
+        p for p in priors
+        if p.home_team_id == derived_home_id and p.away_team_id == derived_away_id
+    ]
 
     display_home = slot.home_team_actual
     display_away = slot.away_team_actual
@@ -406,6 +408,7 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
         "cascade_blocked_on": form.cascade_blocked_on,
         "round": pr,
         "readonly": readonly,
+        "prev_refs": prev_refs,
     }
 
 
