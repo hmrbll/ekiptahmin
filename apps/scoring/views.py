@@ -129,10 +129,10 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
     for score in scores:
         slot = score.slot
         actual = actuals_by_slot.get(slot.id)
-        # Predictions go public once the result is in (not merely at kickoff).
-        revealed = actual is not None
+        # Predictions go public once the slot is locked (kickoff) or scored.
+        is_locked = slot.is_locked or actual is not None
         raw_prediction = _earning_or_latest_prediction(target, slot, score.effective_round_id)
-        prediction_visible = is_self or revealed
+        prediction_visible = is_self or is_locked
         label, badge_cls = _OUTCOME_BADGE.get(score.outcome, ("", ""))
         sections_by_kind.setdefault(slot.stage.kind, []).append({
             "slot": slot,
@@ -333,9 +333,10 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
         "tournament": slot.tournament,
         "slot": slot,
         "actual": actual,
-        # Ganyan tablosu (incl. the pre-result pool preview) goes public once the
-        # result is in, not at kickoff — consistent with the home-grid chips.
-        "revealed": actual is not None,
+        # Tablosu (incl. the pre-result pool preview) is public once the slot is
+        # locked (kickoff) or scored. (The home-grid chips are result-only — they
+        # need GanyanScore.outcome for colour coding.)
+        "is_locked": slot.is_locked or actual is not None,
         "pools": pools_view,
         "user_payouts": user_payouts,
     })
