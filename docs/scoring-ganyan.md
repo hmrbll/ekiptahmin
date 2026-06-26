@@ -203,14 +203,14 @@ Single signal handler on `ActualResult` post-save:
 3. Invalidate leaderboard caches for affected users
 ```
 
-`MatchPool` rows are also recomputed on `SlotPrediction` write **after lock**, so the ganyan tablosu UI stays accurate if a prediction is corrected by an admin post-lock. (Pre-lock predictions don't trigger; the tablosu only shows post-lock.)
+`MatchPool` rows are also recomputed on `SlotPrediction` write **after lock**, so the ganyan tablosu stays accurate if a prediction is corrected by an admin post-lock. (Pre-lock predictions don't trigger.) **Reveal gate:** the match-detail tablosu — and the home-grid prediction chips and the per-user prediction list — only become visible **once the slot's result is entered**, not at kickoff (`actual is not None`, applied in `config/views._chips_for_slots` and `apps/scoring/views`). The staff-only `/legacy/*` user-detail keeps the older "kickoff or result" reveal.
 
 ## URLs
 
 | Path | Audience | Source |
 |------|----------|--------|
 | `/` | Public | GanyanScore + new tiebreaker |
-| `/matches/<slot_id>/` (new) | Public | Match detail + ganyan tablosu (post-lock) |
+| `/matches/<slot_id>/` (new) | Public | Match detail + ganyan tablosu (post-result) |
 | `/legacy/leaderboard/` | `staff_member_required` | SlotScore + legacy tiebreaker |
 | `/legacy/results/` | `staff_member_required` | Existing results view, re-routed |
 | `/legacy/scoring-diff/` | `staff_member_required` | Side-by-side: SlotScore vs GanyanScore per user |

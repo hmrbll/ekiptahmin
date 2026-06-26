@@ -416,3 +416,46 @@ class TestLeaderboardCountColumns:
         me = entries[0]
         assert me.counts.get("miss") == 1
         assert me.counts.get("no_prediction") == 1
+
+
+@pytest.mark.django_db
+class TestMatchDetailReveal:
+    """The ganyan tablosu (and its pre-result pool preview) is revealed once the
+    slot's result is entered — not at kickoff. Consistent with the home-grid
+    chips' result-only reveal rule."""
+
+    def _locked_slot(self, t, group_stage, tur, bra):
+        return BracketSlot.objects.create(
+            tournament=t, stage=group_stage, position="GroupA-M1",
+            scheduled_kickoff=timezone.now() - timedelta(hours=2),  # kickoff passed
+            home_team_actual=tur, away_team_actual=bra,
+        )
+
+    def test_tablosu_hidden_until_result_even_after_kickoff(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        slot = self._locked_slot(t, group_stage, tur, bra)
+        u = User.objects.create_user(email="u@x.com", username="u@x.com", nickname="U")
+        # Locked-slot prediction write builds the pre-result MatchPool rows.
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        body = client.get(reverse("match_detail", args=[slot.id])).content.decode("utf-8")
+        # Placeholder shown; the tablosu heading and the predicted score stay hidden.
+        assert "sonucu girilince görünür" in body
+        assert "Ganyan Tablosu" not in body  # heading (capital T) only in revealed branch
+
+    def test_tablosu_visible_after_result(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        slot = self._locked_slot(t, group_stage, tur, bra)
+        u = User.objects.create_user(email="u@x.com", username="u@x.com", nickname="U")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        body = client.get(reverse("match_detail", args=[slot.id])).content.decode("utf-8")
+        assert "Ganyan Tablosu" in body
+        assert "sonucu girilince görünür" not in body
