@@ -306,6 +306,54 @@ class TestHomeAuthenticated:
         # Both predicted scores show as chips (verbatim with en-dash).
         assert "2–1" in body and "3–0" in body
 
+    def test_chips_appear_once_result_entered_even_before_kickoff(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """Chip visibility is gated on RESULT entry, not kickoff: a slot whose
+        kickoff is still in the future but already has a result reveals every
+        user's chips. (Covers pre-entered results / out-of-order scoring.)"""
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1",
+                     timezone.now() + timedelta(days=2), tur, bra)  # FUTURE kickoff
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        # Both chips show despite the kickoff being days away.
+        assert "Rival" in body
+        assert "2–1" in body and "3–0" in body
+
+    def test_chips_hidden_until_result_entered(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """No result yet → other users' chips stay hidden, even if the viewer
+        sees their own prediction line in the upcoming card."""
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1",
+                     timezone.now() + timedelta(days=1), tur, bra)  # future, no result
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        # Rival's chip is hidden (no result yet); only the viewer's own line shows.
+        assert "Rival" not in body
+        assert "3–0" not in body
+
     def test_recent_match_chips_carry_matchup_colour_classes(
         self, client, t, group_stage, pre_round, tur, bra,
     ):

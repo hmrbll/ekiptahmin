@@ -39,28 +39,30 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     """For each slot in `slot_ids`, return the list of "prediction chips" —
     one per user whose prediction is visible.
 
-    Visibility rule: post-lock predictions are public. Pre-lock predictions
-    are hidden (slot.is_locked drives the chip set per slot).
+    Visibility rule: a slot's predictions become public once its RESULT is
+    entered (not merely at kickoff). A slot without an ActualResult yields no
+    chips, so the set stays empty until the match is scored.
 
     Each chip carries the prediction's score, the user's nickname, and a
-    `matchup_type` for colour coding. After result entry the colour reflects
-    the user's GanyanScore.outcome; before result it's None (neutral chip).
+    `matchup_type` (the user's GanyanScore.outcome) for colour coding. Since a
+    chip only appears once the result is in, the colour always reflects a real
+    outcome tier.
     """
     if not slot_ids:
         return {}
 
-    slots_by_id = {
-        s.id: s for s in BracketSlot.objects.filter(id__in=slot_ids).only(
-            "id", "scheduled_kickoff",
-        )
-    }
-    locked_slot_ids = [sid for sid, s in slots_by_id.items() if s.is_locked]
-    if not locked_slot_ids:
+    # A slot's predictions are revealed only once its result is entered.
+    visible_slot_ids = list(
+        ActualResult.objects
+        .filter(slot_id__in=slot_ids)
+        .values_list("slot_id", flat=True)
+    )
+    if not visible_slot_ids:
         return {}
 
     preds = list(
         SlotPrediction.objects
-        .filter(slot_id__in=locked_slot_ids)
+        .filter(slot_id__in=visible_slot_ids)
         .select_related("user", "home_team", "away_team", "prediction_round")
         .order_by("slot_id", "user_id", "-prediction_round__order")
     )
@@ -69,11 +71,11 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     for p in preds:
         preds_by_user.setdefault((p.slot_id, p.user_id), []).append(p)
 
-    # GanyanScore rows for the locked slots — only exist when a result is in.
-    # Keyed (slot_id, user_id) to match the per-prediction `key` used below.
+    # GanyanScore rows for the visible (result-entered) slots. Keyed
+    # (slot_id, user_id) to match the per-prediction `key` used below.
     ganyan_by_user_slot: dict[tuple[int, int], GanyanScore] = {
         (gs.slot_id, gs.user_id): gs
-        for gs in GanyanScore.objects.filter(slot_id__in=locked_slot_ids)
+        for gs in GanyanScore.objects.filter(slot_id__in=visible_slot_ids)
     }
 
     chips: dict[int, list[dict]] = {}
