@@ -6,13 +6,16 @@ is the user-facing gate.
 
 Cascade rule (knockout R16 and beyond):
 - BracketSlot has FK links (home_source_slot, away_source_slot) to the
-  prior-round slots whose winner/loser feeds each side.
+  earlier-stage slots whose winner/loser feeds each side.
 - When the user opens the form for a cascaded slot, we look up THEIR own
-  prediction for the source slots in any round and derive the team.
+  prediction for the source slots IN THIS ROUND and derive the team. Rounds
+  are isolated — an earlier round's bracket is never inherited; each round is
+  predicted from scratch (resolved actual matchups still show, via
+  `BracketSlot.*_team_actual`, which takes precedence).
 - Team fields render disabled, locked to the derived team. Score fields
   remain editable.
-- If the user hasn't predicted the source slot yet, the form is blocked
-  with a `cascade_blocked` flag — the view shows a "predict X first" page.
+- If the user hasn't predicted the source slot in this round yet, the form is
+  blocked with a `cascade_blocked` flag — the view shows a "predict X first" page.
 
 Derivation helpers live in `cascade.py` (shared with the post-save
 invalidation pass that deletes stale downstream predictions). The derived
@@ -31,14 +34,14 @@ from .models import SlotPrediction
 from .standings import derive_best_third_for_slot, derive_group_team
 
 
-def _format_slot_blocker_label(user, source_slot: BracketSlot) -> str:
+def _format_slot_blocker_label(user, source_slot: BracketSlot, prediction_round) -> str:
     """Label for a knockout cascade blocker. Prefers concrete team names
-    (resolved via the user's earlier predictions or admin-entered actuals)
+    (resolved via the user's predictions in this round or admin-entered actuals)
     and falls back to the textual `home_source` / `away_source` per side
     when no path resolves yet.
     """
-    home_team = resolve_slot_side_team(user, source_slot, "home")
-    away_team = resolve_slot_side_team(user, source_slot, "away")
+    home_team = resolve_slot_side_team(user, source_slot, "home", prediction_round)
+    away_team = resolve_slot_side_team(user, source_slot, "away", prediction_round)
     home_text = home_team.name_tr if home_team else (source_slot.home_source or "?")
     away_text = away_team.name_tr if away_team else (source_slot.away_source or "?")
     return f"{source_slot.position} — {home_text} vs {away_text}"
@@ -107,10 +110,10 @@ class SlotPredictionForm(forms.ModelForm):
         source_slot = getattr(slot, f"{side}_source_slot")
         if source_slot:
             kind = getattr(slot, f"{side}_source_kind")
-            team = derive_cascaded_team(user, source_slot, kind)
+            team = derive_cascaded_team(user, source_slot, kind, self.prediction_round)
             if team is None:
                 self.cascade_blocked_on.append({
-                    "label": _format_slot_blocker_label(user, source_slot),
+                    "label": _format_slot_blocker_label(user, source_slot, self.prediction_round),
                     "slot": source_slot,
                 })
             else:
@@ -120,7 +123,7 @@ class SlotPredictionForm(forms.ModelForm):
         group_letter = getattr(slot, f"{side}_source_group_letter")
         group_position = getattr(slot, f"{side}_source_group_position")
         if group_letter and group_position:
-            team = derive_group_team(user, slot.tournament, group_letter, group_position)
+            team = derive_group_team(user, slot.tournament, group_letter, group_position, self.prediction_round)
             if team is None:
                 self.cascade_blocked_on.append({
                     "label": f"{group_letter} Grubu {group_position}.si — grup maçlarını tahmin et",
@@ -136,7 +139,7 @@ class SlotPredictionForm(forms.ModelForm):
             # groups' third-place finishers for this slot, given which 8
             # qualify. The user doesn't choose — it falls out of their group
             # predictions deterministically.
-            team = derive_best_third_for_slot(user, slot.tournament, slot)
+            team = derive_best_third_for_slot(user, slot.tournament, slot, self.prediction_round)
             if team is None:
                 letters = [c for c in thirds_groups.split(",") if c.strip()]
                 self.cascade_blocked_on.append({

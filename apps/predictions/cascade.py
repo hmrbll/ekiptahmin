@@ -6,6 +6,14 @@ user edits an upstream prediction, the derived matchup of downstream slots can
 change — any stored prediction whose teams no longer match the derivation is
 stale and must be deleted ("looks never predicted"), per product rule.
 
+Round isolation: derivation reads ONLY the predictions made in the round being
+derived — a later round never inherits an earlier round's bracket. Each round is
+predicted from scratch (e.g. Son 16 in "Grup sonrası" derives from that round's
+own Son 32 picks, not the pre-tournament ones). The shared cross-round
+foundation is *actual* results: as games are played, `tournament.resolver` writes
+the real teams into `BracketSlot.*_team_actual`, which every derivation path
+checks first — so resolved matchups show in every round.
+
 Two layers:
 - `derive_cascaded_team` / `resolve_slot_side_team`: shared derivation used by
   both the form (rendering/locking team fields) and the invalidation pass.
@@ -30,19 +38,19 @@ from .standings import (
 )
 
 
-def derive_cascaded_team(user, source_slot: BracketSlot, source_kind: str):
-    """Look up the user's latest prediction for `source_slot` and return the
-    winner or loser team based on `source_kind`. Returns None if no
-    prediction exists or the prediction has no determinate winner (draw
-    without penalty winner).
+def derive_cascaded_team(user, source_slot: BracketSlot, source_kind: str, prediction_round):
+    """Look up the user's prediction for `source_slot` in `prediction_round` and
+    return the winner or loser team based on `source_kind`. Returns None if the
+    user has no prediction for that slot in this round (round-isolated — an
+    earlier round's pick is never inherited) or the prediction has no determinate
+    winner (draw without penalty winner).
     """
     if source_slot is None:
         return None
     pred = (
         SlotPrediction.objects
-        .filter(user=user, slot=source_slot)
+        .filter(user=user, slot=source_slot, prediction_round=prediction_round)
         .select_related("home_team", "away_team", "penalty_winner")
-        .order_by("-prediction_round__order")
         .first()
     )
     if pred is None:
@@ -50,12 +58,15 @@ def derive_cascaded_team(user, source_slot: BracketSlot, source_kind: str):
     return pred.winner_team() if source_kind == BracketSlot.SOURCE_KIND_WINNER else pred.loser_team()
 
 
-def resolve_slot_side_team(user, slot: BracketSlot, side: str, memo: dict | None = None):
+def resolve_slot_side_team(user, slot: BracketSlot, side: str, prediction_round, memo: dict | None = None):
     """Best-effort: figure out which Team belongs in `side` of `slot` for this user.
 
-    Precedence: actual (admin-set) → upstream slot cascade → group standings
-    → best-third. Returns the Team or None if no path resolves (e.g. user
-    hasn't predicted enough upstream slots yet).
+    Precedence: actual (admin-set / resolver) → upstream slot cascade → group
+    standings → best-third. The prediction-derived paths read only
+    `prediction_round` (round isolation); `*_team_actual` is the shared
+    cross-round foundation and wins outright. Returns the Team or None if no
+    path resolves (e.g. user hasn't predicted enough upstream slots in this
+    round yet).
 
     `memo` (optional, shared across calls within one pass) caches group
     standings and the qualifying-thirds computation — those depend only on
@@ -73,28 +84,30 @@ def resolve_slot_side_team(user, slot: BracketSlot, side: str, memo: dict | None
     source_slot = getattr(slot, f"{side}_source_slot")
     if source_slot:
         kind = getattr(slot, f"{side}_source_kind")
-        return derive_cascaded_team(user, source_slot, kind)
+        return derive_cascaded_team(user, source_slot, kind, prediction_round)
 
     group_letter = getattr(slot, f"{side}_source_group_letter")
     group_position = getattr(slot, f"{side}_source_group_position")
     if group_letter and group_position:
-        return _group_team_memo(user, slot.tournament, group_letter, group_position, memo)
+        return _group_team_memo(user, slot.tournament, group_letter, group_position, prediction_round, memo)
 
     thirds_groups = getattr(slot, f"{side}_source_thirds_groups")
     if thirds_groups:
         if "thirds" not in memo:
-            memo["thirds"] = qualifying_thirds(user, slot.tournament)
+            memo["thirds"] = qualifying_thirds(user, slot.tournament, prediction_round)
         qualifying, third_by_letter = memo["thirds"]
         return best_third_from_qualifying(slot.tournament, slot, qualifying, third_by_letter)
 
     return None
 
 
-def _group_team_memo(user, tournament, letter: str, position: int, memo: dict):
+def _group_team_memo(user, tournament, letter: str, position: int, prediction_round, memo: dict):
     """`derive_group_team` with the standings table cached in `memo`."""
     key = ("group_standings", letter)
     if key not in memo:
-        memo[key] = standings_for_group(user, tournament, letter, pad_with_zeros=False)
+        memo[key] = standings_for_group(
+            user, tournament, letter, prediction_round, pad_with_zeros=False,
+        )
     standings = memo[key]
     if len(standings) < position:
         return None
@@ -157,7 +170,7 @@ def _is_stale(user, pred: SlotPrediction, memo: dict) -> bool:
         slot = pred.slot
         if not _side_has_source(slot, side):
             continue
-        derived = resolve_slot_side_team(user, slot, side, memo=memo)
+        derived = resolve_slot_side_team(user, slot, side, pred.prediction_round, memo=memo)
         if derived is None or derived.id != getattr(pred, f"{side}_team_id"):
             return True
     return False

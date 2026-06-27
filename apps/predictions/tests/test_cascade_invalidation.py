@@ -356,8 +356,11 @@ class TestPreviousPickReference:
         _predict(user, prev, r32_b, team_arg, team_ger, 1, 0)
         _predict(user, prev, r16_cascaded, team_tur, team_arg, 19, 3)
 
-        # In the open round the user now has BRA winning R32-1.
+        # In the open round the user re-predicts BOTH R32 ties (rounds are
+        # isolated — R16 only resolves from this round's own picks), now with
+        # BRA winning R32-1 (ARG still wins R32-2).
         _predict(user, full_round, r32_a, team_tur, team_bra, 0, 1)
+        _predict(user, full_round, r32_b, team_arg, team_ger, 1, 0)
 
         client.force_login(user)
         r = client.get(reverse(
@@ -387,8 +390,11 @@ class TestPreviousPickReference:
         _predict(user, prev, r32_b, team_arg, team_ger, 1, 0)
         _predict(user, prev, r16_cascaded, team_tur, team_arg, 19, 3)
 
-        # Same winners re-predicted in the open round → matchup unchanged.
+        # Same winners re-predicted in the open round (both R32 ties — rounds are
+        # isolated, so R16 resolves only from this round's picks) → matchup
+        # unchanged vs the prior round.
         _predict(user, full_round, r32_a, team_tur, team_bra, 3, 2)
+        _predict(user, full_round, r32_b, team_arg, team_ger, 1, 0)
 
         client.force_login(user)
         r = client.get(reverse(
@@ -466,3 +472,69 @@ class TestPreviousPickReference:
         # ...and the earlier round's pick still shows as a reference below it.
         assert "Prev-0" in content
         assert "19–3" in content
+
+
+@pytest.mark.django_db
+class TestRoundIsolation:
+    """Predictions never leak across rounds: a later round's bracket derives
+    only from that round's own picks. (Resolved *actual* matchups are the only
+    shared cross-round foundation — covered elsewhere via *_team_actual.)"""
+
+    def _make_prev_round(self, tournament, stages, order=0, days_ago=1):
+        prev = PredictionRound.objects.create(
+            tournament=tournament, name=f"Prev-{order}", order=order,
+            deadline=timezone.now() - timedelta(days=days_ago), weight=Decimal("1.00"),
+        )
+        prev.editable_stages.set(stages)
+        return prev
+
+    def test_r16_blocked_when_feeder_only_predicted_in_prior_round(
+        self, client, user, tournament, full_round,
+        r32_a, r32_b, r16_cascaded,
+        stage_group, stage_r32, stage_r16, stage_qf,
+        team_tur, team_bra, team_arg, team_ger,
+    ):
+        """A full R32 bracket in the PRIOR round must not pre-fill the current
+        round's R16 matchup. With no R32 picks this round, R16 stays blocked
+        ('predict R32 first') instead of inheriting the earlier bracket."""
+        full_round.order = 1
+        full_round.save()
+        prev = self._make_prev_round(
+            tournament, [stage_group, stage_r32, stage_r16, stage_qf])
+        # Whole bracket predicted in the prior round...
+        _predict(user, prev, r32_a, team_tur, team_bra, 2, 1)
+        _predict(user, prev, r32_b, team_arg, team_ger, 1, 0)
+        # ...but nothing in the open round.
+
+        client.force_login(user)
+        r = client.get(reverse(
+            "predict_knockout_stage_step", args=[full_round.id, "R16"]))
+        content = r.content.decode()
+        # No leaked matchup: the prior round's R32 winners (TUR / ARG) must not
+        # appear as this round's R16 teams, and there's no editable score input.
+        assert not re.search(r'name="home_score"\s+value=""', content)
+        # Blocker prompt to predict the feeder stage first is shown instead.
+        assert "Önce alttaki tahminleri yap" in content
+
+    def test_r16_resolves_from_current_round_feeder_only(
+        self, client, user, tournament, full_round,
+        r32_a, r32_b, r16_cascaded,
+        stage_group, stage_r32, stage_r16, stage_qf,
+        team_tur, team_bra, team_arg, team_ger,
+    ):
+        """The mirror case: predicting R32 in THIS round resolves R16 from those
+        picks — independent of any (here, absent) prior round."""
+        full_round.order = 1
+        full_round.save()
+        self._make_prev_round(
+            tournament, [stage_group, stage_r32, stage_r16, stage_qf])
+        _predict(user, full_round, r32_a, team_tur, team_bra, 2, 1)  # TUR advances
+        _predict(user, full_round, r32_b, team_arg, team_ger, 1, 0)  # ARG advances
+
+        client.force_login(user)
+        r = client.get(reverse(
+            "predict_knockout_stage_step", args=[full_round.id, "R16"]))
+        content = r.content.decode()
+        # R16 now resolves (editable) with this round's winners.
+        assert re.search(r'name="home_score"\s+value=""', content)
+        assert team_tur.name_tr in content and team_arg.name_tr in content
