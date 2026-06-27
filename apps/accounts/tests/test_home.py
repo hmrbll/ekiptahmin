@@ -389,6 +389,36 @@ class TestHomeAuthenticated:
         assert "border-success/30" in body  # diff chip
         assert "border-warning/30" in body  # result chip
 
+    def test_chip_shows_round_weight_badge_except_pre_round(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """A chip for a pick from a later (non-pre) round carries its weight
+        badge, e.g. (0,85x). A pre-tournament pick (×1.00 baseline) shows no
+        badge."""
+        after = PredictionRound.objects.create(
+            tournament=t, name="After Group", order=1,
+            deadline=timezone.now() + timedelta(days=40), weight=Decimal("0.85"),
+        )
+        after.editable_stages.set([group_stage])
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1", timezone.now() - timedelta(days=1), tur, bra)
+        # Me predicts only in the After-Group round (0.85) → that's his effective round.
+        SlotPrediction.objects.create(
+            user=me, prediction_round=after, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        # Rival predicts in the pre round (×1.00) → no badge.
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        assert "(0,85x)" in body or "(0.85x)" in body          # non-pre badge shown
+        assert "(1,00x)" not in body and "(1.00x)" not in body  # pre badge omitted
+
     def test_leaderboard_module_caps_at_twelve(
         self, client, t, group_stage, pre_round, tur, bra,
     ):

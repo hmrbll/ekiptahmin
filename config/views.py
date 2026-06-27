@@ -103,6 +103,11 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
             "home_score": display.home_score,
             "away_score": display.away_score,
             "matchup_type": match_type,
+            # Round the shown pick came from — drives the weight badge. The
+            # pre-tournament round (order 0, ×1.00) is the baseline, so the
+            # template omits its badge.
+            "round_order": display.prediction_round.order,
+            "round_weight": display.prediction_round.weight,
             "_sort": (
                 *_score_spectrum_key(display.home_score, display.away_score),
                 nick.lower(),
