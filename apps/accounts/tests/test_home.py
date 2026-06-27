@@ -464,6 +464,55 @@ class TestHomeAuthenticated:
         assert "(0,85x)" in body or "(0.85x)" in body          # non-pre badge shown
         assert "(1,00x)" not in body and "(1.00x)" not in body  # pre badge omitted
 
+    def test_knockout_chips_drop_wrong_matchup_picks(
+        self, client, t, pre_round, tur, bra,
+    ):
+        """On a knockout slot every user predicted *some* pairing for that
+        bracket position, but only those whose pick names the real teams
+        actually predicted this match. A wrong-matchup pick must NOT surface as
+        a bare-score chip against the real fixture (where it just reads as "this
+        user predicted this match and missed"). Mirrors the Ganyan tablosu,
+        which excludes wrong-matchup picks from its breakdown / predictor count.
+        """
+        ko_stage = Stage.objects.create(
+            tournament=t, kind=Stage.R32, order=1,
+            points_exact=6, points_diff=4, points_result=2,
+        )
+        # Two extra teams so a user can predict a different pairing for this slot.
+        arg = Team.objects.create(tournament=t, code="ARG", name_tr="Arjantin", group_letter="B")
+        fra = Team.objects.create(tournament=t, code="FRA", name_tr="Fransa", group_letter="C")
+        slot = BracketSlot.objects.create(
+            tournament=t, stage=ko_stage, position="R32-13",
+            scheduled_kickoff=timezone.now() - timedelta(days=1),
+            home_team_actual=tur, away_team_actual=bra,
+        )
+        onmatch = User.objects.create_user(email="on@x.com", username="on@x.com", nickname="Onur")
+        offmatch = User.objects.create_user(email="off@x.com", username="off@x.com", nickname="Kaan")
+        # Onur predicted the real pairing (tur–bra), score 3–0 (distinct from the
+        # 2–1 result, so the chip score can't be confused with the result line).
+        SlotPrediction.objects.create(
+            user=onmatch, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        # Kaan predicted a *different* pairing (arg–fra) for this same slot.
+        SlotPrediction.objects.create(
+            user=offmatch, prediction_round=pre_round, slot=slot,
+            home_team=arg, away_team=fra, home_score=4, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        client.force_login(onmatch)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        # Scope to the recent-results module: both users still appear in the
+        # leaderboard (Kaan as a 0-point player), so only the chip area is the
+        # meaningful surface for this assertion.
+        recent = body.split("Son sonuçlar")[1].split("Puan durumu")[0]
+        # Real-fixture predictor gets a chip…
+        assert "Onur" in recent
+        assert "3–0" in recent
+        # …wrong-matchup predictor is dropped entirely (neither name nor score leak).
+        assert "Kaan" not in recent
+        assert "4–0" not in recent
+
     def test_leaderboard_module_caps_at_twelve(
         self, client, t, group_stage, pre_round, tur, bra,
     ):

@@ -47,6 +47,14 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     `matchup_type` (the user's GanyanScore.outcome) for colour coding. Since a
     chip only appears once the result is in, the colour always reflects a real
     outcome tier.
+
+    Strict matchup: on a knockout slot every user predicted *some* pairing for
+    that bracket position, but only the ones whose effective pick names the real
+    teams actually predicted *this* match. Chips are filtered to that real
+    fixture — the same rule the ganyan engine applies to `predictor_count` and
+    the tablosu breakdown (see `ganyan.compute_slot`), so the home chips agree
+    with the Ganyan tablosu instead of showing a wrong-matchup pick as a bare
+    score. For group slots the teams are fixed, so the filter is a no-op.
     """
     if not slot_ids:
         return {}
@@ -59,6 +67,13 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     )
     if not visible_slot_ids:
         return {}
+
+    # Actual fixture (home, away team ids) per visible slot — used to drop
+    # wrong-matchup picks below.
+    actual_teams: dict[int, tuple] = {
+        s.id: (s.home_team_actual_id, s.away_team_actual_id)
+        for s in BracketSlot.objects.filter(id__in=visible_slot_ids)
+    }
 
     preds = list(
         SlotPrediction.objects
@@ -94,6 +109,12 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
             )
         else:
             display = p  # latest (ordered desc)
+        # Strict matchup: skip a chip whose shown (effective) prediction is on a
+        # different pairing than the slot's real fixture — that pick didn't
+        # predict *this* match, so it neither scores nor belongs here. Mirrors
+        # ganyan.compute_slot's predictor_count/breakdown exclusion.
+        if (display.home_team_id, display.away_team_id) != actual_teams.get(p.slot_id):
+            continue
         match_type = gs.outcome if gs and gs.outcome not in (GanyanScore.NO_RESULT, GanyanScore.NO_PREDICTION) else None
         user = display.user
         nick = user.nickname or user.email
