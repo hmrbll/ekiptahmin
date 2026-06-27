@@ -1,5 +1,12 @@
 """Send a daily digest email — morning predictions or evening results.
 
+The "morning"/"evening" names describe the slate role (preview vs recap), NOT
+the send clock — they're intentionally inverted vs wall time. The morning
+*preview* goes out at 13:00 (when the slate opens); the evening *recap* goes out
+the next morning 08:00–12:00, because WC 2026 kickoffs land overnight TRT
+(≈20:00–05:00) so a slate only finishes in the small hours. By design — see
+docs/email_setup.md ("Daily digest cron").
+
 Scheduling (Render cron, UTC → Europe/Istanbul):
   morning : `0 10 * * *`   (13:00 TRT) — once a day
   evening : `0 5-9 * * *`   (08:00–12:00 TRT) — hourly poll

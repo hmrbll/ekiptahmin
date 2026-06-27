@@ -26,10 +26,10 @@
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;">
             {% for p in m.predictions %}
             <tr>
-                <td style="padding: 5px 0; font-size: 14px; color: {% if p.is_self %}#2E6B3F{% else %}#3F4541{% endif %}; {% if p.is_self %}font-weight: 700;{% endif %} width: 42%;">
-                    {{ p.nickname }}{% if p.is_self %} <span style="font-size: 11px; color: #6F7670; font-weight: 500;">(sen)</span>{% endif %}
+                <td style="padding: 5px 0; font-size: 14px; color: {% if p.is_self %}#2E6B3F{% else %}#3F4541{% endif %}; {% if p.is_self %}font-weight: 700;{% endif %} width: 46%;">
+                    {{ p.nickname }} <span style="font-size: 11px; color: #6F7670; font-weight: 500; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;" title="Bu tahminin geldiği turun ağırlık çarpanı">({{ p.round_weight|floatformat:2 }}x)</span>{% if p.is_self %} <span style="font-size: 11px; color: #6F7670; font-weight: 500;">(sen)</span>{% endif %}
                 </td>
-                <td style="padding: 5px 0; text-align: center; font-size: 14px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; color: {% if p.prediction %}#1B201C{% else %}#C84132{% endif %}; width: 20%;">
+                <td style="padding: 5px 0; text-align: center; font-size: 14px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; color: {% if p.prediction %}#1B201C{% else %}#C84132{% endif %}; width: 16%;">
                     {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %}
                 </td>
                 <td style="padding: 5px 0; text-align: right; font-size: 12px; color: #6F7670; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; width: 38%;">

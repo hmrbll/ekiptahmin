@@ -152,6 +152,70 @@ def test_morning_sends_to_all_recipients_with_potential(slate):
 
 
 @pytest.mark.django_db
+def test_morning_knockout_one_row_per_round_and_drops_wrong_matchup():
+    """Knockout card mirrors predictions_all: a user who predicted the actual
+    fixture in several rounds gets one row per round (each tagged with its
+    weight and its own potential); picks on a different matchup are dropped."""
+    t = Tournament.objects.create(
+        name="KO Cup", slug="ko-cup",
+        start_date=date(2026, 6, 1), end_date=date(2026, 7, 1), is_active=True,
+    )
+    r32 = Stage.objects.create(
+        tournament=t, kind=Stage.R32, order=1,
+        points_exact=6, points_diff=4, points_result=2, penalty_loser_pct=Decimal("0.60"),
+    )
+    pre = PredictionRound.objects.create(
+        tournament=t, name="Pre-turnuva", order=0,
+        deadline=timezone.now() - timedelta(days=2), weight=Decimal("1.00"),
+    )
+    grup = PredictionRound.objects.create(
+        tournament=t, name="Grup sonrası", order=1,
+        deadline=timezone.now() - timedelta(days=1), weight=Decimal("0.85"),
+    )
+    pre.editable_stages.set([r32])
+    grup.editable_stages.set([r32])
+
+    ned = Team.objects.create(tournament=t, code="NED", name_tr="Hollanda", group_letter="A")
+    mar = Team.objects.create(tournament=t, code="MAR", name_tr="Fas", group_letter="B")
+    swe = Team.objects.create(tournament=t, code="SWE", name_tr="İsveç", group_letter="C")
+
+    slot = BracketSlot.objects.create(
+        tournament=t, stage=r32, position="R32-1",
+        scheduled_kickoff=_ist(2026, 6, 18, 20),
+        home_team_actual=ned, away_team_actual=mar,
+    )
+
+    User = get_user_model()
+    ali = User.objects.create_user(email="ali@x.com", username="ali@x.com", nickname="Ali")
+    bora = User.objects.create_user(email="bora@x.com", username="bora@x.com", nickname="Bora")
+
+    # Ali predicted the real NED–MAR fixture in BOTH rounds → two rows.
+    SlotPrediction.objects.create(user=ali, slot=slot, prediction_round=pre,
+                                  home_team=ned, away_team=mar, home_score=3, away_score=2)
+    SlotPrediction.objects.create(user=ali, slot=slot, prediction_round=grup,
+                                  home_team=ned, away_team=mar, home_score=2, away_score=1)
+    # Bora guessed a wrong matchup pre-tournament (dropped) then re-picked the
+    # real fixture after groups (kept).
+    SlotPrediction.objects.create(user=bora, slot=slot, prediction_round=pre,
+                                  home_team=ned, away_team=swe, home_score=1, away_score=0)
+    SlotPrediction.objects.create(user=bora, slot=slot, prediction_round=grup,
+                                  home_team=ned, away_team=mar, home_score=1, away_score=0)
+
+    matches = digest.build_morning_matches(t, SLATE)
+    assert len(matches) == 1
+    rows = matches[0]["predictions"]
+
+    # Ali twice (1.00 then 0.85), Bora once (0.85) — the wrong-matchup pre pick is gone.
+    assert [(r["nickname"], str(r["round_weight"]), r["prediction"]) for r in rows] == [
+        ("Ali", "1.00", "3-2"),
+        ("Ali", "0.85", "2-1"),
+        ("Bora", "0.85", "1-0"),
+    ]
+    # Every shown row is a real fixture pick, so each carries its own potential.
+    assert all(r["potential"] is not None for r in rows)
+
+
+@pytest.mark.django_db
 def test_evening_complete_sends_once_then_dedups(slate):
     _result(slate.s1, 2, 1)
     _result(slate.s2, 1, 0)

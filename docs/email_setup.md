@@ -131,6 +131,15 @@ notification cron. Preview each template at `/ops/emails/preview/` (staff-only).
   12:00 partial-send fallback.
 - Two `type: cron` services in `render.yaml`: morning `0 10 * * *` (13:00 TRT),
   evening `0 5-9 * * *` (08:00–12:00 TRT, hourly poll).
+
+> **"morning"/"evening" name the slate role, not the send clock.** The names are
+> deliberately inverted vs the wall clock: the *morning* preview ("Bugünün
+> maçları") is sent at **13:00** — when the slate opens — and the *evening* recap
+> ("Günün özeti") is sent the **next morning, 08:00–12:00**. WC 2026 is in North
+> America, so kickoffs land overnight Istanbul time (≈20:00–05:00 TRT); a slate's
+> matches finish in the small hours, so its recap can only go out the following
+> morning. So a digest's name reflects whether it *previews* or *recaps* the
+> slate, not when it arrives. Left as-is by design — see `send_daily_digest.py`.
 - `EmailLog` model — one row per recipient per send; also the digest dedup key
   (`kind` + `slate_date`) so the hourly evening poll sends exactly once.
 
