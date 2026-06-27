@@ -144,23 +144,28 @@ def _grid_context(request: HttpRequest, tournament) -> dict:
         .select_related("stage", "home_team_actual", "away_team_actual")
         .order_by("scheduled_kickoff")[:UPCOMING_LIMIT]
     )
-    # Latest prediction (across rounds) per upcoming slot — only when there's
-    # a logged-in viewer to attach predictions to.
-    preds_by_slot: dict[int, SlotPrediction] = {}
+    # The viewer's own picks per upcoming slot — one row per round (earliest
+    # first), filtered to the actual fixture (strict home AND away) so a stale
+    # bracket pick for a different matchup doesn't show. Each row carries its
+    # round so the template can badge later rounds with their weight (the pre
+    # round, ×1.00, is the baseline and shows no badge).
+    preds_by_slot: dict[int, list[SlotPrediction]] = {}
     if viewer is not None:
-        upcoming_slot_ids = [s.id for s in upcoming_slots]
+        slots_by_id = {s.id: s for s in upcoming_slots}
         for p in (
             SlotPrediction.objects
-            .filter(user=viewer, slot_id__in=upcoming_slot_ids)
+            .filter(user=viewer, slot_id__in=list(slots_by_id))
             .select_related("home_team", "away_team", "prediction_round")
-            .order_by("slot_id", "-prediction_round__order")
+            .order_by("slot_id", "prediction_round__order")
         ):
-            preds_by_slot.setdefault(p.slot_id, p)
+            slot = slots_by_id[p.slot_id]
+            if slot.home_team_actual_id == p.home_team_id and slot.away_team_actual_id == p.away_team_id:
+                preds_by_slot.setdefault(p.slot_id, []).append(p)
     upcoming_chip_map = _chips_for_slots([s.id for s in upcoming_slots])
     upcoming = [
         {
             "slot": s,
-            "prediction": preds_by_slot.get(s.id),
+            "predictions": preds_by_slot.get(s.id, []),
             "chips": upcoming_chip_map.get(s.id, []),
         }
         for s in upcoming_slots

@@ -199,6 +199,50 @@ class TestHomeAuthenticated:
         assert "Tahminin" in body
         assert "2–1" in body
 
+    def test_upcoming_shows_each_round_pick_with_weight_badge(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """An upcoming match lists the viewer's pick from every round whose
+        prediction is on the actual fixture, earliest first, badged with its
+        round weight (the pre round, ×1.00, shows no badge)."""
+        after = PredictionRound.objects.create(
+            tournament=t, name="After Group", order=1,
+            deadline=timezone.now() + timedelta(days=40), weight=Decimal("0.85"),
+        )
+        after.editable_stages.set([group_stage])
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        slot = _slot(t, group_stage, "GroupA-M1", timezone.now() + timedelta(days=1), tur, bra)
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=0,  # pre, correct fixture
+        )
+        SlotPrediction.objects.create(
+            user=me, prediction_round=after, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=1,  # after-group, correct fixture
+        )
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        assert "2–0" in body and "3–1" in body                    # both rounds shown
+        assert "(0,85x)" in body or "(0.85x)" in body             # later round badged
+        assert "(1,00x)" not in body and "(1.00x)" not in body    # pre baseline, no badge
+
+    def test_upcoming_hides_wrong_matchup_pick(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """A stale bracket pick for a different matchup isn't shown for the
+        actual fixture — the line falls back to 'tahmin yok'."""
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        slot = _slot(t, group_stage, "GroupA-M1", timezone.now() + timedelta(days=1), tur, bra)
+        # Predicted the reversed matchup (bra–tur) → wrong fixture for tur–bra.
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=bra, away_team=tur, home_score=2, away_score=0,
+        )
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        assert "2–0" not in body
+        assert "tahmin yok" in body
+
     def test_recent_results_show_viewer_score(
         self, client, t, group_stage, pre_round, tur, bra,
     ):
