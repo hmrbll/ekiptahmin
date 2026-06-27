@@ -15,8 +15,10 @@ D+1 both resolve to slate D.
 
 This module stays free of email/Command concerns so it can be unit-tested and
 reused. The actual fan-out + dedup lives in the ``send_daily_digest`` command.
-The per-slot gathering mirrors the public ``predictions_all`` / ``results_list``
-views — same privacy gate, same "latest prediction per (slot,user)" rule.
+Both digests share the public views' privacy gate. The **morning** card mirrors
+``predictions_all`` exactly: only picks on the slot's actual fixture, one row per
+round (each with its weight + best-case potential). The **evening** list keys off
+the latest prediction per (slot, user) for matches still awaiting a final result.
 """
 from datetime import datetime, time, timedelta
 from decimal import Decimal
@@ -27,7 +29,7 @@ from django.utils import timezone
 
 from apps.liveresults.models import MatchSync
 from apps.predictions.models import SlotPrediction
-from apps.scoring.ganyan_bridge import potential_max_scores_for_slot
+from apps.scoring.ganyan_bridge import potential_max_scores_for_slot_multi
 from apps.scoring.ganyan_leaderboard import leaderboard_for_tournament
 from apps.scoring.models import GanyanScore
 from apps.tournament.models import ActualResult, BracketSlot, Tournament
@@ -181,42 +183,84 @@ def _score_str(pred) -> str:
 # ---------- Morning ----------
 
 
+def _fixture_matched_by_slot_user(slots) -> dict:
+    """{slot_id: {user_id: [SlotPrediction]}} — every round's pick whose matchup
+    equals the slot's actual fixture, ordered by round.
+
+    Mirrors the public ``predictions_all`` card filter: in a knockout each user
+    predicted their own bracket, so most picks for a slot are really for a
+    different matchup (different teams reaching here) — those can never score
+    this fixture, so they're dropped. A user who predicted the *same* fixture in
+    several rounds keeps one entry per round (Pre-turnuva, Grup sonrası, ...).
+    The strict home-AND-away rule matches the ganyan engine's ``_matchup_correct``;
+    for group slots the fixture is fixed, so the filter is a no-op.
+    """
+    slot_by_id = {
+        s.id: s for s in slots
+        if s.home_team_actual_id and s.away_team_actual_id
+    }
+    if not slot_by_id:
+        return {}
+    qs = (
+        SlotPrediction.objects
+        .filter(slot_id__in=list(slot_by_id))
+        .select_related("user", "home_team", "away_team", "penalty_winner", "prediction_round")
+        .order_by("slot_id", "user_id", "prediction_round__order")
+    )
+    out: dict = {}
+    for p in qs:
+        slot = slot_by_id[p.slot_id]
+        if (p.home_team_id == slot.home_team_actual_id
+                and p.away_team_id == slot.away_team_actual_id):
+            out.setdefault(p.slot_id, {}).setdefault(p.user_id, []).append(p)
+    return out
+
+
 def build_morning_matches(tournament, slate_date) -> list:
     """Recipient-independent match list for the morning digest.
 
-    Each match: {home, away, kickoff, predictions:[{user_id, nickname,
-    prediction, potential}]} — predictions sorted by nickname. Only matches
-    whose predictions are already public are included (privacy gate).
+    Each match: ``{home, away, kickoff, predictions:[{user_id, nickname,
+    round_weight, prediction, potential}]}``. Mirrors the public
+    ``predictions_all`` card: only picks on the slot's actual fixture are shown,
+    and a user who predicted that fixture in several rounds gets **one row per
+    round** — each tagged with its weight (e.g. ``1.00x`` Pre-turnuva, ``0.85x``
+    Grup sonrası) and its own best-case ganyan payout ("en fazla N puan"). Rows
+    are sorted by nickname, then round order. Only matches whose predictions are
+    already public are included (privacy gate).
     """
     slots = slate_slots(tournament, slate_date)
     stages_editable = _stages_still_editable(tournament)
-    latest = _latest_predictions_by_slot_user([s.id for s in slots])
+    matched = _fixture_matched_by_slot_user(slots)
 
     matches = []
     for slot in slots:
         if not _predictions_public(slot, stages_editable):
             continue
-        slot_preds = sorted(
-            (p for (sid, _uid), p in latest.items() if sid == slot.id),
-            key=lambda p: _nickname(p.user).lower(),
-        )
-        if not slot_preds:
+        by_user = matched.get(slot.id)
+        if not by_user:
             continue
-        potentials = potential_max_scores_for_slot(slot, slot_preds)
-        predictions = [
-            {
-                "user_id": p.user_id,
-                "nickname": _nickname(p.user),
-                "prediction": _score_str(p),
-                "potential": potentials.get(p.user_id),
-            }
-            for p in slot_preds
-        ]
+        potentials = potential_max_scores_for_slot_multi(slot, by_user)
+        rows = []
+        for uid, preds in by_user.items():
+            pots = potentials.get(uid, [])
+            nick = _nickname(preds[0].user)
+            for i, p in enumerate(preds):
+                rows.append((
+                    (nick.lower(), p.prediction_round.order),
+                    {
+                        "user_id": uid,
+                        "nickname": nick,
+                        "round_weight": p.prediction_round.weight,
+                        "prediction": _score_str(p),
+                        "potential": pots[i] if i < len(pots) else None,
+                    },
+                ))
+        rows.sort(key=lambda t: t[0])
         matches.append({
             "home": slot.home_team_actual.name_tr,
             "away": slot.away_team_actual.name_tr,
             "kickoff": slot.scheduled_kickoff,
-            "predictions": predictions,
+            "predictions": [row for _key, row in rows],
         })
     return matches
 
