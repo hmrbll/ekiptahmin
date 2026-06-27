@@ -1,6 +1,8 @@
 {% comment %}
-One prediction chip: "{nickname} {home}–{away}", colour-coded by
-matchup_type. `chip` shape: {nickname, home_score, away_score, matchup_type}.
+One prediction chip: "{nickname} ({weight}x) {home}–{away}", colour-coded by
+matchup_type. `chip` shape: {nickname, home_score, away_score, matchup_type,
+round_order, round_weight}. The weight badge is shown only for non-pre-tournament
+rounds (round_order > 0); the pre round (×1.00) is the baseline, so it's omitted.
 matchup_type may be one of "exact" / "diff" / "result" / "penalty_loser_bonus"
 / "miss" or null (pre-result match → neutral chip).
 
@@ -19,5 +21,6 @@ Palette ranked by "how good is the guess":
     {% elif chip.matchup_type == 'miss' %}bg-danger/10 border-danger/30 text-danger
     {% else %}bg-surface border-line text-fg-muted{% endif %}">
     <span class="truncate max-w-[6rem]">{{ chip.nickname }}</span>
+    {% if chip.round_order %}<span class="font-mono opacity-70" title="Bu tahminin geldiği turun ağırlık çarpanı">({{ chip.round_weight|floatformat:2 }}x)</span>{% endif %}
     <span class="font-mono">{{ chip.home_score }}–{{ chip.away_score }}</span>
 </span>

@@ -98,9 +98,9 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
         )
     }
 
-    # Lock rule: a target's pre-lock prediction is hidden from everyone but
-    # the owner. Once kickoff passes or an actual result is entered, the
-    # prediction becomes public.
+    # Reveal rule: a target's prediction is hidden from everyone but the owner
+    # until its prediction round closes (the pick is final) or a result is
+    # entered — then it becomes public.
     is_self = request.user.is_authenticated and request.user.id == target.id
 
     sections_by_kind: dict[str, list[dict]] = {}
@@ -108,12 +108,12 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
     for score in scores:
         slot = score.slot
         actual = actuals_by_slot.get(slot.id)
-        is_locked = slot.is_locked or actual is not None
+        revealed = actual is not None or slot.predictions_round_closed
         raw_prediction = _earning_or_latest_prediction(target, slot, score.earning_round_order)
-        # Hide pre-lock predictions from non-owners — but remember whether
-        # one existed so the template can render "kilit sonrası görünür"
+        # Hide a non-owner's prediction until its round closes — but remember
+        # whether one existed so the template can render "tur kapanınca görünür"
         # instead of the regular "tahmin yok" fallback.
-        prediction_visible = is_self or is_locked
+        prediction_visible = is_self or revealed
         sections_by_kind.setdefault(slot.stage.kind, []).append({
             "slot": slot,
             "actual": actual,

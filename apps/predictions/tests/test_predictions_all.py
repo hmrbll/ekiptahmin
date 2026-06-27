@@ -215,18 +215,20 @@ class TestPredictionsAll:
         assert "150,00" in body
         assert "300,00" not in body
 
-    def test_unscored_incomplete_pick_hides_potential(
+    def test_unscored_wrong_matchup_pick_excluded(
         self, client, tournament, stage_r16, prediction_round, team_tur, team_bra, team_arg,
     ):
-        """On a resolved knockout slot, a pick whose matchup no longer lines up
-        with the real fixture (made during the bracket-forecast phase) is not
-        "complete" — it can never score, so no max-puan hint is shown for it."""
+        """On a resolved knockout slot, a pick whose matchup doesn't line up with
+        the real fixture (made during the bracket-forecast phase) is excluded
+        from the match card entirely — it can never score this fixture, so
+        listing it under the real teams would be misleading. The card instead
+        notes that the slot was predicted but nobody hit the matchup."""
         past = BracketSlot.objects.create(
             tournament=tournament, stage=stage_r16, position="R16-1",
             scheduled_kickoff=timezone.now() - timedelta(hours=2),
             home_team_actual=team_tur, away_team_actual=team_bra,
         )
-        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Zlatan")
         # Predicted away side ARG, but the real fixture resolved to BRA.
         SlotPrediction.objects.create(
             user=u, prediction_round=prediction_round, slot=past,
@@ -235,8 +237,114 @@ class TestPredictionsAll:
         r = client.get(reverse("predictions_all"))
         body = r.content.decode("utf-8")
         assert "R16-1" in body
-        assert "Me" in body
+        # The wrong-matchup pick is not listed under the real fixture.
+        match = next(
+            m for sec in r.context["sections"] for m in sec["matches"]
+            if m["slot"].position == "R16-1"
+        )
+        assert match["predictions"] == []
+        assert "Zlatan" not in body
         assert "en fazla" not in body
+        # ...but the card acknowledges the slot was predicted (wrong matchup).
+        assert "kimse bu eşleşmeyi tutturamadı" in body
+
+    def test_multi_round_picks_show_each_with_its_weight(
+        self, client, tournament, stage_r16, team_tur, team_bra,
+    ):
+        """A user who predicted the same fixture in two rounds gets one row per
+        round — earliest first, each tagged with its round weight and its own
+        best-case payout."""
+        past = BracketSlot.objects.create(
+            tournament=tournament, stage=stage_r16, position="R16-1",
+            scheduled_kickoff=timezone.now() - timedelta(hours=2),
+            home_team_actual=team_tur, away_team_actual=team_bra,
+        )
+        r0 = PredictionRound.objects.create(
+            tournament=tournament, name="Pre", order=0,
+            deadline=timezone.now() - timedelta(hours=1), weight=Decimal("1.00"),
+        )
+        r0.editable_stages.set([stage_r16])
+        r1 = PredictionRound.objects.create(
+            tournament=tournament, name="Grup sonrası", order=1,
+            deadline=timezone.now() - timedelta(hours=1), weight=Decimal("0.85"),
+        )
+        r1.editable_stages.set([stage_r16])
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Solo")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=r0, slot=past,
+            home_team=team_tur, away_team=team_bra, home_score=1, away_score=0,
+        )
+        SlotPrediction.objects.create(
+            user=u, prediction_round=r1, slot=past,
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
+        )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        match = next(
+            m for sec in r.context["sections"] for m in sec["matches"]
+            if m["slot"].position == "R16-1"
+        )
+        rows = match["predictions"]
+        assert [p.prediction_round.order for p in rows] == [0, 1]  # earliest first
+        by_round = {p.prediction_round.order: p for p in rows}
+        # Sole predictor → full pools; round weight scales the best case.
+        assert by_round[0].potential_points == Decimal("300.00")  # 100*3 * 1.00
+        assert by_round[1].potential_points == Decimal("255.00")  # 100*3 * 0.85
+        # Weight badges + per-row best cases rendered.
+        assert "(1,00x)" in body
+        assert "(0,85x)" in body
+        assert "300,00" in body
+        assert "255,00" in body
+
+    def test_scored_multi_round_points_on_effective_round_only(
+        self, client, tournament, stage_group, stage_r16, team_tur, team_bra,
+    ):
+        """When the fixture is scored, the earned points sit on the engine's
+        effective round; the user's other round shows its pick + weight but no
+        points (it didn't count)."""
+        past = BracketSlot.objects.create(
+            tournament=tournament, stage=stage_r16, position="R16-1",
+            scheduled_kickoff=timezone.now() - timedelta(hours=2),
+            home_team_actual=team_tur, away_team_actual=team_bra,
+        )
+        r0 = PredictionRound.objects.create(
+            tournament=tournament, name="Pre", order=0,
+            deadline=timezone.now() - timedelta(hours=1), weight=Decimal("1.00"),
+        )
+        r0.editable_stages.set([stage_r16])
+        r1 = PredictionRound.objects.create(
+            tournament=tournament, name="Grup sonrası", order=1,
+            deadline=timezone.now() - timedelta(hours=1), weight=Decimal("0.85"),
+        )
+        r1.editable_stages.set([stage_r16])
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Solo")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=r0, slot=past,
+            home_team=team_tur, away_team=team_bra, home_score=1, away_score=0,
+        )
+        SlotPrediction.objects.create(
+            user=u, prediction_round=r1, slot=past,
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
+        )
+        ActualResult.objects.create(slot=past, home_score=2, away_score=1)
+        # Pin a known payout on the round-1 pick regardless of the recompute.
+        GanyanScore.objects.update_or_create(
+            user=u, slot=past,
+            defaults={"total": Decimal("12.75"), "outcome": GanyanScore.EXACT,
+                      "effective_round": r1},
+        )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        match = next(
+            m for sec in r.context["sections"] for m in sec["matches"]
+            if m["slot"].position == "R16-1"
+        )
+        by_round = {p.prediction_round.order: p for p in match["predictions"]}
+        assert by_round[1].earned_points == Decimal("12.75")  # effective round earns
+        assert by_round[0].earned_points is None              # other round didn't count
+        assert "12,75" in body
+        assert "(1,00x)" in body
+        assert "(0,85x)" in body
 
     def test_skips_slots_without_resolved_teams(
         self, client, tournament, prediction_round, r16_slot, group_slot,

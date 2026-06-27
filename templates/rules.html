@@ -98,10 +98,92 @@
                         Yani üç havuzdan birden kazanabilirsin. Toplam puanın bu üçünün toplamı, sonra
                         tur ağırlığıyla çarpılır.
                     </p>
+                    <h3 class="text-base sm:text-lg font-semibold mt-6 mb-2 text-fg">Aynı maça birden fazla tahmin yaptıysan</h3>
                     <p class="text-fg-soft mb-3">
-                        Bir maçı birden fazla turda tahmin ettiysen (cesur erken tahmin + güncellemeler),
-                        sistem sana <strong>en çok puan veren turu</strong> seçer. O turun tahmini sayılır,
-                        diğer turlar görmezden gelinir.
+                        Bir maçı birden fazla turda tahmin etmiş olabilirsin: cesur bir erken tahmin,
+                        sonra sonraki turlarda güncellemeler. O zaman iki kural devreye girer:
+                    </p>
+                    <ol class="list-decimal list-inside text-fg-soft space-y-2 ml-1 mb-4">
+                        <li>
+                            <strong>Hangi tahminin sayılır?</strong> Sistem sana <strong>en çok kazandıran
+                            turu</strong> seçer — buna "efektif tur" diyoruz. Bu seçim <strong>yalnızca senin
+                            tahminlerine</strong> bakar; başka oyuncuların ne yaptığından etkilenmez, yani sonuç
+                            tek ve nettir. İki tur eşitse <strong>erken tur</strong> kazanır. Geri kalan turların
+                            tahmini ekranda referans olarak görünür ama <strong>0 puan</strong> sayılır.
+                        </li>
+                        <li>
+                            <strong>Havuz bölüşümünde tek kişisin.</strong> Kaç turda tahmin etmiş olursan ol,
+                            bir kriterin havuzunu bölüşen "doğru tutturan sayısı"na <strong>yalnızca 1 kişi</strong>
+                            olarak girersin. İki tahminin de aynı kriteri tutturuyorsa o havuzdan iki pay
+                            <em>alamazsın</em> — sadece efektif turun sayılır.
+                        </li>
+                    </ol>
+
+                    <div class="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-4">
+                        <p class="font-semibold text-fg mb-1">Örnek — Brezilya 1-0 Ekvador</p>
+                        <p class="text-fg-muted text-xs sm:text-sm mb-3">Havuzlar 100'er. Maça yapılan tahminler:</p>
+                        <div class="overflow-x-auto rounded-lg border border-line bg-surface">
+                            <table class="w-full text-xs sm:text-sm">
+                                <thead class="bg-surface/50">
+                                    <tr class="border-b border-line text-left">
+                                        <th class="py-2 px-3 font-medium text-fg-muted">Oyuncu (ağırlık)</th>
+                                        <th class="py-2 px-3 font-medium text-fg-muted">Tahmin</th>
+                                        <th class="py-2 px-3 font-medium text-fg-muted">Tuttuğu</th>
+                                        <th class="py-2 px-3 font-medium text-fg-muted text-right">Puan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b border-line/50">
+                                        <td class="py-2 px-3">Ali (×1,00)</td>
+                                        <td class="py-2 px-3 font-mono">2-0</td>
+                                        <td class="py-2 px-3 text-fg-soft">doğru sonuç</td>
+                                        <td class="py-2 px-3 font-mono text-right">33,33</td>
+                                    </tr>
+                                    <tr class="border-b border-line/50">
+                                        <td class="py-2 px-3">Veli (×1,00)</td>
+                                        <td class="py-2 px-3 font-mono">2-0</td>
+                                        <td class="py-2 px-3 text-fg-soft">doğru sonuç</td>
+                                        <td class="py-2 px-3 font-mono text-right">33,33</td>
+                                    </tr>
+                                    <tr class="border-b border-line/50">
+                                        <td class="py-2 px-3">Hemre (×1,00)</td>
+                                        <td class="py-2 px-3 font-mono">1-2</td>
+                                        <td class="py-2 px-3 text-fg-muted">—</td>
+                                        <td class="py-2 px-3 font-mono text-right text-fg-muted">0</td>
+                                    </tr>
+                                    <tr class="border-b border-line/50 bg-primary/5">
+                                        <td class="py-2 px-3 font-semibold">Hemre (×0,85)</td>
+                                        <td class="py-2 px-3 font-mono">2-1</td>
+                                        <td class="py-2 px-3 text-fg-soft">doğru fark + doğru sonuç</td>
+                                        <td class="py-2 px-3 font-mono text-right font-semibold">113,33 ✓</td>
+                                    </tr>
+                                    <tr class="last:border-0">
+                                        <td class="py-2 px-3">Hemre (×0,75)</td>
+                                        <td class="py-2 px-3 font-mono">3-0</td>
+                                        <td class="py-2 px-3 text-fg-soft">doğru sonuç</td>
+                                        <td class="py-2 px-3 font-mono text-right text-fg-muted">0</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-fg-soft text-xs sm:text-sm mt-3">
+                            <strong>Doğru sonuç havuzunu</strong> Ali, Veli ve Hemre (tek kişi) bildi → 3 kişi →
+                            100 ÷ 3 = <strong>33,33</strong> kişi başı. <strong>Doğru fark havuzunu</strong> ise
+                            yalnızca Hemre'nin 2-1 tahmini tuttu → 1 kişi → tam <strong>100</strong>.
+                            Hemre'nin üç tahmininin en yüksek puanlısı 2-1: (100 + 33,33) × 0,85 = <strong>113,33</strong>,
+                            o yüzden efektif turu o. 1-2 ve 3-0 tahminleri (3-0 doğru sonucu tutsa bile) sayılmaz,
+                            0 görünür — Hemre doğru sonuç havuzuna iki kez değil, tek kişi olarak girdi.
+                        </p>
+                    </div>
+
+                    <p class="text-fg-soft mb-3">
+                        <strong>Peki Görkem'in de 2 tahmini olsaydı?</strong> Görkem yine tek kişi sayılır;
+                        iki tahmininden en yüksek puanlısı onun efektif turu olur. Eğer o efektif tahmin
+                        doğru sonucu tutturursa, doğru sonuç havuzunu bölüşenler 3 değil 4 kişi olur →
+                        pay 100 ÷ 4 = <strong>25</strong>'e düşer; Ali ile Veli de artık 25 alır, Hemre'nin
+                        toplamı da seyrelir. Yani ikinci bir tahmin yapmak Görkem'e <strong>ekstra pay
+                        getirmez</strong> — sadece doğru tutturursa herkesin o havuzdaki payını inceltir.
+                        Tahmin etmediği ya da yanlış tutturduğu turlar hiçbir havuzu etkilemez.
                     </p>
                     <div class="rounded-xl border border-warning/30 bg-warning/5 p-4">
                         <p class="text-fg-soft">

@@ -199,6 +199,51 @@ class TestHomeAuthenticated:
         assert "Tahminin" in body
         assert "2–1" in body
 
+    def test_upcoming_shows_each_round_pick_with_weight_badge(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """An upcoming match lists the viewer's pick from every round whose
+        prediction is on the actual fixture, earliest first, each badged with
+        its round weight — including the pre round (×1.00), so each pick's round
+        is unambiguous when several are shown side by side."""
+        after = PredictionRound.objects.create(
+            tournament=t, name="After Group", order=1,
+            deadline=timezone.now() + timedelta(days=40), weight=Decimal("0.85"),
+        )
+        after.editable_stages.set([group_stage])
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        slot = _slot(t, group_stage, "GroupA-M1", timezone.now() + timedelta(days=1), tur, bra)
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=0,  # pre, correct fixture
+        )
+        SlotPrediction.objects.create(
+            user=me, prediction_round=after, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=1,  # after-group, correct fixture
+        )
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        assert "2–0" in body and "3–1" in body                    # both rounds shown
+        assert "(0,85x)" in body or "(0.85x)" in body             # later round badged
+        assert "(1,00x)" in body or "(1.00x)" in body             # pre round also badged here
+
+    def test_upcoming_hides_wrong_matchup_pick(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """A stale bracket pick for a different matchup isn't shown for the
+        actual fixture — the line falls back to 'tahmin yok'."""
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        slot = _slot(t, group_stage, "GroupA-M1", timezone.now() + timedelta(days=1), tur, bra)
+        # Predicted the reversed matchup (bra–tur) → wrong fixture for tur–bra.
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=bra, away_team=tur, home_score=2, away_score=0,
+        )
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        assert "2–0" not in body
+        assert "tahmin yok" in body
+
     def test_recent_results_show_viewer_score(
         self, client, t, group_stage, pre_round, tur, bra,
     ):
@@ -306,6 +351,54 @@ class TestHomeAuthenticated:
         # Both predicted scores show as chips (verbatim with en-dash).
         assert "2–1" in body and "3–0" in body
 
+    def test_chips_appear_once_result_entered_even_before_kickoff(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """Chip visibility is gated on RESULT entry, not kickoff: a slot whose
+        kickoff is still in the future but already has a result reveals every
+        user's chips. (Covers pre-entered results / out-of-order scoring.)"""
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1",
+                     timezone.now() + timedelta(days=2), tur, bra)  # FUTURE kickoff
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        # Both chips show despite the kickoff being days away.
+        assert "Rival" in body
+        assert "2–1" in body and "3–0" in body
+
+    def test_chips_hidden_until_result_entered(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """No result yet → other users' chips stay hidden, even if the viewer
+        sees their own prediction line in the upcoming card."""
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1",
+                     timezone.now() + timedelta(days=1), tur, bra)  # future, no result
+        SlotPrediction.objects.create(
+            user=me, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        # Rival's chip is hidden (no result yet); only the viewer's own line shows.
+        assert "Rival" not in body
+        assert "3–0" not in body
+
     def test_recent_match_chips_carry_matchup_colour_classes(
         self, client, t, group_stage, pre_round, tur, bra,
     ):
@@ -340,6 +433,85 @@ class TestHomeAuthenticated:
         assert "border-primary/30" in body  # me's exact chip
         assert "border-success/30" in body  # diff chip
         assert "border-warning/30" in body  # result chip
+
+    def test_chip_shows_round_weight_badge_except_pre_round(
+        self, client, t, group_stage, pre_round, tur, bra,
+    ):
+        """A chip for a pick from a later (non-pre) round carries its weight
+        badge, e.g. (0,85x). A pre-tournament pick (×1.00 baseline) shows no
+        badge."""
+        after = PredictionRound.objects.create(
+            tournament=t, name="After Group", order=1,
+            deadline=timezone.now() + timedelta(days=40), weight=Decimal("0.85"),
+        )
+        after.editable_stages.set([group_stage])
+        me = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        rival = User.objects.create_user(email="r@x.com", username="r@x.com", nickname="Rival")
+        slot = _slot(t, group_stage, "GroupA-M1", timezone.now() - timedelta(days=1), tur, bra)
+        # Me predicts only in the After-Group round (0.85) → that's his effective round.
+        SlotPrediction.objects.create(
+            user=me, prediction_round=after, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        # Rival predicts in the pre round (×1.00) → no badge.
+        SlotPrediction.objects.create(
+            user=rival, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        client.force_login(me)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        assert "(0,85x)" in body or "(0.85x)" in body          # non-pre badge shown
+        assert "(1,00x)" not in body and "(1.00x)" not in body  # pre badge omitted
+
+    def test_knockout_chips_drop_wrong_matchup_picks(
+        self, client, t, pre_round, tur, bra,
+    ):
+        """On a knockout slot every user predicted *some* pairing for that
+        bracket position, but only those whose pick names the real teams
+        actually predicted this match. A wrong-matchup pick must NOT surface as
+        a bare-score chip against the real fixture (where it just reads as "this
+        user predicted this match and missed"). Mirrors the Ganyan tablosu,
+        which excludes wrong-matchup picks from its breakdown / predictor count.
+        """
+        ko_stage = Stage.objects.create(
+            tournament=t, kind=Stage.R32, order=1,
+            points_exact=6, points_diff=4, points_result=2,
+        )
+        # Two extra teams so a user can predict a different pairing for this slot.
+        arg = Team.objects.create(tournament=t, code="ARG", name_tr="Arjantin", group_letter="B")
+        fra = Team.objects.create(tournament=t, code="FRA", name_tr="Fransa", group_letter="C")
+        slot = BracketSlot.objects.create(
+            tournament=t, stage=ko_stage, position="R32-13",
+            scheduled_kickoff=timezone.now() - timedelta(days=1),
+            home_team_actual=tur, away_team_actual=bra,
+        )
+        onmatch = User.objects.create_user(email="on@x.com", username="on@x.com", nickname="Onur")
+        offmatch = User.objects.create_user(email="off@x.com", username="off@x.com", nickname="Kaan")
+        # Onur predicted the real pairing (tur–bra), score 3–0 (distinct from the
+        # 2–1 result, so the chip score can't be confused with the result line).
+        SlotPrediction.objects.create(
+            user=onmatch, prediction_round=pre_round, slot=slot,
+            home_team=tur, away_team=bra, home_score=3, away_score=0,
+        )
+        # Kaan predicted a *different* pairing (arg–fra) for this same slot.
+        SlotPrediction.objects.create(
+            user=offmatch, prediction_round=pre_round, slot=slot,
+            home_team=arg, away_team=fra, home_score=4, away_score=0,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        client.force_login(onmatch)
+        body = client.get(reverse("home")).content.decode("utf-8")
+        # Scope to the recent-results module: both users still appear in the
+        # leaderboard (Kaan as a 0-point player), so only the chip area is the
+        # meaningful surface for this assertion.
+        recent = body.split("Son sonuçlar")[1].split("Puan durumu")[0]
+        # Real-fixture predictor gets a chip…
+        assert "Onur" in recent
+        assert "3–0" in recent
+        # …wrong-matchup predictor is dropped entirely (neither name nor score leak).
+        assert "Kaan" not in recent
+        assert "4–0" not in recent
 
     def test_leaderboard_module_caps_at_twelve(
         self, client, t, group_stage, pre_round, tur, bra,

@@ -30,6 +30,13 @@ class SlotTeamsForm(forms.ModelForm):
             qs = Team.objects.filter(tournament=tournament).order_by("name_tr")
             self.fields["home_team_actual"].queryset = qs
             self.fields["away_team_actual"].queryset = qs
+        # Drop the flag emoji from option labels: Windows renders it as a bare
+        # two-letter code ("br Brezilya"). The wizard shows real SVG flags for
+        # resolved teams; this picker only appears for not-yet-resolved slots.
+        for name in ("home_team_actual", "away_team_actual"):
+            self.fields[name].label_from_instance = (
+                lambda team: f"{team.name_tr} ({team.code})"
+            )
 
     def clean(self):
         cleaned = super().clean()
@@ -70,17 +77,19 @@ class ActualResultForm(forms.ModelForm):
         cleaned = super().clean()
         home = cleaned.get("home_score")
         away = cleaned.get("away_score")
-        went_pen = cleaned.get("went_to_penalties")
         pen_winner = cleaned.get("penalty_winner")
         h_pen = cleaned.get("home_penalties")
         a_pen = cleaned.get("away_penalties")
 
+        # Penalties are derived, not a manual flag: a knockout that ends level
+        # is decided on penalties. (English: this form renders only under /admin/.)
+        is_knockout = self.slot.stage.kind != "GROUP"
+        went_pen = bool(
+            is_knockout and home is not None and away is not None and home == away
+        )
+        cleaned["went_to_penalties"] = went_pen
+
         if went_pen:
-            # English: this form renders only on the /admin/results/ wizard.
-            if home != away:
-                raise ValidationError(
-                    "A match that went to penalties must have a drawn 90' score."
-                )
             if not pen_winner:
                 raise ValidationError("Penalty shootout winner is required.")
             if h_pen is None or a_pen is None:
@@ -88,7 +97,7 @@ class ActualResultForm(forms.ModelForm):
             if h_pen == a_pen:
                 raise ValidationError("Penalty shootout cannot end in a draw.")
         else:
-            # Clear penalty fields when not going to penalties.
+            # Decisive (or group) result — no shootout fields.
             cleaned["penalty_winner"] = None
             cleaned["home_penalties"] = None
             cleaned["away_penalties"] = None

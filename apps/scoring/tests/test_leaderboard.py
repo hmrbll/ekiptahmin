@@ -416,3 +416,79 @@ class TestLeaderboardCountColumns:
         me = entries[0]
         assert me.counts.get("miss") == 1
         assert me.counts.get("no_prediction") == 1
+
+
+@pytest.mark.django_db
+class TestMatchDetailReveal:
+    """The ganyan tablosu (incl. its pre-result pool preview) reveals once the
+    slot's prediction round has closed (its deadline passed) — NOT at the match's
+    own kickoff — or once the slot is scored. (The home-grid chips are the
+    stricter result-only surface; see test_home.)"""
+
+    def _round(self, t, group_stage, deadline):
+        rnd = PredictionRound.objects.create(
+            tournament=t, name="Pre", order=0, deadline=deadline, weight=Decimal("1.00"),
+        )
+        rnd.editable_stages.set([group_stage])
+        return rnd
+
+    def _slot(self, t, group_stage, kickoff, tur, bra):
+        return BracketSlot.objects.create(
+            tournament=t, stage=group_stage, position="GroupA-M1",
+            scheduled_kickoff=kickoff, home_team_actual=tur, away_team_actual=bra,
+        )
+
+    def test_tablosu_shown_once_round_closed_before_kickoff(self, client, t, group_stage, tur, bra):
+        rnd = self._round(t, group_stage, timezone.now() - timedelta(hours=1))  # round CLOSED
+        slot = self._slot(t, group_stage, timezone.now() + timedelta(days=5), tur, bra)  # kickoff FUTURE
+        u = User.objects.create_user(email="u@x.com", username="u@x.com", nickname="U")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=rnd, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        body = client.get(reverse("match_detail", args=[slot.id])).content.decode("utf-8")
+        # Revealed at round-close even though kickoff is still days away.
+        assert "Ganyan Tablosu" in body
+
+    def test_tablosu_hidden_while_round_open_even_after_kickoff(self, client, t, group_stage, tur, bra):
+        rnd = self._round(t, group_stage, timezone.now() + timedelta(days=5))  # round OPEN
+        slot = self._slot(t, group_stage, timezone.now() - timedelta(hours=2), tur, bra)  # kickoff PASSED
+        u = User.objects.create_user(email="u@x.com", username="u@x.com", nickname="U")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=rnd, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        body = client.get(reverse("match_detail", args=[slot.id])).content.decode("utf-8")
+        # Round still open → hidden, even though the match already kicked off.
+        assert "tahmin turu kapanınca" in body
+        assert "Ganyan Tablosu" not in body
+
+    def test_tablosu_visible_after_result_even_if_round_open(self, client, t, group_stage, tur, bra):
+        rnd = self._round(t, group_stage, timezone.now() + timedelta(days=5))  # round OPEN
+        slot = self._slot(t, group_stage, timezone.now() + timedelta(days=5), tur, bra)  # kickoff FUTURE
+        u = User.objects.create_user(email="u@x.com", username="u@x.com", nickname="U")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=rnd, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        ActualResult.objects.create(slot=slot, home_score=2, away_score=1)
+        body = client.get(reverse("match_detail", args=[slot.id])).content.decode("utf-8")
+        # A result short-circuits the round gate.
+        assert "Ganyan Tablosu" in body
+
+    def test_tablosu_shown_when_stage_pruned_from_all_rounds(self, client, t, group_stage, tur, bra):
+        # Closing a stage prunes it from every round's editable_stages. With no
+        # round still listing the stage, the pick is final → reveal (even before
+        # this match's own kickoff, and with no result).
+        rnd = PredictionRound.objects.create(
+            tournament=t, name="X", order=0,
+            deadline=timezone.now() + timedelta(days=5), weight=Decimal("1.00"),
+        )  # an OPEN round, but it does NOT list the group stage
+        slot = self._slot(t, group_stage, timezone.now() + timedelta(days=5), tur, bra)
+        u = User.objects.create_user(email="u@x.com", username="u@x.com", nickname="U")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=rnd, slot=slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=1,
+        )
+        body = client.get(reverse("match_detail", args=[slot.id])).content.decode("utf-8")
+        assert "Ganyan Tablosu" in body

@@ -185,7 +185,7 @@ class TestSlotPredictionSave:
         assert "Penaltı skoru girilmeli".encode("utf-8") in r.content
         assert not SlotPrediction.objects.filter(user=user, slot=r16_slot).exists()
 
-    def test_carry_over_from_earlier_round(
+    def test_previous_round_shown_as_reference_not_prefilled(
         self, client, user, prediction_round, r16_slot, team_tur, team_arg,
         tournament, stage_r16,
     ):
@@ -200,10 +200,14 @@ class TestSlotPredictionSave:
             home_team=team_tur, away_team=team_arg, home_score=3, away_score=2,
         )
         client.force_login(user)
-        # Knockout R16 step renders the carried-over scores in the form inputs.
         r = client.get(reverse("predict_knockout_stage_step", args=[later.id, "R16"]))
-        assert b'value="3"' in r.content
-        assert b'value="2"' in r.content
+        body = r.content.decode("utf-8")
+        # The score is NOT carried into the editable inputs — fresh pick each round.
+        assert b'value="3"' not in r.content
+        assert b'value="2"' not in r.content
+        # The earlier round's pick shows as a read-only reference instead.
+        assert prediction_round.name in body  # "Pre-tournament"
+        assert "3–2" in body  # en-dash separator
 
     def test_locked_slot_post_does_not_save(
         self, client, user, prediction_round, r16_slot, team_tur, team_arg,

@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.scoring.ganyan_bridge import potential_max_scores_for_slot
+from apps.scoring.ganyan_bridge import potential_max_scores_for_slot_multi
 from apps.scoring.models import GanyanScore
 from apps.tournament.models import BracketSlot, PredictionRound, Tournament
 from apps.tournament.sections import (
@@ -91,7 +91,9 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         .order_by("scheduled_kickoff")
     )
 
-    # Fetch the latest prediction per (user, slot) across rounds in one pass.
+    # Fetch every prediction for these slots across all rounds in one pass. We
+    # keep all rounds (not just the latest) so a user who predicted the same
+    # fixture in several rounds shows one row per round, each with its weight.
     slot_ids = [s.id for s in slots]
     preds_qs = (
         SlotPrediction.objects
@@ -99,27 +101,28 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         .select_related(
             "user", "home_team", "away_team", "penalty_winner", "prediction_round",
         )
-        .order_by("slot_id", "user_id", "-prediction_round__order")
+        .order_by("slot_id", "prediction_round__order")
     )
-    latest_by_slot_user: dict[tuple[int, int], SlotPrediction] = {}
+    preds_by_slot: dict[int, list[SlotPrediction]] = {}
+    predictors_by_slot: dict[int, set[int]] = {}
     for p in preds_qs:
-        latest_by_slot_user.setdefault((p.slot_id, p.user_id), p)
+        preds_by_slot.setdefault(p.slot_id, []).append(p)
+        predictors_by_slot.setdefault(p.slot_id, set()).add(p.user_id)
 
-    # Count, per slot, how many distinct users predicted (used for the
-    # pre-lock "N kişi tahmin etti" hint).
-    prediction_counts: dict[int, int] = {}
-    for slot_id, _user_id in latest_by_slot_user.keys():
-        prediction_counts[slot_id] = prediction_counts.get(slot_id, 0) + 1
+    # Distinct predictor count per slot (any matchup) — drives the pre-lock
+    # "N kişi tahmin etti" hint and the "nobody hit the matchup" note.
+    prediction_counts = {sid: len(uids) for sid, uids in predictors_by_slot.items()}
 
-    # Ganyan points each user earned, per (slot, user). Only meaningful once a
-    # result is in, so limit the query to scored slots.
+    # Ganyan points each user earned, per (slot, user): (total, effective_round_id).
+    # The engine credits a single round per user, so the points belong on that
+    # one round's row. Only meaningful once a result is in.
     scored_slot_ids = [s.id for s in slots if hasattr(s, "result")]
-    points_by_slot_user: dict[tuple[int, int], object] = {}
+    points_by_slot_user: dict[tuple[int, int], tuple] = {}
     if scored_slot_ids:
         for gs in GanyanScore.objects.filter(slot_id__in=scored_slot_ids).only(
-            "slot_id", "user_id", "total"
+            "slot_id", "user_id", "total", "effective_round"
         ):
-            points_by_slot_user[(gs.slot_id, gs.user_id)] = gs.total
+            points_by_slot_user[(gs.slot_id, gs.user_id)] = (gs.total, gs.effective_round_id)
 
     matches = []
     for slot in slots:
@@ -132,23 +135,66 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         has_result = hasattr(slot, "result")
         slot_preds = []
         if is_public:
+            # Only picks on the actual fixture belong on this match's card. In a
+            # knockout every user predicted their own bracket, so most picks for
+            # this slot are really for a different matchup (different teams
+            # reaching here) — listing them under the real fixture is noise and
+            # they can never score it anyway. The matchup rule mirrors the ganyan
+            # engine's `_matchup_correct` (strict home AND away), so what's shown
+            # equals what can earn points. For group matches the fixture is
+            # fixed, so this filter is a no-op.
+            matching = [
+                p for p in preds_by_slot.get(slot.id, [])
+                if p.home_team_id == slot.home_team_actual_id
+                and p.away_team_id == slot.away_team_actual_id
+            ]
+            # A user may have predicted the same fixture in several rounds; group
+            # their picks so points land on the right round and pools aren't
+            # double-counted.
+            by_user: dict[int, list[SlotPrediction]] = {}
+            for p in matching:
+                by_user.setdefault(p.user_id, []).append(p)
+
+            if has_result:
+                # The engine scores one round per user. Put the earned total on
+                # that round's row; the user's other rounds carry no points (they
+                # didn't count). Fall back to the sole row when the effective
+                # round is unknown (e.g. legacy rows without it set).
+                for uid, preds in by_user.items():
+                    for p in preds:
+                        p.earned_points = None
+                        p.potential_points = None
+                    entry = points_by_slot_user.get((slot.id, uid))
+                    if entry is None:
+                        continue
+                    total, eff_round_id = entry
+                    eff_row = next(
+                        (p for p in preds if p.prediction_round_id == eff_round_id), None
+                    )
+                    if eff_row is None and len(preds) == 1:
+                        eff_row = preds[0]
+                    if eff_row is not None:
+                        eff_row.earned_points = total
+            else:
+                # Pre-result: each pick shows its own best case if it lands
+                # exactly — so the rows are comparable across rounds/weights.
+                potentials = potential_max_scores_for_slot_multi(slot, by_user)
+                for uid, preds in by_user.items():
+                    for p, val in zip(preds, potentials.get(uid, [])):
+                        p.earned_points = None
+                        p.potential_points = val
+
+            # Weight badge per row: the multiplier of the round this pick is from.
+            for p in matching:
+                p.round_weight = p.prediction_round.weight
+
             slot_preds = sorted(
-                (p for (sid, _uid), p in latest_by_slot_user.items() if sid == slot.id),
-                key=lambda p: (p.user.nickname or p.user.email or "").lower(),
+                matching,
+                key=lambda p: (
+                    (p.user.nickname or p.user.email or "").lower(),
+                    p.prediction_round.order,
+                ),
             )
-            # Scored match → show the points each pick earned (None when the
-            # match isn't scored, so the template tells "0 puan" from "not
-            # played"). Unscored match → show the most each *complete* pick (its
-            # matchup matches the real fixture) could still earn if it lands
-            # exactly; wrong-matchup picks are absent → label hidden.
-            potentials = (
-                {} if has_result else potential_max_scores_for_slot(slot, slot_preds)
-            )
-            for p in slot_preds:
-                p.earned_points = (
-                    points_by_slot_user.get((slot.id, p.user_id)) if has_result else None
-                )
-                p.potential_points = None if has_result else potentials.get(p.user_id)
         matches.append({
             "slot": slot,
             "actual": getattr(slot, "result", None),
@@ -288,41 +334,43 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
     )
     instance = this_round_pred
     initial: dict = {}
-    if instance is None and not readonly:
-        prev = (
+    priors: list = []
+    if not readonly:
+        priors = list(
             SlotPrediction.objects
             .filter(
                 user=request.user, slot=slot,
                 prediction_round__order__lt=pr.order,
             )
-            .select_related("home_team", "away_team")
-            .order_by("-prediction_round__order")
-            .first()
+            .select_related(
+                "home_team", "away_team", "penalty_winner", "prediction_round",
+            )
+            .order_by("prediction_round__order")  # earliest round first
         )
-        if prev:
-            initial = {
-                "home_team": prev.home_team, "away_team": prev.away_team,
-                "home_score": prev.home_score, "away_score": prev.away_score,
-                "home_penalties": prev.home_penalties,
-                "away_penalties": prev.away_penalties,
-            }
+        if instance is None and priors:
+            # No pick yet this round: seed only the teams from the most recent
+            # prior pick (for free-dropdown slots and the matchup compare below).
+            # The score is deliberately NOT carried over — each round is a fresh
+            # pick; prior picks are shown read-only as references instead.
+            latest = priors[-1]
+            initial = {"home_team": latest.home_team, "away_team": latest.away_team}
 
     form = SlotPredictionForm(
         instance=instance, initial=initial,
         user=request.user, prediction_round=pr, slot=slot,
     )
 
-    # Carry-over prefill only makes sense while the matchup is the same match.
-    # If the derived teams (written into form.initial by the form itself)
-    # differ from the previous round's teams, drop the stale scoreline so the
-    # slot renders as never predicted.
-    if instance is None and initial and (
-        form.initial.get("home_team") != initial.get("home_team")
-        or form.initial.get("away_team") != initial.get("away_team")
-    ):
-        for key in ("home_score", "away_score",
-                    "home_penalties", "away_penalties"):
-            form.initial.pop(key, None)
+    # Surface EVERY prior round's pick whose matchup still lines up with this
+    # slot's matchup, read-only, earliest round first — and keep showing them
+    # even after a pick exists for THIS round, so the user can always compare.
+    # Compare by team id: form.initial holds Team objects for locked/derived
+    # sides but plain ids (from the instance) on free dropdowns.
+    dh, da = form.initial.get("home_team"), form.initial.get("away_team")
+    derived_home_id, derived_away_id = getattr(dh, "id", dh), getattr(da, "id", da)
+    prev_refs = [
+        p for p in priors
+        if p.home_team_id == derived_home_id and p.away_team_id == derived_away_id
+    ]
 
     display_home = slot.home_team_actual
     display_away = slot.away_team_actual
@@ -360,6 +408,7 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
         "cascade_blocked_on": form.cascade_blocked_on,
         "round": pr,
         "readonly": readonly,
+        "prev_refs": prev_refs,
     }
 
 

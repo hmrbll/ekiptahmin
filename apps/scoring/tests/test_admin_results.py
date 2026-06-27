@@ -124,6 +124,8 @@ class TestGroupStep:
         assert "Brezilya" in body
         # Step nav present (admin wizard is English).
         assert "Group B" in body  # neighbouring step pill
+        # Template comments must not leak as literal text (multi-line {# #}).
+        assert "{#" not in body
 
     def test_unknown_group_redirects_to_entry(self, client, staff, t):
         client.force_login(staff)
@@ -133,19 +135,43 @@ class TestGroupStep:
 
 @pytest.mark.django_db
 class TestKnockoutStep:
-    def test_knockout_step_renders_with_team_selects(
+    def test_unresolved_knockout_renders_team_picker(
         self, client, staff, t, r16_slot, tur, bra,
     ):
+        """A knockout slot the resolver hasn't filled yet shows a team picker."""
         client.force_login(staff)
         r = client.get(reverse("admin_results_knockout", args=["R16"]))
         assert r.status_code == 200
         body = r.content.decode("utf-8")
         assert "R16-1" in body
         # Team selects rendered — both team options appear within form selects.
+        assert 'name="home_team_actual"' in body
         assert "Türkiye" in body
         assert "Brezilya" in body
-        # Penalty section visible for knockout (admin wizard is English).
-        assert "Went to penalties" in body
+        # Knockout shows the extra-time toggle; no manual "went to penalties".
+        assert "Went to extra time" in body
+        assert "Went to penalties" not in body
+        assert "{#" not in body  # no leaked template comments
+
+    def test_resolved_knockout_shows_fixed_teams_no_picker(
+        self, client, staff, t, r16_stage, tur, bra,
+    ):
+        """Once teams are resolved, the row shows them as fixed flag labels —
+        no dropdown to pick from."""
+        BracketSlot.objects.create(
+            tournament=t, stage=r16_stage, position="R16-1",
+            scheduled_kickoff=timezone.now() + timedelta(days=20),
+            home_team_actual=tur, away_team_actual=bra,
+        )
+        client.force_login(staff)
+        r = client.get(reverse("admin_results_knockout", args=["R16"]))
+        body = r.content.decode("utf-8")
+        assert "R16-1" in body
+        assert "Türkiye" in body
+        assert "Brezilya" in body
+        # No team picker — teams are fixed.
+        assert 'name="home_team_actual"' not in body
+        assert 'name="away_team_actual"' not in body
 
 
 @pytest.mark.django_db
@@ -208,21 +234,69 @@ class TestSaveEndpoint:
         assert actual is not None
         assert actual.home_score == 1
 
-    def test_invalid_penalty_state_rejected(
+    def test_knockout_draw_requires_penalties(
         self, client, staff, t, r16_slot, tur, bra,
     ):
+        """A level knockout score needs a shootout winner — derived from the
+        draw, no checkbox. Missing winner → rejected, nothing written."""
         client.force_login(staff)
         r = client.post(
             reverse("admin_results_save", args=[r16_slot.id]),
             {
                 "home_team_actual": tur.id,
                 "away_team_actual": bra.id,
-                # Penalty checked but no winner/scores → invalid.
+                # Drawn score, but no shootout winner/scores → invalid.
                 "home_score": 1, "away_score": 1,
-                "went_to_penalties": "on",
             },
             HTTP_HX_REQUEST="true",
         )
         assert r.status_code == 200  # row re-renders with errors
+        # The penalty fields are revealed by the draw so the admin can complete it.
+        assert "decided on penalties" in r.content.decode("utf-8").lower()
         # No ActualResult should have been written.
         assert not ActualResult.objects.filter(slot=r16_slot).exists()
+
+    def test_knockout_draw_auto_derives_penalties(
+        self, client, staff, t, r16_slot, tur, bra,
+    ):
+        """A drawn knockout with a shootout winner saves with went_to_penalties
+        derived True — no manual flag."""
+        client.force_login(staff)
+        r = client.post(
+            reverse("admin_results_save", args=[r16_slot.id]),
+            {
+                "home_team_actual": tur.id,
+                "away_team_actual": bra.id,
+                "home_score": 1, "away_score": 1,
+                "penalty_winner": tur.id,
+                "home_penalties": 4, "away_penalties": 2,
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert r.status_code == 200
+        actual = ActualResult.objects.get(slot=r16_slot)
+        assert actual.went_to_penalties is True
+        assert actual.penalty_winner == tur
+        assert actual.home_penalties == 4
+
+    def test_decisive_knockout_clears_penalties(
+        self, client, staff, t, r16_slot, tur, bra,
+    ):
+        """A decisive knockout score never goes to penalties, even if stray
+        shootout fields are posted."""
+        client.force_login(staff)
+        r = client.post(
+            reverse("admin_results_save", args=[r16_slot.id]),
+            {
+                "home_team_actual": tur.id,
+                "away_team_actual": bra.id,
+                "home_score": 2, "away_score": 1,
+                "penalty_winner": tur.id, "home_penalties": 4, "away_penalties": 2,
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert r.status_code == 200
+        actual = ActualResult.objects.get(slot=r16_slot)
+        assert actual.went_to_penalties is False
+        assert actual.penalty_winner is None
+        assert actual.home_penalties is None

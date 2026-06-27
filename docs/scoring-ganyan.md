@@ -20,15 +20,38 @@ W_c           = unique users whose at-least-one round prediction satisfies c
 base_payout_c = pool_c / |W_c|             # if |W_c| == 0 the pool burns
 ```
 
-For each user `U` who predicted `M`, pick the **effective round** `R*`:
+For each user `U` who predicted `M`, pick the **effective round** `R*` against
+the **nominal** pools (each criterion at its full `pool_c`, before any dilution):
 
 ```
-score_UMR    = Σ_c [ sat(pred_UMR, c) × base_payout_c ]
-R*           = argmax over rounds R of (score_UMR × round_weight_R)
-score(U, M)  = score_UMR* × round_weight_R*
+nominal_UMR  = Σ_c [ sat(pred_UMR, c) × pool_c ]          # full pools, not base_payout
+R*           = argmax over rounds R of (nominal_UMR × round_weight_R)   # ties → earliest R
+score(U, M)  = Σ_c [ sat(pred_UMR*, c) × base_payout_c ] × round_weight_R*
 ```
 
-Tüm kriterler aynı turdan alınır (single effective round per user-match) — bu mevcut sistemin "max-puan-turu" mantığıyla uyumludur.
+`R*` is chosen against the full pools, so it depends only on `U`'s **own**
+predictions — never on how the crowd splits the pools. Scoring then applies the
+diluted `base_payout_c`. All criteria are taken from that single effective round.
+
+### Effective-round selection is decoupled (no fixed-point)
+
+Choosing `R*` against the diluted `base_payout_c` (the old rule) was circular:
+`base_payout_c` depends on `|W_c|`, which depends on everyone's effective rounds,
+which depends on `base_payout_c`. That needed a fixed-point iteration and could
+land on different equilibria depending on the starting guess. Selecting against
+the **nominal** pools removes the dependency entirely — every user's pick is a
+pure function of their own predictions, so the whole slot resolves in **one
+deterministic pass with a unique result**.
+
+The trade: in the rare "flip" case — a later, much-lighter-weight round holding a
+**higher tier** than an earlier heavier round — the diluted payouts could have
+made that later round pay the user marginally more. Under the nominal rule the
+user is scored on their nominal-best round instead, slightly under that
+theoretical max. This is only reachable when a user predicted the same match
+across rounds whose weights differ by more than ~⅓ (i.e. QF/SF/Final matches at
+the current weight schedule); group/R32/R16 matches never reach it. The
+deterministic, one-pass, explainable outcome is the deliberate choice. Pinned by
+`apps/scoring/tests/test_ganyan_effective_round.py`.
 
 ### Example
 
@@ -40,22 +63,26 @@ Result: 1-0. Stage pool = (exact=100, diff=100, result=100).
 | B    | —           | 2-1                |
 | C    | 1-0         | 1-0                |
 
-- N = 3 (A, B, C predicted M somewhere)
+Effective round per user (nominal pools = 100 each):
+
+- A: Pre 2-1 → {diff,result} → nominal (100+100)×1.0 = **200**; Grup 3-0 → {result} → 100×0.8 = 80 → **Pre**
+- B: only Grup 2-1 → **Grup**
+- C: Pre 1-0 → {exact,diff,result} → 300×1.0 = **300**; Grup → 300×0.8 = 240 → **Pre**
+
+Winner counts from those effective picks:
+
+- N = 3 (A, B, C predicted M)
 - Exact winners: {C} → base = 100/1 = 100
-- Diff winners: {A (Pre), B (Grup-sonra), C} → base = 100/3 = 33.33
+- Diff winners: {A, B, C} → base = 100/3 = 33.33
 - Result winners: {A, B, C} → base = 100/3 = 33.33
 
-Per-user effective round and score:
+Match scores:
 
-| User | Round | sat(exact/diff/result) | Round score | × weight | Match score |
-|------|-------|------------------------|-------------|----------|-------------|
-| A    | Pre   | (0, 0, 33.33)          | 33.33       | × 1.0    | **33.33**   |
-| A    | Grup  | (0, 0, 33.33)          | 33.33       | × 0.8    | 26.67       |
-| B    | Grup  | (0, 33.33, 33.33)      | 66.67       | × 0.8    | **53.33**   |
-| C    | Pre   | (100, 33.33, 33.33)    | 166.67      | × 1.0    | **166.67**  |
-| C    | Grup  | (100, 33.33, 33.33)    | 166.67      | × 0.8    | 133.33      |
-
-Highlighted row per user is the effective round.
+| User | R*   | base payouts (exact/diff/result) | × weight | Match score |
+|------|------|----------------------------------|----------|-------------|
+| A    | Pre  | (0, 33.33, 33.33) = 66.67        | × 1.0    | **66.67**   |
+| B    | Grup | (0, 33.33, 33.33) = 66.67        | × 0.8    | **53.33**   |
+| C    | Pre  | (100, 33.33, 33.33) = 166.67     | × 1.0    | **166.67**  |
 
 ### Burn condition
 
@@ -119,11 +146,15 @@ The public all-predictions page (`/predictions/all/`) is organized into **round 
 
 The grouping logic lives in `apps/tournament/sections.py` (`group_matches_into_sections`) and the tab bar + toggle script in the shared `templates/_round_tabs.html` partial. The public **results log** (`/results/`) reuses both: same round tabs, matches ordered chronologically within each tab, and each match's per-player score list collapsed into a `<details>` (**"Oyuncu puanları (N)"**). Since every result is by definition played, its default tab is the last (most advanced) round.
 
-Once a match's predictions are revealed but **before** a result is entered, each pick shows the most it could still earn — labelled **"en fazla N puan"**. After the result is entered this is replaced by the actual earned `GanyanScore.total`.
+Once a match's predictions are revealed but **before** a result is entered, each pick shows the most it could still earn — labelled **"en fazla N puan"**. After the result is entered this is replaced by the actual earned `GanyanScore.total`, shown on the round that earned it (see below).
 
 The best case is the parimutuel payout the pick would earn **if the match ended exactly as predicted** (`ganyan.potential_max_scores`): the pick wins every criterion its scoreline satisfies (a draw-on-KO pick carrying a shootout wins the three penalty pools too), and each pool is split among everyone whose own revealed pick would also win it under that hypothetical. So it differentiates picks the way real ganyan does — a lone scoreline shows the full pool, a popular one a thin slice.
 
-It is shown **only for "complete" picks** — those whose matchup lines up with the slot's actual fixture. A knockout pick made during the bracket-forecast phase whose teams no longer match the resolved fixture can never score, so no hint is shown for it. Values use the pick's own (latest shown) round weight and are upper bounds in the common single-round case; the live engine can only pay *more*, and only when a co-winner's effective round turns out to sit in a different round.
+The card lists **only picks on the slot's actual fixture** — both predicted teams must line up with the resolved matchup (the engine's `_matchup_correct` rule, strict home AND away). In a knockout each player predicted their own bracket, so most of a slot's stored predictions are for a *different* matchup (different teams reaching here); those can never score it and are filtered out of the card entirely rather than listed with a zero. When a slot was predicted but nobody hit the matchup, the card shows **"N oyuncu tahmin etti, ama kimse bu eşleşmeyi tutturamadı"** in place of a prediction list. For group matches the fixture is fixed, so the filter is a no-op.
+
+Because every listed pick is therefore "complete", the **"en fazla N puan"** hint is shown for all of them.
+
+Each pick is its own row, tagged with a **round-weight badge** — e.g. `(0,85x)`, the `PredictionRound.weight` of the round it came from. A player who predicted the same fixture in several rounds gets **one row per round** (earliest first), so you can see how their call and its weight changed; the engine still only scores one of them. The pre-result **"en fazla"** is then computed per row (`ganyan.potential_max_scores_multi`): each pick's best case if the match ends exactly as it calls it, with co-winner denominators counting distinct *users* — a player's two picks never take two slices of the same pool, mirroring the live engine's one-effective-round-per-user rule. Once the result is in, the earned `GanyanScore.total` sits on the **effective round's** row only (`GanyanScore.effective_round`); the player's other rounds show the pick and its weight but no points, since they didn't count. Values are upper bounds in the common single-round case; the live engine can only pay *more*, and only when a co-winner's effective round turns out to sit in a different round.
 
 ## Data model
 
@@ -155,7 +186,7 @@ It is shown **only for "complete" picks** — those whose matchup lines up with 
   - `pool_size` (snapshot of `Stage.pool_<criterion>` at compute time)
   - `winner_count` (|W_c|)
   - `base_payout` (`pool_size / winner_count` or null if burned)
-  - `predictor_count` (N — total unique predictors for slot)
+  - `predictor_count` (N — users whose effective pick is on the actual fixture; wrong-matchup picks from a different bracket are excluded, matching the breakdown)
   - `breakdown` (JSON: `{prediction_value: count}` for the ganyan tablosu UI)
   - `computed_at`
   - Unique on (slot, criterion).
@@ -172,14 +203,14 @@ Single signal handler on `ActualResult` post-save:
 3. Invalidate leaderboard caches for affected users
 ```
 
-`MatchPool` rows are also recomputed on `SlotPrediction` write **after lock**, so the ganyan tablosu UI stays accurate if a prediction is corrected by an admin post-lock. (Pre-lock predictions don't trigger; the tablosu only shows post-lock.)
+`MatchPool` rows are also recomputed on `SlotPrediction` write **after lock**, so the ganyan tablosu stays accurate if a prediction is corrected by an admin post-lock. (Pre-lock predictions don't trigger.) **Reveal gates differ by surface:** the match-detail tablosu (incl. its pre-result pool preview) and the per-user prediction list reveal once the slot's **prediction round has closed** — every round that could still edit the slot's stage has passed its deadline, so the pick is final — **or** the slot is scored (`BracketSlot.predictions_round_closed or actual is not None`, in `apps/scoring/views` and the staff-only `/legacy/*` user-detail). This trips at the stage's round deadline, which for later matches in a stage is *earlier* than their own kickoff (a stage's picks all surface together when its round closes). The **home-grid prediction chips** are stricter: they reveal only **once the result is entered** (`actual is not None`, in `config/views._chips_for_slots`), because they're colour-coded by `GanyanScore.outcome`, which doesn't exist until the slot is scored. They also apply the same **strict-matchup filter** as the tablosu — on a knockout slot only chips whose effective pick names the real teams are shown; wrong-matchup picks from a different bracket are dropped rather than surfaced as a bare score (a no-op for group slots, where the fixture is fixed). The per-match **player lists** (`Oyuncu Puanları` on `/results/` and `/matches/<slot_id>/`) apply this same filter on each user's effective pick, so the list count equals the tablosu's `predictor_count` N. When every pick on a knockout slot was off-fixture, `/results/` shows a `"N oyuncu tahmin etti, ama kimse bu eşleşmeyi tutturamadı"` note instead of the player rows (mirroring the all-predictions card).
 
 ## URLs
 
 | Path | Audience | Source |
 |------|----------|--------|
 | `/` | Public | GanyanScore + new tiebreaker |
-| `/matches/<slot_id>/` (new) | Public | Match detail + ganyan tablosu (post-lock) |
+| `/matches/<slot_id>/` (new) | Public | Match detail + ganyan tablosu (post round-close) |
 | `/legacy/leaderboard/` | `staff_member_required` | SlotScore + legacy tiebreaker |
 | `/legacy/results/` | `staff_member_required` | Existing results view, re-routed |
 | `/legacy/scoring-diff/` | `staff_member_required` | Side-by-side: SlotScore vs GanyanScore per user |

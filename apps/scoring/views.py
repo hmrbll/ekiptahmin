@@ -29,6 +29,23 @@ from .models import GanyanScore, MatchPool
 
 _STAGE_ORDER = ["GROUP", "R32", "R16", "QF", "SF", "THIRD", "FINAL"]
 
+
+def _pick_on_actual_fixture(pred, slot) -> bool:
+    """Whether a prediction is on the slot's actual fixture (strict home AND away).
+
+    A knockout slot gathers every player's bracket pick, so most picks here are
+    for a different matchup than the teams that actually reached this slot. Only
+    a pick on the real fixture belongs on a match/result view — it's the only
+    pick that can score and the only one the ganyan tablosu counts toward N or
+    shows in the breakdown (engine: `ganyan._matchup_correct`). No-op for group
+    slots, whose fixture is fixed. `pred` may be None → False.
+    """
+    return (
+        pred is not None
+        and pred.home_team_id == slot.home_team_actual_id
+        and pred.away_team_id == slot.away_team_actual_id
+    )
+
 # Outcome → (TR label, Tailwind badge classes) for chip/badge rendering.
 # Tier colours must match the leaderboard pills and the inline badge logic in
 # user_detail.html / _prediction_chip.html (exact=primary, diff=success,
@@ -129,9 +146,11 @@ def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
     for score in scores:
         slot = score.slot
         actual = actuals_by_slot.get(slot.id)
-        is_locked = slot.is_locked or actual is not None
+        # Predictions go public once the slot's prediction round has closed (the
+        # pick is final) or it's scored — not at the match's own kickoff.
+        revealed = actual is not None or slot.predictions_round_closed
         raw_prediction = _earning_or_latest_prediction(target, slot, score.effective_round_id)
-        prediction_visible = is_self or is_locked
+        prediction_visible = is_self or revealed
         label, badge_cls = _OUTCOME_BADGE.get(score.outcome, ("", ""))
         sections_by_kind.setdefault(slot.stage.kind, []).append({
             "slot": slot,
@@ -204,15 +223,30 @@ def results_list(request: HttpRequest) -> HttpResponse:
                     return p
         return bucket[0]
 
+    slot_by_id = {a.slot_id: a.slot for a in actuals}
+    # Distinct predictors per slot (any matchup) — drives the "N predicted but
+    # nobody hit the matchup" note when every pick was off-fixture. One score
+    # row == one predictor (the engine only scores users who predicted).
+    predictor_count_by_slot: dict[int, int] = {}
+    for s in score_rows:
+        predictor_count_by_slot[s.slot_id] = predictor_count_by_slot.get(s.slot_id, 0) + 1
+
     scores_by_slot: dict[int, list] = {}
     for s in score_rows:
+        prediction = _pick_prediction(s.user_id, s.slot_id, s.effective_round_id)
+        # Knockout: drop picks that aren't on the actual fixture — they didn't
+        # predict THIS match and can't score it. Keeps the player list equal to
+        # the ganyan tablosu's N / breakdown (see `_pick_on_actual_fixture`).
+        slot = slot_by_id.get(s.slot_id)
+        if slot is None or not _pick_on_actual_fixture(prediction, slot):
+            continue
         label, badge_cls = _OUTCOME_BADGE.get(s.outcome, ("", ""))
         scores_by_slot.setdefault(s.slot_id, []).append({
             "score": s,
             "user": s.user,
             "label": label,
             "badge_cls": badge_cls,
-            "prediction": _pick_prediction(s.user_id, s.slot_id, s.effective_round_id),
+            "prediction": prediction,
         })
 
     matches = []
@@ -221,6 +255,7 @@ def results_list(request: HttpRequest) -> HttpResponse:
             "actual": actual,
             "slot": actual.slot,
             "scores": scores_by_slot.get(actual.slot_id, []),
+            "prediction_count": predictor_count_by_slot.get(actual.slot_id, 0),
         })
 
     sections, default_section_key = group_matches_into_sections(matches)
@@ -312,14 +347,27 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
     # Per-user payouts (only when actual result exists).
     user_payouts = []
     if actual is not None:
-        scores = (
+        scores = list(
             GanyanScore.objects
             .filter(slot=slot)
             .exclude(outcome=GanyanScore.NO_RESULT)
             .select_related("user", "effective_round")
             .order_by("-total", "user__nickname")
         )
+        # Each user's effective-round pick, to drop off-fixture knockout picks —
+        # exactly the picks the ganyan tablosu above counts (engine:
+        # `_matchup_correct`). No-op for group slots. Keyed (user_id, round_id)
+        # since a user may have picked this slot in several rounds.
+        eff_preds = {
+            (p.user_id, p.prediction_round_id): p
+            for p in SlotPrediction.objects.filter(
+                slot=slot, user_id__in=[s.user_id for s in scores],
+            ).only("user_id", "prediction_round_id", "home_team_id", "away_team_id")
+        }
         for s in scores:
+            pred = eff_preds.get((s.user_id, s.effective_round_id))
+            if not _pick_on_actual_fixture(pred, slot):
+                continue
             label, badge_cls = _OUTCOME_BADGE.get(s.outcome, ("", ""))
             user_payouts.append({
                 "score": s,
@@ -332,7 +380,11 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
         "tournament": slot.tournament,
         "slot": slot,
         "actual": actual,
-        "is_locked": slot.is_locked or actual is not None,
+        # Tablosu (incl. the pre-result pool preview) is public once the slot's
+        # prediction round has closed (picks can no longer change) or it's scored
+        # — not at the match's own kickoff. (The home-grid chips are stricter:
+        # result-only, since they need GanyanScore.outcome for colour coding.)
+        "revealed": actual is not None or slot.predictions_round_closed,
         "pools": pools_view,
         "user_payouts": user_payouts,
     })

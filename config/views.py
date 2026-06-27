@@ -39,28 +39,45 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     """For each slot in `slot_ids`, return the list of "prediction chips" —
     one per user whose prediction is visible.
 
-    Visibility rule: post-lock predictions are public. Pre-lock predictions
-    are hidden (slot.is_locked drives the chip set per slot).
+    Visibility rule: a slot's predictions become public once its RESULT is
+    entered (not merely at kickoff). A slot without an ActualResult yields no
+    chips, so the set stays empty until the match is scored.
 
     Each chip carries the prediction's score, the user's nickname, and a
-    `matchup_type` for colour coding. After result entry the colour reflects
-    the user's GanyanScore.outcome; before result it's None (neutral chip).
+    `matchup_type` (the user's GanyanScore.outcome) for colour coding. Since a
+    chip only appears once the result is in, the colour always reflects a real
+    outcome tier.
+
+    Strict matchup: on a knockout slot every user predicted *some* pairing for
+    that bracket position, but only the ones whose effective pick names the real
+    teams actually predicted *this* match. Chips are filtered to that real
+    fixture — the same rule the ganyan engine applies to `predictor_count` and
+    the tablosu breakdown (see `ganyan.compute_slot`), so the home chips agree
+    with the Ganyan tablosu instead of showing a wrong-matchup pick as a bare
+    score. For group slots the teams are fixed, so the filter is a no-op.
     """
     if not slot_ids:
         return {}
 
-    slots_by_id = {
-        s.id: s for s in BracketSlot.objects.filter(id__in=slot_ids).only(
-            "id", "scheduled_kickoff",
-        )
-    }
-    locked_slot_ids = [sid for sid, s in slots_by_id.items() if s.is_locked]
-    if not locked_slot_ids:
+    # A slot's predictions are revealed only once its result is entered.
+    visible_slot_ids = list(
+        ActualResult.objects
+        .filter(slot_id__in=slot_ids)
+        .values_list("slot_id", flat=True)
+    )
+    if not visible_slot_ids:
         return {}
+
+    # Actual fixture (home, away team ids) per visible slot — used to drop
+    # wrong-matchup picks below.
+    actual_teams: dict[int, tuple] = {
+        s.id: (s.home_team_actual_id, s.away_team_actual_id)
+        for s in BracketSlot.objects.filter(id__in=visible_slot_ids)
+    }
 
     preds = list(
         SlotPrediction.objects
-        .filter(slot_id__in=locked_slot_ids)
+        .filter(slot_id__in=visible_slot_ids)
         .select_related("user", "home_team", "away_team", "prediction_round")
         .order_by("slot_id", "user_id", "-prediction_round__order")
     )
@@ -69,11 +86,11 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
     for p in preds:
         preds_by_user.setdefault((p.slot_id, p.user_id), []).append(p)
 
-    # GanyanScore rows for the locked slots — only exist when a result is in.
-    # Keyed (slot_id, user_id) to match the per-prediction `key` used below.
+    # GanyanScore rows for the visible (result-entered) slots. Keyed
+    # (slot_id, user_id) to match the per-prediction `key` used below.
     ganyan_by_user_slot: dict[tuple[int, int], GanyanScore] = {
         (gs.slot_id, gs.user_id): gs
-        for gs in GanyanScore.objects.filter(slot_id__in=locked_slot_ids)
+        for gs in GanyanScore.objects.filter(slot_id__in=visible_slot_ids)
     }
 
     chips: dict[int, list[dict]] = {}
@@ -92,6 +109,12 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
             )
         else:
             display = p  # latest (ordered desc)
+        # Strict matchup: skip a chip whose shown (effective) prediction is on a
+        # different pairing than the slot's real fixture — that pick didn't
+        # predict *this* match, so it neither scores nor belongs here. Mirrors
+        # ganyan.compute_slot's predictor_count/breakdown exclusion.
+        if (display.home_team_id, display.away_team_id) != actual_teams.get(p.slot_id):
+            continue
         match_type = gs.outcome if gs and gs.outcome not in (GanyanScore.NO_RESULT, GanyanScore.NO_PREDICTION) else None
         user = display.user
         nick = user.nickname or user.email
@@ -101,6 +124,11 @@ def _chips_for_slots(slot_ids: list[int]) -> dict[int, list[dict]]:
             "home_score": display.home_score,
             "away_score": display.away_score,
             "matchup_type": match_type,
+            # Round the shown pick came from — drives the weight badge. The
+            # pre-tournament round (order 0, ×1.00) is the baseline, so the
+            # template omits its badge.
+            "round_order": display.prediction_round.order,
+            "round_weight": display.prediction_round.weight,
             "_sort": (
                 *_score_spectrum_key(display.home_score, display.away_score),
                 nick.lower(),
@@ -137,23 +165,28 @@ def _grid_context(request: HttpRequest, tournament) -> dict:
         .select_related("stage", "home_team_actual", "away_team_actual")
         .order_by("scheduled_kickoff")[:UPCOMING_LIMIT]
     )
-    # Latest prediction (across rounds) per upcoming slot — only when there's
-    # a logged-in viewer to attach predictions to.
-    preds_by_slot: dict[int, SlotPrediction] = {}
+    # The viewer's own picks per upcoming slot — one row per round (earliest
+    # first), filtered to the actual fixture (strict home AND away) so a stale
+    # bracket pick for a different matchup doesn't show. Each row carries its
+    # round so the template can badge later rounds with their weight (the pre
+    # round, ×1.00, is the baseline and shows no badge).
+    preds_by_slot: dict[int, list[SlotPrediction]] = {}
     if viewer is not None:
-        upcoming_slot_ids = [s.id for s in upcoming_slots]
+        slots_by_id = {s.id: s for s in upcoming_slots}
         for p in (
             SlotPrediction.objects
-            .filter(user=viewer, slot_id__in=upcoming_slot_ids)
+            .filter(user=viewer, slot_id__in=list(slots_by_id))
             .select_related("home_team", "away_team", "prediction_round")
-            .order_by("slot_id", "-prediction_round__order")
+            .order_by("slot_id", "prediction_round__order")
         ):
-            preds_by_slot.setdefault(p.slot_id, p)
+            slot = slots_by_id[p.slot_id]
+            if slot.home_team_actual_id == p.home_team_id and slot.away_team_actual_id == p.away_team_id:
+                preds_by_slot.setdefault(p.slot_id, []).append(p)
     upcoming_chip_map = _chips_for_slots([s.id for s in upcoming_slots])
     upcoming = [
         {
             "slot": s,
-            "prediction": preds_by_slot.get(s.id),
+            "predictions": preds_by_slot.get(s.id, []),
             "chips": upcoming_chip_map.get(s.id, []),
         }
         for s in upcoming_slots

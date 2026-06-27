@@ -74,18 +74,41 @@ def _wrap_steps(current_key: str) -> dict:
 # ---------- Row context ----------
 
 
+def _teams_resolved(slot: BracketSlot) -> bool:
+    return bool(slot.home_team_actual_id and slot.away_team_actual_id)
+
+
+def _is_knockout_draw(slot: BracketSlot, home_score, away_score) -> bool:
+    """True when this knockout slot's entered score is level → goes to penalties.
+
+    `home_score`/`away_score` may be ints (saved) or raw POST strings.
+    """
+    if slot.stage.kind == "GROUP" or home_score is None or away_score is None:
+        return False
+    try:
+        return int(home_score) == int(away_score)
+    except (TypeError, ValueError):
+        return False
+
+
 def _build_row_context(slot: BracketSlot) -> dict:
     """Build the context dict for one slot row in the wizard."""
     actual = ActualResult.objects.filter(slot=slot).first()
     result_form = ActualResultForm(instance=actual, slot=slot)
+    # The team picker only appears for a knockout slot the bracket resolver
+    # hasn't filled yet. Once teams are known (groups → R32 → R16 → …) the row
+    # shows them as fixed labels with flags — no dropdown, nothing to pick.
     teams_form = None
-    if slot.stage.kind != "GROUP":
+    if slot.stage.kind != "GROUP" and not _teams_resolved(slot):
         teams_form = SlotTeamsForm(instance=slot)
+    home = actual.home_score if actual else None
+    away = actual.away_score if actual else None
     return {
         "slot": slot,
         "actual": actual,
         "result_form": result_form,
         "teams_form": teams_form,
+        "is_draw": _is_knockout_draw(slot, home, away),
     }
 
 
@@ -218,10 +241,11 @@ def admin_results_save(request: HttpRequest, slot_id: int) -> HttpResponse:
     slot = get_object_or_404(BracketSlot, pk=slot_id)
     actual = ActualResult.objects.filter(slot=slot).first()
 
-    # Knockout slots may receive a team-assignment write.
+    # Team assignment is only writable for a knockout slot the resolver hasn't
+    # filled yet — resolved slots have no picker, so there's nothing to submit.
     teams_form = None
     teams_changed = False
-    if slot.stage.kind != "GROUP":
+    if slot.stage.kind != "GROUP" and not _teams_resolved(slot):
         teams_form = SlotTeamsForm(request.POST, instance=slot)
         if teams_form.has_changed():
             if teams_form.is_valid():
@@ -250,6 +274,12 @@ def admin_results_save(request: HttpRequest, slot_id: int) -> HttpResponse:
         ctx["just_saved"] = saved or teams_changed
         if not result_form.is_valid():
             ctx["result_form"] = result_form
+        # Reveal the penalty fields from the just-submitted scores, so entering
+        # a level knockout score surfaces them even when the (still-incomplete)
+        # save was rejected for missing the shootout.
+        ctx["is_draw"] = _is_knockout_draw(
+            slot, request.POST.get("home_score"), request.POST.get("away_score")
+        )
         body = render_to_string("admin_results/_slot_row.html", ctx, request=request)
         return HttpResponse(body)
 

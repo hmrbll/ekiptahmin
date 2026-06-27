@@ -18,7 +18,7 @@
         {% if stage.kind == 'THIRD' or stage.kind == 'FINAL' %}md:grid-cols-1 max-w-2xl{% endif %}
         ">
         {% for item in items %}
-            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on readonly=item.readonly round=round %}
+            {% include "predictions/_slot_row.html" with slot=item.slot pred=item.pred form=item.form display_home=item.display_home display_away=item.display_away cascade_blocked_on=item.cascade_blocked_on readonly=item.readonly prev_refs=item.prev_refs round=round %}
         {% endfor %}
     </ul>
 </section>

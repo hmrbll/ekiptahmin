@@ -95,7 +95,7 @@
                     </details>
                     {% else %}
                     <div class="border-t border-line pt-3 text-sm text-fg-muted">
-                        Bu maç için kayıtlı oyuncu tahmini yok.
+                        {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti, ama kimse bu eşleşmeyi tutturamadı.{% else %}Bu maç için kimse tahmin yapmadı.{% endif %}
                     </div>
                     {% endif %}
                 </li>
