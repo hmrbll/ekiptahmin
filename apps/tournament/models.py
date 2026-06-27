@@ -394,6 +394,26 @@ class BracketSlot(models.Model):
         return timezone.now() >= self.scheduled_kickoff
 
     @property
+    def predictions_round_closed(self) -> bool:
+        """True once no prediction round can still edit this slot's stage — so the
+        pick can no longer change and it's safe to reveal.
+
+        A stage is in a round's ``editable_stages`` only while it's still editable
+        there; closing a stage prunes it from every round's ``editable_stages``.
+        So the stage is closed when no *open* round (deadline still in the future)
+        lists it — whether because every such round's deadline has passed or
+        because the stage was pruned entirely.
+
+        This is the reveal gate for the public/legacy score sheets and the
+        match-detail tablosu. It trips at the stage's prediction-round deadline,
+        which for later matches in a stage is *earlier* than the match's own
+        kickoff (so a stage's picks all surface together when its round closes,
+        not match-by-match). The home-grid chips use a stricter result-only gate.
+        """
+        now = timezone.now()
+        return not self.stage.editable_in_rounds.filter(deadline__gt=now).exists()
+
+    @property
     def has_cascaded_teams(self) -> bool:
         """True when both team sides come from earlier knockout slot predictions."""
         return bool(self.home_source_slot_id and self.away_source_slot_id)
