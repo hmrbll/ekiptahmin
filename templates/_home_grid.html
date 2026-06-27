@@ -31,7 +31,7 @@
                 <div class="mt-1.5 text-xs">
                     {% if item.predictions %}
                     <span class="text-fg-muted">Tahminin:</span>
-                    {% for p in item.predictions %}<span class="font-mono text-primary">{{ p.home_score }}–{{ p.away_score }}</span>{% if p.prediction_round.order %}<span class="font-mono text-fg-muted opacity-80 ml-0.5" title="Bu tahminin geldiği turun ağırlık çarpanı">({{ p.prediction_round.weight|floatformat:2 }}x)</span>{% endif %}{% if not forloop.last %}<span class="text-fg-muted mx-1">·</span>{% endif %}{% endfor %}
+                    {% for p in item.predictions %}<span class="font-mono text-primary">{{ p.home_score }}–{{ p.away_score }}</span><span class="font-mono text-fg-muted opacity-80 ml-0.5" title="Bu tahminin geldiği turun ağırlık çarpanı">({{ p.prediction_round.weight|floatformat:2 }}x)</span>{% if not forloop.last %}<span class="text-fg-muted mx-1">·</span>{% endif %}{% endfor %}
                     {% else %}
                     <span class="text-warning-300">— tahmin yok</span>
                     {% endif %}

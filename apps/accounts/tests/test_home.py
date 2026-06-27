@@ -203,8 +203,9 @@ class TestHomeAuthenticated:
         self, client, t, group_stage, pre_round, tur, bra,
     ):
         """An upcoming match lists the viewer's pick from every round whose
-        prediction is on the actual fixture, earliest first, badged with its
-        round weight (the pre round, ×1.00, shows no badge)."""
+        prediction is on the actual fixture, earliest first, each badged with
+        its round weight — including the pre round (×1.00), so each pick's round
+        is unambiguous when several are shown side by side."""
         after = PredictionRound.objects.create(
             tournament=t, name="After Group", order=1,
             deadline=timezone.now() + timedelta(days=40), weight=Decimal("0.85"),
@@ -224,7 +225,7 @@ class TestHomeAuthenticated:
         body = client.get(reverse("home")).content.decode("utf-8")
         assert "2–0" in body and "3–1" in body                    # both rounds shown
         assert "(0,85x)" in body or "(0.85x)" in body             # later round badged
-        assert "(1,00x)" not in body and "(1.00x)" not in body    # pre baseline, no badge
+        assert "(1,00x)" in body or "(1.00x)" in body             # pre round also badged here
 
     def test_upcoming_hides_wrong_matchup_pick(
         self, client, t, group_stage, pre_round, tur, bra,
