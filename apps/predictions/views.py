@@ -231,19 +231,22 @@ def prediction_rounds(request: HttpRequest) -> HttpResponse:
 # ---------- Helpers ----------
 
 
-def _user_preds_index(user, pr):
-    """Return (all_user_latest_per_slot, this_round_preds_by_slot)."""
-    qs = list(
-        SlotPrediction.objects
-        .filter(user=user)
-        .select_related("home_team", "away_team", "penalty_winner")
-        .order_by("slot_id", "-prediction_round__order")
-    )
-    all_latest: dict[int, SlotPrediction] = {}
-    for p in qs:
-        all_latest.setdefault(p.slot_id, p)
-    this_round = {p.slot_id: p for p in qs if p.prediction_round_id == pr.id}
-    return all_latest, this_round
+def _round_preds_by_slot(user, pr) -> dict[int, SlotPrediction]:
+    """The user's predictions in round `pr`, keyed by slot id.
+
+    Used to prefill each slot's own row and — for knockout rows — to derive a
+    slot's matchup from this round's source-slot picks. Round-scoped on purpose:
+    rounds are isolated, so an earlier round's bracket is never inherited (a
+    resolved actual matchup still shows, via `BracketSlot.*_team_actual`).
+    """
+    return {
+        p.slot_id: p
+        for p in (
+            SlotPrediction.objects
+            .filter(user=user, prediction_round=pr)
+            .select_related("home_team", "away_team", "penalty_winner")
+        )
+    }
 
 
 def _stage_visibility(user, pr) -> tuple[set[str], set[str]]:
@@ -325,8 +328,13 @@ def _wrap_steps(pr, user, current_key: str) -> dict:
     }
 
 
-def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit_state):
-    """Per-slot context dict consumed by `_slot_row.html`."""
+def _build_row_context(request, pr, slot, round_preds, this_round_pred, edit_state):
+    """Per-slot context dict consumed by `_slot_row.html`.
+
+    `round_preds` is this round's predictions keyed by slot id — knockout rows
+    derive their displayed matchup from this round's source-slot picks only
+    (round isolation), matching the form's locking.
+    """
     readonly = (
         not edit_state["round_open"]
         or slot.stage_id not in edit_state["editable_stage_ids"]
@@ -379,14 +387,14 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
     if display_away is None and form.fields["away_team"].initial:
         display_away = form.fields["away_team"].initial
     if display_home is None and slot.home_source_slot_id:
-        src = all_user_latest.get(slot.home_source_slot_id)
+        src = round_preds.get(slot.home_source_slot_id)
         if src:
             display_home = (
                 src.winner_team()
                 if slot.home_source_kind == "WINNER" else src.loser_team()
             )
     if display_away is None and slot.away_source_slot_id:
-        src = all_user_latest.get(slot.away_source_slot_id)
+        src = round_preds.get(slot.away_source_slot_id)
         if src:
             display_away = (
                 src.winner_team()
@@ -412,7 +420,7 @@ def _build_row_context(request, pr, slot, all_user_latest, this_round_pred, edit
     }
 
 
-def _build_group_block(request, pr, letter, all_user_latest, this_round_preds, edit_state):
+def _build_group_block(request, pr, letter, round_preds, edit_state):
     """Build the group card payload (slot rows + standings)."""
     group_slots = list(
         BracketSlot.objects
@@ -426,11 +434,11 @@ def _build_group_block(request, pr, letter, all_user_latest, this_round_preds, e
     )
     items = [
         _build_row_context(
-            request, pr, slot, all_user_latest, this_round_preds.get(slot.id), edit_state,
+            request, pr, slot, round_preds, round_preds.get(slot.id), edit_state,
         )
         for slot in group_slots
     ]
-    standings = standings_for_group(request.user, pr.tournament, letter)
+    standings = standings_for_group(request.user, pr.tournament, letter, pr)
     teams_by_code = {t.code: t for t in pr.tournament.teams.all()}
     standings_rows = [{"team": teams_by_code.get(s.team_code), "stat": s} for s in standings]
     return {"letter": letter, "items": items, "standings": standings_rows}
@@ -468,8 +476,8 @@ def predict_group_step(
         return redirect("predict_round_entry", round_id=pr.id)
 
     edit_state = _edit_state(pr)
-    all_latest, this_round = _user_preds_index(request.user, pr)
-    group = _build_group_block(request, pr, letter, all_latest, this_round, edit_state)
+    round_preds = _round_preds_by_slot(request.user, pr)
+    group = _build_group_block(request, pr, letter, round_preds, edit_state)
     if not group["items"]:
         return redirect("predict_round_entry", round_id=pr.id)
 
@@ -489,9 +497,9 @@ def predict_groups_summary(request: HttpRequest, round_id: int) -> HttpResponse:
         return redirect("predict_round_entry", round_id=pr.id)
 
     edit_state = _edit_state(pr)
-    all_latest, this_round = _user_preds_index(request.user, pr)
+    round_preds = _round_preds_by_slot(request.user, pr)
     groups = [
-        _build_group_block(request, pr, letter, all_latest, this_round, edit_state)
+        _build_group_block(request, pr, letter, round_preds, edit_state)
         for letter in GROUP_LETTERS
         if _build_group_block_has_slots(pr, letter)
     ]
@@ -530,9 +538,9 @@ def _knockout_section_for_stage(request, pr, stage_kind, edit_state):
     )
     if not slots:
         return None
-    all_latest, this_round = _user_preds_index(request.user, pr)
+    round_preds = _round_preds_by_slot(request.user, pr)
     items = [
-        _build_row_context(request, pr, slot, all_latest, this_round.get(slot.id), edit_state)
+        _build_row_context(request, pr, slot, round_preds, round_preds.get(slot.id), edit_state)
         for slot in slots
     ]
     return (stage, items)
@@ -648,9 +656,9 @@ def slot_prediction_save(
 
     if request.headers.get("HX-Request"):
         edit_state = _edit_state(pr)
-        all_latest, this_round = _user_preds_index(request.user, pr)
+        round_preds = _round_preds_by_slot(request.user, pr)
         ctx = _build_row_context(
-            request, pr, slot, all_latest, this_round.get(slot.id), edit_state,
+            request, pr, slot, round_preds, round_preds.get(slot.id), edit_state,
         )
         ctx["just_saved"] = saved
         if not saved:
@@ -674,7 +682,7 @@ def slot_prediction_save(
                 if ds.id == slot.id or ds.stage_id not in edit_state["editable_stage_ids"]:
                     continue
                 ds_ctx = _build_row_context(
-                    request, pr, ds, all_latest, this_round.get(ds.id), edit_state,
+                    request, pr, ds, round_preds, round_preds.get(ds.id), edit_state,
                 )
                 ds_ctx["oob"] = True
                 body += render_to_string("predictions/_slot_row.html", ds_ctx, request=request)
@@ -683,7 +691,7 @@ def slot_prediction_save(
         # group via HTMX out-of-band swap, so the live ranking refreshes.
         if saved and slot.stage.kind == "GROUP":
             letter = slot.position.split("-")[0].replace("Group", "")
-            standings = standings_for_group(request.user, pr.tournament, letter)
+            standings = standings_for_group(request.user, pr.tournament, letter, pr)
             teams_by_code = {t.code: t for t in pr.tournament.teams.all()}
             rows = [{"team": teams_by_code.get(s.team_code), "stat": s} for s in standings]
             standings_html = render_to_string(

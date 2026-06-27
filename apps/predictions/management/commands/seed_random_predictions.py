@@ -98,13 +98,14 @@ class Command(BaseCommand):
         with transaction.atomic():
             for slot in slots:
                 # Resolve teams. Group slots have fixed teams; knockout slots
-                # cascade from predictions written earlier in this same loop.
+                # cascade from this round's predictions written earlier in this
+                # same loop (round isolation).
                 if slot.home_team_actual_id and slot.away_team_actual_id:
                     home = slot.home_team_actual
                     away = slot.away_team_actual
                 else:
-                    home = resolve_slot_side_team(user, slot, "home")
-                    away = resolve_slot_side_team(user, slot, "away")
+                    home = resolve_slot_side_team(user, slot, "home", pr)
+                    away = resolve_slot_side_team(user, slot, "away", pr)
 
                 if home is None or away is None:
                     self.stdout.write(self.style.WARNING(

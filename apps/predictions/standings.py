@@ -47,8 +47,13 @@ def predictions_to_group_matches(predictions) -> list[GroupMatch]:
     ]
 
 
-def _user_predicted_matches(user, tournament, group_letter: str):
-    """Return the user's most recent prediction per group slot. May be empty."""
+def _user_predicted_matches(user, tournament, group_letter: str, prediction_round):
+    """Return the user's prediction per group slot in `prediction_round`.
+
+    Round-scoped (one pick per slot per round, by the unique constraint) so a
+    round's standings derive only from that round's own group picks — prediction
+    rounds are isolated from one another. May be empty.
+    """
     group_slots = list(
         BracketSlot.objects.filter(
             tournament=tournament,
@@ -59,34 +64,30 @@ def _user_predicted_matches(user, tournament, group_letter: str):
     if not group_slots:
         return []
 
-    preds = (
+    return list(
         SlotPrediction.objects
-        .filter(user=user, slot_id__in=group_slots)
+        .filter(user=user, slot_id__in=group_slots, prediction_round=prediction_round)
         .select_related("home_team", "away_team")
-        .order_by("slot_id", "-prediction_round__order")
+        .order_by("slot_id")
     )
-    seen: set[int] = set()
-    latest = []
-    for p in preds:
-        if p.slot_id in seen:
-            continue
-        seen.add(p.slot_id)
-        latest.append(p)
-    return latest
 
 
 def standings_for_group(
-    user, tournament, group_letter: str, *, pad_with_zeros: bool = True,
+    user, tournament, group_letter: str, prediction_round, *, pad_with_zeros: bool = True,
 ) -> list[TeamStanding]:
     """Compute the standings for one group from the user's predictions.
 
-    Uses the user's most recent prediction per slot across all rounds.
+    Round-scoped: uses only the user's group picks in `prediction_round`, so each
+    round's bracket stands alone (see `_user_predicted_matches`). Actual group
+    results, when entered, propagate into every round's bracket separately via
+    `tournament.resolver` (which writes `BracketSlot.*_team_actual`).
+
     By default, returns one row per team in the group — teams the user
     hasn't predicted yet appear with all zeros so the table is never empty.
     Pass `pad_with_zeros=False` for the cascade path: it must distinguish
     "no predictions" from "predictions that happen to leave a team at 0".
     """
-    latest = _user_predicted_matches(user, tournament, group_letter)
+    latest = _user_predicted_matches(user, tournament, group_letter, prediction_round)
     standings = compute_group_standings(predictions_to_group_matches(latest))
 
     if pad_with_zeros:
@@ -100,21 +101,23 @@ def standings_for_group(
     return standings
 
 
-def derive_group_team(user, tournament, group_letter: str, position: int):
+def derive_group_team(user, tournament, group_letter: str, position: int, prediction_round):
     """Return the Team the user has at `position` of group `group_letter`,
     or None if the user hasn't predicted enough matches to determine it.
 
-    Uses unpadded standings — a team in slot 1 of an empty group is *not*
-    a real prediction.
+    Round-scoped via `standings_for_group`. Uses unpadded standings — a team in
+    slot 1 of an empty group is *not* a real prediction.
     """
-    standings = standings_for_group(user, tournament, group_letter, pad_with_zeros=False)
+    standings = standings_for_group(
+        user, tournament, group_letter, prediction_round, pad_with_zeros=False,
+    )
     if len(standings) < position:
         return None
     target_code = standings[position - 1].team_code
     return Team.objects.filter(tournament=tournament, code=target_code).first()
 
 
-def thirds_candidates(user, tournament, group_letters: list[str]) -> list[Team]:
+def thirds_candidates(user, tournament, group_letters: list[str], prediction_round) -> list[Team]:
     """For "3.lerden biri (X/Y/Z)" sources: return the user's predicted 3rd-place
     team in each of the given groups, in input order. Empty entries omitted.
 
@@ -123,13 +126,13 @@ def thirds_candidates(user, tournament, group_letters: list[str]) -> list[Team]:
     """
     teams: list[Team] = []
     for letter in group_letters:
-        team = derive_group_team(user, tournament, letter, 3)
+        team = derive_group_team(user, tournament, letter, 3, prediction_round)
         if team is not None and team not in teams:
             teams.append(team)
     return teams
 
 
-def qualifying_thirds(user, tournament) -> tuple[list[str], dict[str, TeamStanding]] | tuple[None, None]:
+def qualifying_thirds(user, tournament, prediction_round) -> tuple[list[str], dict[str, TeamStanding]] | tuple[None, None]:
     """Compute which 8 group letters qualify with their third-placed teams.
 
     Returns (sorted_letters, third_standings_by_letter) where the first list
@@ -137,13 +140,14 @@ def qualifying_thirds(user, tournament) -> tuple[list[str], dict[str, TeamStandi
     alphabetical order — the JSON table is keyed this way), and the dict
     maps each qualifying letter to that group's third-place TeamStanding.
 
-    Returns (None, None) if any of the 12 groups has no third-place team
-    yet (i.e., the user hasn't predicted enough matches to determine all
-    12 groups' standings).
+    Round-scoped (via `standings_for_group`). Returns (None, None) if any of the
+    12 groups has no third-place team yet in this round (i.e., the user hasn't
+    predicted enough matches in `prediction_round` to determine all 12 groups'
+    standings).
     """
     third_by_letter: dict[str, TeamStanding] = {}
     for letter in "ABCDEFGHIJKL":
-        s = standings_for_group(user, tournament, letter, pad_with_zeros=False)
+        s = standings_for_group(user, tournament, letter, prediction_round, pad_with_zeros=False)
         if len(s) < 3:
             return None, None
         third_by_letter[letter] = s[2]
@@ -159,14 +163,14 @@ def qualifying_thirds(user, tournament) -> tuple[list[str], dict[str, TeamStandi
     return top_8_letters, third_by_letter
 
 
-def derive_best_third_for_slot(user, tournament, slot: BracketSlot):
+def derive_best_third_for_slot(user, tournament, slot: BracketSlot, prediction_round):
     """For an R32 slot whose source is "3.lerden biri (...)" — return the
     Team that the FIFA allocation table assigns to that slot, given the
-    user's group predictions. Returns None if the user hasn't predicted
-    enough matches for all 12 groups to have a determinable third-place
-    finisher.
+    user's group predictions in `prediction_round`. Returns None if the user
+    hasn't predicted enough matches in that round for all 12 groups to have a
+    determinable third-place finisher.
     """
-    qualifying, third_by_letter = qualifying_thirds(user, tournament)
+    qualifying, third_by_letter = qualifying_thirds(user, tournament, prediction_round)
     return best_third_from_qualifying(tournament, slot, qualifying, third_by_letter)
 
 
