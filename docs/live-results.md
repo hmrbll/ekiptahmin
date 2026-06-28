@@ -95,14 +95,36 @@ the match's expected end + 30 min — per stage, since knockouts run longer:
 `live_cap` = **140 min** after kickoff for group (≈110' play + 30' grace),
 **180 min** for knockout (extra time + penalties + grace). The same cap bounds
 the display via `live_syncs()` — the one definition of "currently live" shared
-by the homepage "CANLI" module (which renders those rows) *and* the "Son
-sonuçlar" list (which excludes their slots). Because both honour the cap, a
+by the homepage "CANLI" module (which renders those rows), the "Son sonuçlar"
+list (which excludes their slots), **and** the played-matches log (`/results/`)
++ match-detail ganyan page (`/matches/<id>/`). Because both honour the cap, a
 match stuck `IN_PLAY` (FINISHED missed) drops off the live module after its cap
 **and** resurfaces in recent results, instead of vanishing from both. `sync_live_matches` returns immediately (no API call)
 when nothing is in the window — this is what keeps a forgotten open tab from
 polling football-data overnight. `maybe_sync_live` adds a 45s throttle + a cache
 lock so concurrent visitors trigger at most one external call. **Assumes a single
 web instance** (the throttle is per-process); revisit if web scales horizontally.
+
+### Live ("anlık") standings on `/results/` and `/matches/<id>/`
+
+A live score is written to `ActualResult` as the match goes, so the ganyan
+engine keeps GanyanScore / MatchPool current off the running score. `/results/`
+and `/matches/<id>/` render that live state **as a result** — a live match shows
+its "anlık" puan durumu (who's winning right now), computed off the current
+score. Both views ask `live_syncs()` whether each slot is currently live and
+pass `is_live` to the templates, which only changes the wording/badge — never
+*what* is shown:
+
+- **`/results/`** badges a live card **CANLI** and labels its player list
+  "Canlı puan durumu (N)".
+- **`/matches/<id>/`** badges the score **CANLI**, adds a "puan durumu anlık …
+  maç ilerledikçe değişir" note, titles the standings "Canlı Puan Durumu", and
+  softens the empty-pool wording to "şu an kazanan yok" (vs the final "Havuz
+  yandı").
+
+Once the match is `FINISHED` (or stuck past its `live_cap`), `is_live` flips
+false and both pages drop the live wording — the standings themselves are
+unchanged.
 
 ## Guaranteed server-side poll (cron)
 

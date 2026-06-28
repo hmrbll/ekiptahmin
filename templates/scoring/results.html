@@ -28,6 +28,16 @@
                         <span>·</span>
                         <span>{{ m.slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
                         {% if m.slot.venue %}<span>·</span><span class="truncate">{{ m.slot.venue }}</span>{% endif %}
+                        {% if m.is_live %}
+                        <span>·</span>
+                        <span class="inline-flex items-center gap-1 font-semibold text-danger-500">
+                            <span class="relative flex h-2.5 w-2.5">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger-500 opacity-60"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-danger-500"></span>
+                            </span>
+                            CANLI
+                        </span>
+                        {% endif %}
                         <span class="ml-auto">
                             <a href="{% url 'match_detail' m.slot.id %}" class="text-primary hover:text-primary-hover underline decoration-primary/40 underline-offset-2">Ganyan tablosu →</a>
                         </span>
@@ -55,7 +65,7 @@
                     {% if m.scores %}
                     <details class="group border-t border-line pt-3">
                         <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden text-xs uppercase tracking-wider text-fg-muted hover:text-fg-soft transition">
-                            <span>Oyuncu puanları ({{ m.scores|length }})</span>
+                            <span>{% if m.is_live %}Canlı puan durumu{% else %}Oyuncu puanları{% endif %} ({{ m.scores|length }})</span>
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0 transition-transform group-open:rotate-180">
                                 <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
@@ -95,7 +105,7 @@
                     </details>
                     {% else %}
                     <div class="border-t border-line pt-3 text-sm text-fg-muted">
-                        {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti, ama kimse bu eşleşmeyi tutturamadı.{% else %}Bu maç için kimse tahmin yapmadı.{% endif %}
+                        {% if m.is_live %}Maç sürüyor — bu eşleşmeyi şu an tutturan yok.{% elif m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti, ama kimse bu eşleşmeyi tutturamadı.{% else %}Bu maç için kimse tahmin yapmadı.{% endif %}
                     </div>
                     {% endif %}
                 </li>
