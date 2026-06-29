@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 
+from apps.liveresults.sync import live_syncs
 from apps.predictions.models import SlotPrediction
 from apps.tournament.models import (
     ActualResult,
@@ -223,6 +224,12 @@ def results_list(request: HttpRequest) -> HttpResponse:
                     return p
         return bucket[0]
 
+    # Slots whose match is still being played. A live score is written to
+    # ActualResult as it goes, so the ganyan standings here are the live ("anlık")
+    # puan durumu off the current score; `is_live` only drives the CANLI badge and
+    # the "değişebilir" wording. Same source of truth the homepage CANLI module uses.
+    live_slot_ids = {ms.slot_id for ms in live_syncs(tournament)}
+
     slot_by_id = {a.slot_id: a.slot for a in actuals}
     # Distinct predictors per slot (any matchup) — drives the "N predicted but
     # nobody hit the matchup" note when every pick was off-fixture. One score
@@ -254,6 +261,7 @@ def results_list(request: HttpRequest) -> HttpResponse:
         matches.append({
             "actual": actual,
             "slot": actual.slot,
+            "is_live": actual.slot_id in live_slot_ids,
             "scores": scores_by_slot.get(actual.slot_id, []),
             "prediction_count": predictor_count_by_slot.get(actual.slot_id, 0),
         })
@@ -318,6 +326,12 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
         pk=slot_id,
     )
     actual = ActualResult.objects.filter(slot=slot).select_related("penalty_winner").first()
+    # A live score is treated as the result: the ganyan tablosu and the standings
+    # below are computed from the current running score so the page shows a live
+    # ("anlık") puan durumu, badged CANLI. `is_live` only drives that badge and
+    # the "değişebilir" wording — not what's shown. Same "currently live" source
+    # as the homepage CANLI module.
+    is_live = slot.id in {ms.slot_id for ms in live_syncs(slot.tournament)}
     pools = list(
         MatchPool.objects.filter(slot=slot)
     )
@@ -344,7 +358,7 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
             "winning_key": _winning_breakdown_key(c, slot, actual) if actual else None,
         })
 
-    # Per-user payouts (only when actual result exists).
+    # Per-user payouts — computed live off the running score while in play.
     user_payouts = []
     if actual is not None:
         scores = list(
@@ -380,6 +394,7 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
         "tournament": slot.tournament,
         "slot": slot,
         "actual": actual,
+        "is_live": is_live,
         # Tablosu (incl. the pre-result pool preview) is public once the slot's
         # prediction round has closed (picks can no longer change) or it's scored
         # — not at the match's own kickoff. (The home-grid chips are stricter:

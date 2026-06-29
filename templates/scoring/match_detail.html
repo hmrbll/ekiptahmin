@@ -20,6 +20,16 @@
                 <span>·</span>
                 <span>{{ slot.scheduled_kickoff|date:"d M Y H:i" }}</span>
                 {% if slot.venue %}<span>·</span><span class="truncate">{{ slot.venue }}</span>{% endif %}
+                {% if is_live %}
+                <span>·</span>
+                <span class="inline-flex items-center gap-1 font-semibold text-danger-500">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger-500 opacity-60"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-danger-500"></span>
+                    </span>
+                    CANLI
+                </span>
+                {% endif %}
             </div>
 
             <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 sm:gap-3 items-center text-base sm:text-xl">
@@ -58,6 +68,9 @@
             <p class="text-sm text-fg-muted">
                 Her kriter için sabit bir havuz var. Havuz, o kriteri doğru tutturanlar arasında eşit bölüşülür. Aynı tahmini yapan ne kadar çoksa kişi başı puan o kadar düşük.
             </p>
+            {% if is_live %}
+            <p class="text-xs font-semibold text-danger-500">CANLI — puan durumu anlık skora göre; maç ilerledikçe değişir.</p>
+            {% endif %}
 
             {% for p in pools %}
             <div class="rounded-2xl border border-line bg-surface p-4 sm:p-5">
@@ -69,7 +82,9 @@
                             · {{ p.pool.predictor_count }} tahmin
                             {% if p.pool.winner_count %}· {{ p.pool.winner_count }} kazanan
                             · Kişi başı <span class="font-mono">{{ p.pool.base_payout|floatformat:2 }}</span>
-                            {% elif actual and not p.pool.winner_count %}
+                            {% elif actual and is_live %}
+                            · <span class="text-fg-muted">şu an kazanan yok</span>
+                            {% elif actual %}
                             · <span class="text-danger">Havuz yandı</span>
                             {% endif %}
                         </div>
@@ -107,7 +122,7 @@
 
         {% if user_payouts %}
         <section class="mt-8">
-            <h2 class="text-lg sm:text-xl font-semibold mb-3">Oyuncu Puanları</h2>
+            <h2 class="text-lg sm:text-xl font-semibold mb-3">{% if is_live %}Canlı Puan Durumu{% else %}Oyuncu Puanları{% endif %}</h2>
             <ul class="divide-y divide-line rounded-2xl border border-line bg-surface">
                 {% for entry in user_payouts %}
                 <li class="px-4 py-3 text-sm flex items-center gap-3">
@@ -122,6 +137,12 @@
                 </li>
                 {% endfor %}
             </ul>
+        </section>
+        {% elif is_live %}
+        <section class="mt-8">
+            <div class="rounded-2xl border border-line bg-surface p-6 text-center text-fg-muted text-sm">
+                Bu eşleşmeyi şu an tutturan yok — puan durumu skor değiştikçe güncellenir.
+            </div>
         </section>
         {% endif %}
 
