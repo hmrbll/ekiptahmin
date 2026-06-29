@@ -69,3 +69,40 @@ def test_no_iteration_param():
 
     params = inspect.signature(compute_slot).parameters
     assert "max_iterations" not in params
+
+
+def test_missed_on_fixture_pick_beats_earlier_off_fixture_tie():
+    """A user who predicted THIS match but missed is attributed to the real
+    fixture, not to an earlier off-fixture bracket pick they also hold.
+
+    Knockout slot BRA-JPN, result 2-1. Hemre's pre-tournament bracket had
+    BRA-SWE (a different pairing → 0), then he predicted the real BRA-JPN as a
+    1-1 draw (wrong result → also 0). Both candidates score 0; the tie must fall
+    to the on-fixture round so he counts toward N and shows as a 'miss', instead
+    of vanishing behind the off-fixture pick.
+    """
+    result = Result(home_team="BRA", away_team="JPN", home_score=2, away_score=1)
+
+    def _pp(order, w, h, a, home, away):
+        return Prediction(
+            round_order=order, round_weight=Decimal(str(w)),
+            home_team=home, away_team=away, home_score=h, away_score=a,
+        )
+
+    preds = {
+        # Hemre: early off-fixture (BRA-SWE) + later on-fixture miss (BRA-JPN 1-1).
+        1: [_pp(0, 1.0, 2, 0, "BRA", "SWE"), _pp(1, 0.85, 1, 1, "BRA", "JPN")],
+        # An on-fixture hitter so the pools aren't degenerate.
+        2: [_pp(0, 1.0, 2, 1, "BRA", "JPN")],
+    }
+    scores, stats = compute_slot(preds, result, _pools())
+
+    # Effective round is the on-fixture one (order 1), not the off-fixture order 0.
+    assert scores[1].effective_round_order == 1
+    assert scores[1].outcome == "miss"
+    assert scores[1].total == Decimal("0")
+    # He now counts among the match's predictors (N), alongside the hitter.
+    by_c = {s.criterion: s for s in stats}
+    assert by_c["result"].predictor_count == 2
+    # His 1-1 lands in the regulation breakdowns (proof he's attributed here).
+    assert by_c["exact"].breakdown.get("1-1") == 1

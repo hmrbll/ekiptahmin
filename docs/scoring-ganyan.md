@@ -25,13 +25,23 @@ the **nominal** pools (each criterion at its full `pool_c`, before any dilution)
 
 ```
 nominal_UMR  = Σ_c [ sat(pred_UMR, c) × pool_c ]          # full pools, not base_payout
-R*           = argmax over rounds R of (nominal_UMR × round_weight_R)   # ties → earliest R
+R*           = argmax over rounds R of (nominal_UMR × round_weight_R)   # ties → on-fixture, then earliest R
 score(U, M)  = Σ_c [ sat(pred_UMR*, c) × base_payout_c ] × round_weight_R*
 ```
 
 `R*` is chosen against the full pools, so it depends only on `U`'s **own**
 predictions — never on how the crowd splits the pools. Scoring then applies the
 diluted `base_payout_c`. All criteria are taken from that single effective round.
+
+**Tie-break:** equal weighted totals fall to the round whose pick is **on the
+actual fixture** (strict home AND away), then to the earliest round. This only
+bites when every candidate scores 0 — a user who predicted *this* match but
+missed ties at 0 with any earlier off-fixture bracket pick. Preferring the
+on-fixture pick keeps that user attributed to the match they actually predicted,
+so they count toward `N`, appear in the breakdown, and render as a "miss" in the
+match/result/home views (which all filter on `R*`'s matchup) instead of vanishing
+behind an unrelated bracket pick. It never changes points: an off-fixture pick
+scores 0, so the swap is only ever between two 0-point rounds.
 
 ### Effective-round selection is decoupled (no fixed-point)
 

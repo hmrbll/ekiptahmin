@@ -296,15 +296,27 @@ def _pick_effective_round(
     result: Result,
     payouts: dict[str, Decimal],
 ) -> tuple[Prediction, Decimal, dict[str, bool]]:
-    """Pick the round that maximizes weighted total. Tie → earliest round."""
+    """Pick the round that maximizes weighted total.
+
+    Tie-break: prefer a pick on the actual fixture, then the earliest round. The
+    on-fixture preference only bites when every candidate scores 0 — a user who
+    predicted THIS match but missed ties at 0 with any earlier off-fixture
+    bracket pick. Without the preference the off-fixture pick would win the tie
+    and become effective, which then drops the user from the match/result views
+    and the ganyan tablosu N (they filter on the effective pick's matchup) even
+    though they did predict this fixture. It never changes a user's points: an
+    off-fixture pick scores 0, so the swap is only ever between two 0-point picks.
+    """
     # Sort by round_order so equal totals fall to the earliest.
     sorted_preds = sorted(preds, key=lambda p: p.round_order)
     best_pred = sorted_preds[0]
     best_score, best_sat = _round_score_given_payouts(best_pred, result, payouts)
+    best_on_fixture = _matchup_correct(best_pred, result)
     for p in sorted_preds[1:]:
         score, sat = _round_score_given_payouts(p, result, payouts)
-        if score > best_score:
-            best_pred, best_score, best_sat = p, score, sat
+        on_fixture = _matchup_correct(p, result)
+        if (score, on_fixture) > (best_score, best_on_fixture):
+            best_pred, best_score, best_sat, best_on_fixture = p, score, sat, on_fixture
     return best_pred, best_score, best_sat
 
 
