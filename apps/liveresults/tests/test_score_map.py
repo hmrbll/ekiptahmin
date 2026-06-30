@@ -45,47 +45,70 @@ def test_extra_time_uses_regular_time_for_90():
              "extraTime": {"home": 0, "away": 1}}
     out = map_score(score)
     assert (out["home_score"], out["away_score"]) == (1, 1)  # 90', not 1-2
+    assert (out["home_score_aet"], out["away_score_aet"]) == (1, 2)  # 120'
     assert out["went_to_extra_time"] is True
     assert out["went_to_penalties"] is False
 
 
 def test_penalty_winner_derived_from_shootout_score_not_winner_field():
-    # `winner` deliberately contradicts the shootout score — we trust the score.
+    # Realistic payload: fullTime folds the shootout goals into the 120' draw
+    # (1-1 ET + 4-2 penalties → fullTime 5-3). `winner` deliberately contradicts
+    # the shootout score — we trust the score.
     score = {"winner": "AWAY_TEAM", "duration": "PENALTY_SHOOTOUT",
-             "fullTime": {"home": 1, "away": 1},
+             "fullTime": {"home": 5, "away": 3},
              "regularTime": {"home": 1, "away": 1},
              "penalties": {"home": 4, "away": 2}}
     out = map_score(score)
-    assert (out["home_score"], out["away_score"]) == (1, 1)
+    assert (out["home_score"], out["away_score"]) == (1, 1)            # 90' draw
+    assert (out["home_score_aet"], out["away_score_aet"]) == (1, 1)    # 120', NOT 5-3
     assert out["went_to_extra_time"] is True
     assert out["went_to_penalties"] is True
     assert (out["home_penalties"], out["away_penalties"]) == (4, 2)
     assert out["penalty_winner_side"] == "HOME"  # 4 > 2, ignoring the winner field
 
 
-def test_penalty_away_wins_shootout():
+def test_penalty_with_extra_time_goals_keeps_120_score():
+    # 90' 1-1, both score in ET → 120' is a 2-2 draw, then 4-3 on penalties.
+    # fullTime = 2-2 + penalties = 6-5; the clean 120' draw is fullTime - pens.
     score = {"duration": "PENALTY_SHOOTOUT",
-             "fullTime": {"home": 0, "away": 0},
+             "fullTime": {"home": 6, "away": 5},
+             "regularTime": {"home": 1, "away": 1},
+             "extraTime": {"home": 1, "away": 1},
+             "penalties": {"home": 4, "away": 3}}
+    out = map_score(score)
+    assert (out["home_score"], out["away_score"]) == (1, 1)            # 90'
+    assert (out["home_score_aet"], out["away_score_aet"]) == (2, 2)    # 120' draw
+    assert (out["home_penalties"], out["away_penalties"]) == (4, 3)
+    assert out["penalty_winner_side"] == "HOME"
+
+
+def test_penalty_away_wins_shootout():
+    # 0-0 ET draw, 3-5 on penalties → fullTime 3-5.
+    score = {"duration": "PENALTY_SHOOTOUT",
+             "fullTime": {"home": 3, "away": 5},
              "regularTime": {"home": 0, "away": 0},
              "penalties": {"home": 3, "away": 5}}
     out = map_score(score)
+    assert (out["home_score_aet"], out["away_score_aet"]) == (0, 0)
     assert out["penalty_winner_side"] == "AWAY"
 
 
 def test_penalty_tied_shootout_has_no_winner_yet():
-    # Live shootout, currently level → went_to_penalties but no winner yet.
+    # Live shootout, currently level at 2-2 → fullTime 3-3 (1-1 ET + 2-2 pens),
+    # went_to_penalties but no winner yet.
     score = {"duration": "PENALTY_SHOOTOUT",
-             "fullTime": {"home": 1, "away": 1},
+             "fullTime": {"home": 3, "away": 3},
              "regularTime": {"home": 1, "away": 1},
              "penalties": {"home": 2, "away": 2}}
     out = map_score(score)
+    assert (out["home_score_aet"], out["away_score_aet"]) == (1, 1)
     assert out["went_to_penalties"] is True
     assert out["penalty_winner_side"] is None
 
 
 def test_penalty_non_draw_90_raises():
     score = {"duration": "PENALTY_SHOOTOUT",
-             "fullTime": {"home": 2, "away": 1},
+             "fullTime": {"home": 6, "away": 3},
              "regularTime": {"home": 2, "away": 1},
              "penalties": {"home": 4, "away": 2}}
     with pytest.raises(ScoreMappingError):
