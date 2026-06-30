@@ -117,18 +117,18 @@ class Stage(models.Model):
     # Penalty shootout pools — only relevant on knockout stages that go to
     # penalties. Three parallel criteria mirroring the regulation ones:
     pool_penalty_winner = models.PositiveIntegerField(
-        default=50,
+        default=25,
         help_text="Ganyan pool: correctly named the team that advanced via penalties. "
                   "Open to any prediction (implied winner from a non-draw, chosen penalty "
                   "winner from a draw). Knockout only.",
     )
     pool_penalty_score = models.PositiveIntegerField(
-        default=50,
+        default=25,
         help_text="Ganyan pool: predicted the exact penalty shootout score. Only draw "
                   "predictions carry a shootout score, so this is open to them only. Knockout only.",
     )
     pool_penalty_diff = models.PositiveIntegerField(
-        default=50,
+        default=25,
         help_text="Ganyan pool: predicted the penalty shootout goal difference (signed home−away). "
                   "Draw predictions only. Knockout only.",
     )

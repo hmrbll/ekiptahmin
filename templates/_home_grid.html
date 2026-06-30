@@ -83,6 +83,11 @@
                         <span class="truncate">{{ item.slot.away_team_actual.name_tr }}</span>
                     </div>
                 </div>
+                {% if item.actual.went_to_penalties %}
+                <div class="mt-1.5 text-xs text-fg-muted text-center">pen: {{ item.actual.penalty_winner.code }} {{ item.actual.home_penalties }}–{{ item.actual.away_penalties }}</div>
+                {% elif item.actual.went_to_extra_time %}
+                <div class="mt-1.5 text-xs text-fg-muted text-center">uzatma</div>
+                {% endif %}
                 {% if user.is_authenticated %}
                 <div class="mt-1.5 text-xs">
                     {% if item.viewer_score %}

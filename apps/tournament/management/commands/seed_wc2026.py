@@ -143,9 +143,9 @@ class Command(BaseCommand):
                 "pool_exact": sd.get("pool_exact", 100),
                 "pool_diff": sd.get("pool_diff", 100),
                 "pool_result": sd.get("pool_result", 100),
-                "pool_penalty_winner": sd.get("pool_penalty_winner", 50),
-                "pool_penalty_score": sd.get("pool_penalty_score", 50),
-                "pool_penalty_diff": sd.get("pool_penalty_diff", 50),
+                "pool_penalty_winner": sd.get("pool_penalty_winner", 25),
+                "pool_penalty_score": sd.get("pool_penalty_score", 25),
+                "pool_penalty_diff": sd.get("pool_penalty_diff", 25),
             }
             stage, created = Stage.objects.update_or_create(
                 tournament=tournament,

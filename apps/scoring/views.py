@@ -350,11 +350,18 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
         # Penalty pools only render once the match has actually gone to penalties.
         if c in _PENALTY_CRITERIA and not (actual is not None and actual.went_to_penalties):
             continue
+        rows = _format_breakdown(p, slot)
         pools_view.append({
             "criterion": c,
             "label": _CRITERION_LABEL_TR.get(c, c),
             "pool": p,
-            "rows": _format_breakdown(p, slot),
+            "rows": rows,
+            # Per-criterion prediction count = the breakdown total, NOT the
+            # match-level predictor_count. They match for exact/diff/result/
+            # penalty_winner (everyone has a value), but penalty_score/diff only
+            # count draw-predictors who entered a shootout score — so a decisive
+            # match shows "0 tahmin" here instead of the misleading match N.
+            "prediction_count": sum(r["count"] for r in rows),
             "winning_key": _winning_breakdown_key(c, slot, actual) if actual else None,
         })
 

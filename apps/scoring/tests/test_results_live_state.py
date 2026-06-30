@@ -142,3 +142,57 @@ class TestResultsLiveState:
         body = r.content.decode()
         assert "CANLI" not in body
         assert "Oyuncu Puanları" in body
+
+
+@pytest.mark.django_db
+class TestPenaltyPoolPredictionCount:
+    """The ganyan tablosu header count is per-criterion (the breakdown total),
+    not the match-level N. So a penalty match where everyone predicted a
+    decisive winner shows "0 tahmin" for penalty_score/diff — consistent with
+    the "Bu kriter için tahmin yok" body — instead of the misleading match N.
+    """
+
+    def _penalty_slot_all_decisive(self, t, r32_stage, pre_round):
+        zaf = Team.objects.create(tournament=t, code="ZAF", name_tr="Güney Afrika")
+        can = Team.objects.create(tournament=t, code="CAN", name_tr="Kanada")
+        slot = BracketSlot.objects.create(
+            tournament=t, stage=r32_stage, position="R32-1",
+            scheduled_kickoff=timezone.now() - timedelta(hours=4),
+            home_team_actual=zaf, away_team_actual=can,
+        )
+        # Two predictors, both calling a decisive ZAF win — neither entered a
+        # shootout score, so penalty_score / penalty_diff get no predictions.
+        for i in range(2):
+            u = User.objects.create_user(
+                email=f"u{i}@x.com", username=f"u{i}@x.com", nickname=f"U{i}")
+            SlotPrediction.objects.create(
+                user=u, prediction_round=pre_round, slot=slot,
+                home_team=zaf, away_team=can, home_score=2, away_score=0,
+            )
+        # Match actually went to penalties (a 1-1 draw, ZAF advances 4-2).
+        ActualResult.objects.create(
+            slot=slot, home_score=1, away_score=1,
+            went_to_extra_time=True, went_to_penalties=True,
+            home_score_aet=1, away_score_aet=1,
+            home_penalties=4, away_penalties=2, penalty_winner=zaf,
+        )
+        return slot
+
+    def test_penalty_score_pool_counts_only_shootout_predictions(
+        self, client, t, r32_stage, pre_round
+    ):
+        slot = self._penalty_slot_all_decisive(t, r32_stage, pre_round)
+        r = client.get(reverse("match_detail", args=[slot.id]))
+        counts = {p["criterion"]: p["prediction_count"] for p in r.context["pools"]}
+
+        # Everyone has an exact/diff/result value and an implied advancer (ZAF)…
+        assert counts["exact"] == 2
+        assert counts["penalty_winner"] == 2
+        # …but nobody entered a shootout score → these are 0, not the match N.
+        assert counts["penalty_score"] == 0
+        assert counts["penalty_diff"] == 0
+
+        body = r.content.decode()
+        assert "Bu kriter için tahmin yok." in body
+        # The misleading "2 tahmin · Havuz yandı" must not appear for an empty pool.
+        assert "0 tahmin" in body

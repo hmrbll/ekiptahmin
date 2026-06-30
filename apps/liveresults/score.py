@@ -4,16 +4,23 @@ Pure, DB-free, so it's trivially unit-testable. The sync layer resolves
 `penalty_winner_side` to an actual Team and persists the rest.
 
 Our canonical score is the **90-minute regulation** result. football-data's
-`score` object (v4) — confirmed against the live API + docs/overtime.html:
+`score` object (v4) — confirmed against the live API:
 
     REGULAR           fullTime = the 90' score (also the running score in-play)
     EXTRA_TIME        fullTime = score through 120'; regularTime = the 90' score
-    PENALTY_SHOOTOUT  fullTime = score after 120'; regularTime = 90' score;
-                      penalties = shootout-only goals; winner = shootout winner
+    PENALTY_SHOOTOUT  fullTime = score through 120' **plus the shootout goals**;
+                      regularTime = 90' score (a draw); penalties = shootout-only
+                      goals; winner = shootout winner
 
 So for any beyond-90' match we take `regularTime` (a draw, by definition) for
 home/away_score and flag extra time / penalties separately — matching the
 manual entry form's invariants (a penalty match is a 90' draw).
+
+**Penalty quirk:** for a shootout, `fullTime` is NOT the clean 120' score —
+football-data folds the shootout goals into it (e.g. a 1-1 ET draw won 3-4 on
+penalties reports fullTime 4-5). So the real post-ET (120') score is
+`fullTime - penalties`; reading the 120' score straight off `fullTime` inflates
+both the displayed result and the exact/diff/result scoring.
 """
 
 from __future__ import annotations
@@ -67,27 +74,38 @@ def map_score(score: dict | None) -> dict | None:
         # 90' (or live running) score is fullTime.
         return {**base, "home_score": full_h, "away_score": full_a}
 
-    # Beyond 90' → the canonical 90' score lives in regularTime; fullTime is the
-    # 120' (after-extra-time) score, which the bracket resolver uses to pick the
-    # ET winner.
+    # Beyond 90' → the canonical 90' score lives in regularTime; the post-ET
+    # (120') score is home/away_score_aet, which the bracket resolver uses to
+    # pick the ET winner. How we read the 120' score off the payload differs by
+    # duration (see the penalty quirk below), so each branch sets it itself.
     reg_h, reg_a = _pair(score.get("regularTime"))
     if reg_h is None or reg_a is None:
         # regularTime should be present once duration leaves REGULAR. If a live
         # ET match hasn't populated it yet, fall back to fullTime so we still
         # show *something*; the next poll corrects it.
         reg_h, reg_a = full_h, full_a
-    base = {**base, "home_score_aet": full_h, "away_score_aet": full_a}
 
     if duration == DURATION_EXTRA_TIME:
-        return {**base, "home_score": reg_h, "away_score": reg_a, "went_to_extra_time": True}
+        # No shootout → fullTime is exactly the clean 120' score.
+        return {
+            **base,
+            "home_score": reg_h, "away_score": reg_a,
+            "home_score_aet": full_h, "away_score_aet": full_a,
+            "went_to_extra_time": True,
+        }
 
     if duration == DURATION_PENALTY:
+        pen_h, pen_a = _pair(score.get("penalties"))
+        # fullTime folds in the shootout goals, so the real 120' score is
+        # fullTime - penalties (a draw, by definition of going to penalties).
+        # Reading aet straight off fullTime would inflate display + scoring.
+        aet_h = full_h - (pen_h or 0)
+        aet_a = full_a - (pen_a or 0)
         if reg_h != reg_a:
             raise ScoreMappingError(
                 f"Penalty shootout with a non-draw 90' score ({reg_h}-{reg_a}); "
                 "cannot map (our model requires a 90' draw)."
             )
-        pen_h, pen_a = _pair(score.get("penalties"))
         # Winner derives from the shootout score (more goals advances), NOT the
         # provider's `winner` field. None while tied / not yet recorded (a live
         # shootout mid-round) — the scoring engine simply withholds the
@@ -99,6 +117,8 @@ def map_score(score: dict | None) -> dict | None:
             **base,
             "home_score": reg_h,
             "away_score": reg_a,
+            "home_score_aet": aet_h,
+            "away_score_aet": aet_a,
             "went_to_extra_time": True,
             "went_to_penalties": True,
             "home_penalties": pen_h,

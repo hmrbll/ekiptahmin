@@ -125,8 +125,9 @@ def test_knockout_slot_without_teams_awaits_resolution(tournament, group_stage, 
 
 
 def test_penalty_resolves_winner_team_from_score(live_slot, monkeypatch):
+    # fullTime folds the shootout goals into the 120' draw (1-1 + 5-4 → 6-5).
     score = {"duration": "PENALTY_SHOOTOUT",
-             "fullTime": {"home": 1, "away": 1},
+             "fullTime": {"home": 6, "away": 5},
              "regularTime": {"home": 1, "away": 1},
              "penalties": {"home": 5, "away": 4}}
     _patch(monkeypatch, [_match("999", "FINISHED", score)])
@@ -135,6 +136,10 @@ def test_penalty_resolves_winner_team_from_score(live_slot, monkeypatch):
     ar = ActualResult.objects.get(slot=live_slot)
     assert ar.went_to_penalties is True
     assert ar.penalty_winner == live_slot.home_team_actual  # 5 > 4
+    # The stored 120' score is the clean draw, not the penalty-inflated 6-5.
+    assert (ar.home_score, ar.away_score) == (1, 1)
+    assert (ar.home_score_aet, ar.away_score_aet) == (1, 1)
+    assert (ar.effective_home_score, ar.effective_away_score) == (1, 1)
 
 
 def test_dry_run_writes_nothing(live_slot, monkeypatch):

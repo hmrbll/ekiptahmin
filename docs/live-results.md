@@ -73,10 +73,18 @@ Our canonical score is the **90-minute** result; football-data's `score` object
 |---|---|---|---|
 | `REGULAR` | `fullTime` (also the live running score) | — | — |
 | `EXTRA_TIME` | `regularTime` | `fullTime` | `went_to_extra_time` |
-| `PENALTY_SHOOTOUT` | `regularTime` (a draw) | `fullTime` | ET + penalties; `penalties`; winner = more shootout goals |
+| `PENALTY_SHOOTOUT` | `regularTime` (a draw) | `fullTime − penalties` | `went_to_extra_time` + `went_to_penalties`; `penalties`; winner = more shootout goals |
 
 The penalty winner is derived from the shootout score (more goals advances), not
 the provider's `winner` field.
+
+> ⚠️ **Penalty quirk:** for a shootout, football-data folds the shootout goals
+> into `fullTime` — a 1-1 ET draw won 3-4 on penalties reports `fullTime` 4-5.
+> So the clean 120' score is `fullTime − penalties` (a draw), **not** `fullTime`.
+> Reading it straight off `fullTime` inflates both the displayed result and the
+> exact/diff/result scoring (which judge `effective_*_score`). Rows synced before
+> this was fixed are repaired one-off by `python manage.py fix_penalty_aet`
+> (idempotent; recomputes ganyan via the save signal).
 
 ## Match identity (`apps/liveresults/mapping.py`)
 
