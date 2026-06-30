@@ -87,9 +87,9 @@ Tournament phases. Each stage holds **two scoring configurations** — ganyan po
 | `pool_exact` | Pool size for the "exact score" criterion. Split equally among users who get it right. Default 100. |
 | `pool_diff` | Pool size for "goal difference". Default 100. |
 | `pool_result` | Pool size for "outcome (1X2)". Default 100. |
-| `pool_penalty_winner` | Pool for "named the team that advanced via penalties" (KO only). Default 50. |
-| `pool_penalty_score` | Pool for "exact penalty shootout score" — draw predictions only (KO). Default 50. |
-| `pool_penalty_diff` | Pool for "penalty shootout goal difference" — draw predictions only (KO). Default 50. |
+| `pool_penalty_winner` | Pool for "named the team that advanced via penalties" (KO only). Default 25. |
+| `pool_penalty_score` | Pool for "exact penalty shootout score" — draw predictions only (KO). Default 25. |
+| `pool_penalty_diff` | Pool for "penalty shootout goal difference" — draw predictions only (KO). Default 25. |
 | **Legacy bracket scoring (staff-only views)** | |
 | `points_exact` | LEGACY. Points for correct exact score. |
 | `points_diff` | LEGACY. Points for correct outcome + goal difference. |

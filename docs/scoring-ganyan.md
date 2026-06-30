@@ -14,7 +14,7 @@ This is the parimutuel ganyan model from horse racing applied to football predic
 For a played match `M`, for each criterion `c ∈ {exact, diff, result, penalty_winner, penalty_score, penalty_diff}`:
 
 ```
-pool_c        = Stage(M).pool_<c>          # admin-tunable, 100 regulation / 50 penalty
+pool_c        = Stage(M).pool_<c>          # admin-tunable, 100 regulation / 25 penalty
 N             = unique users who predicted M in any round
 W_c           = unique users whose at-least-one round prediction satisfies c
 base_payout_c = pool_c / |W_c|             # if |W_c| == 0 the pool burns
@@ -100,7 +100,7 @@ If no user satisfies criterion `c`, `|W_c| = 0` and the pool burns (no one is pa
 
 ## Penalty pools (knockout only)
 
-When a KO match goes to penalties (`ActualResult.went_to_penalties = True`), three extra criteria are scored **on top of** the regulation ones (which still score the 90' scoreline). Each is its own pool, default 50, split equally among its winners — same formula and burn rule as the regulation pools.
+When a KO match goes to penalties (`ActualResult.went_to_penalties = True`), three extra criteria are scored **on top of** the regulation ones (which still score the 90' scoreline). Each is its own pool, default 25, split equally among its winners — same formula and burn rule as the regulation pools.
 
 | Criterion | Wins when… | Open to |
 |-----------|------------|---------|
@@ -174,9 +174,9 @@ Each pick is its own row, tagged with a **round-weight badge** — e.g. `(0,85x)
   - `pool_exact` (default 100)
   - `pool_diff` (default 100)
   - `pool_result` (default 100)
-  - `pool_penalty_winner`, `pool_penalty_score`, `pool_penalty_diff` (default 50 each, only used on KO stages that go to penalties)
+  - `pool_penalty_winner`, `pool_penalty_score`, `pool_penalty_diff` (default 25 each, only used on KO stages that go to penalties)
   - Legacy fields (`points_exact`, `points_diff`, `points_result`, `penalty_loser_pct`) stay — used by the legacy engine.
-  - **Pool sizes are admin-owned.** `seed_wc2026` writes them only on first Stage creation (`create_defaults`); deploys never re-sync them, so a value edited in Stage admin persists. All stages currently use the uniform 100/100/100 + 50/50/50 scheme (set once by migration `tournament/0009_equalize_ganyan_pools`).
+  - **Pool sizes are admin-owned.** `seed_wc2026` writes them only on first Stage creation (`create_defaults`); deploys never re-sync them, so a value edited in Stage admin persists. All stages currently use the uniform 100/100/100 + 25/25/25 scheme (equalized to 100/100/100 + 50/50/50 in `tournament/0009_equalize_ganyan_pools`, penalty pools then lowered 50→25 in `tournament/0012`; both only retune rows still on the old default).
 
 ### New
 

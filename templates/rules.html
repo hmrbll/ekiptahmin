@@ -239,12 +239,14 @@
                     <h2 class="text-lg sm:text-xl font-semibold mb-3 text-fg">5. Penaltılar</h2>
                     <p class="text-fg-soft mb-3">
                         Eleme maçları normal süre + uzatma + penaltıyla biter. Bir maç penaltılara
-                        giderse normal süre puanlamasının <strong>üstüne</strong>, her biri
-                        <strong>50'lik</strong> üç ekstra havuz açılır:
+                        giderse normal süre puanlamasının <strong>üstüne</strong> üç ekstra havuz
+                        açılır. Penaltı skoru maç sonucundan <strong>ayrı</strong> gösterilir ve ayrı
+                        puanlanır — normal skor (90′/uzatma) tam skor/fark/sonuç havuzlarını besler,
+                        penaltı atışları aşağıdaki havuzları:
                     </p>
                     <div class="rounded-xl border border-line bg-surface p-4 space-y-3">
                         <div>
-                            <p class="font-semibold text-fg mb-1">Penaltı turlatan <span class="text-fg-muted font-normal">(havuz 50)</span></p>
+                            <p class="font-semibold text-fg mb-1">Penaltı turlatan <span class="text-fg-muted font-normal">(havuz {{ penalty_pools.winner|default:"—" }})</span></p>
                             <p class="text-fg-soft">
                                 Penaltılarla tur atlayan takımı doğru bilenler arasında bölüşülür.
                                 Beraberlik tahmin edip-etmemen fark etmez — galibiyet tahmininde
@@ -253,14 +255,14 @@
                             </p>
                         </div>
                         <div>
-                            <p class="font-semibold text-fg mb-1">Penaltı skoru <span class="text-fg-muted font-normal">(havuz 50)</span></p>
+                            <p class="font-semibold text-fg mb-1">Penaltı skoru <span class="text-fg-muted font-normal">(havuz {{ penalty_pools.score|default:"—" }})</span></p>
                             <p class="text-fg-soft">
                                 Penaltı atışlarının tam skorunu bilenlere (ör. 4–2). Sadece o maça
                                 <strong>beraberlik</strong> yazıp penaltı skoru girenler kazanabilir.
                             </p>
                         </div>
                         <div>
-                            <p class="font-semibold text-fg mb-1">Penaltı farkı <span class="text-fg-muted font-normal">(havuz 50)</span></p>
+                            <p class="font-semibold text-fg mb-1">Penaltı farkı <span class="text-fg-muted font-normal">(havuz {{ penalty_pools.diff|default:"—" }})</span></p>
                             <p class="text-fg-soft">
                                 Penaltı atışlarının farkını bilenlere (ör. +1). Bu da yalnızca
                                 beraberlik tahmin edip penaltı skoru girenlere açık.

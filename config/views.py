@@ -263,8 +263,24 @@ def rules(request: HttpRequest) -> HttpResponse:
     tournament = Tournament.objects.filter(is_active=True).first()
     stages_view: list[dict] = []
     rounds_view: list[dict] = []
+    penalty_pools: dict | None = None
     if tournament is not None:
         stages = list(Stage.objects.filter(tournament=tournament).order_by("order"))
+        # Penalty pools apply only on knockout stages; surface a representative
+        # KO stage's values so the penalties section reads them live instead of
+        # hardcoding (uniform across KO stages under the default scheme).
+        penalty_pools = next(
+            (
+                {
+                    "winner": s.pool_penalty_winner,
+                    "score": s.pool_penalty_score,
+                    "diff": s.pool_penalty_diff,
+                }
+                for s in stages
+                if s.kind != Stage.GROUP
+            ),
+            None,
+        )
         stages_view = [
             {
                 "name_tr": s.kind_label_tr,
@@ -302,4 +318,5 @@ def rules(request: HttpRequest) -> HttpResponse:
         "tournament": tournament,
         "stages": stages_view,
         "rounds": rounds_view,
+        "penalty_pools": penalty_pools,
     })
