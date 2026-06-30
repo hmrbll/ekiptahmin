@@ -79,12 +79,12 @@
                         <h3 class="text-base font-semibold">{{ p.label }}</h3>
                         <div class="text-xs text-fg-muted mt-0.5">
                             Havuz: <span class="font-mono">{{ p.pool.pool_size }}</span>
-                            · {{ p.pool.predictor_count }} tahmin
+                            · {{ p.prediction_count }} tahmin
                             {% if p.pool.winner_count %}· {{ p.pool.winner_count }} kazanan
                             · Kişi başı <span class="font-mono">{{ p.pool.base_payout|floatformat:2 }}</span>
-                            {% elif actual and is_live %}
+                            {% elif actual and is_live and p.prediction_count %}
                             · <span class="text-fg-muted">şu an kazanan yok</span>
-                            {% elif actual %}
+                            {% elif actual and p.prediction_count %}
                             · <span class="text-danger">Havuz yandı</span>
                             {% endif %}
                         </div>
