@@ -130,7 +130,7 @@
                         {{ entry.user.nickname|default:entry.user.email }}
                     </a>
                     <span class="text-xs px-2 py-0.5 rounded-full border {{ entry.badge_cls }} shrink-0">{{ entry.label }}</span>
-                    <span class="text-xs text-fg-muted shrink-0">{{ entry.score.effective_round.name }}</span>
+                    <span class="text-xs text-fg-muted shrink-0">{{ entry.score.effective_round.name }}{% if entry.score.effective_round %} <span class="font-mono opacity-80" title="Bu tahminin geldiği turun ağırlık çarpanı">({{ entry.score.effective_round.weight|floatformat:2 }}x)</span>{% endif %}</span>
                     <span class="font-mono font-semibold {% if entry.score.total > 0 %}text-primary{% else %}text-fg-muted{% endif %} w-16 text-right shrink-0">
                         {{ entry.score.total|floatformat:2 }}
                     </span>
