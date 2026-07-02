@@ -300,8 +300,8 @@ class TestPredictionsAll:
         self, client, tournament, stage_group, stage_r16, team_tur, team_bra,
     ):
         """When the fixture is scored, the earned points sit on the engine's
-        effective round; the user's other round shows its pick + weight but no
-        points (it didn't count)."""
+        effective round; the user's other round shows its pick + weight with an
+        explicit 0 (it didn't count, but a blank reads as broken)."""
         past = BracketSlot.objects.create(
             tournament=tournament, stage=stage_r16, position="R16-1",
             scheduled_kickoff=timezone.now() - timedelta(hours=2),
@@ -341,7 +341,7 @@ class TestPredictionsAll:
         )
         by_round = {p.prediction_round.order: p for p in match["predictions"]}
         assert by_round[1].earned_points == Decimal("12.75")  # effective round earns
-        assert by_round[0].earned_points is None              # other round didn't count
+        assert by_round[0].earned_points == 0                 # other round didn't count → explicit 0
         assert "12,75" in body
         assert "(1,00x)" in body
         assert "(0,85x)" in body
