@@ -299,14 +299,21 @@ def morning_context(tournament, slate_date, recipient, matches=None) -> dict:
 def build_evening_matches(tournament, slate_date) -> list:
     """Recipient-independent match list for the evening digest.
 
-    Played match: {pending:False, home, away, result, predictions:[{user_id,
-    nickname, prediction, score, outcome}]} ordered by payout desc. Not-yet-
-    scored match (12:00 fallback): {pending:True, ..., predictions:[{user_id,
-    nickname, prediction}]} — no score, rendered as "sonuç bekleniyor".
+    Played match: {pending:False, home, away, result, result_note, predictions:
+    [{user_id, nickname, prediction, score, outcome}]} ordered by payout desc.
+    `result` is the effective score (120' for a beyond-90' match, like every
+    result view); `result_note` carries the "uzatma" / "pen: PAR 3-4" suffix
+    (None in regulation). Not-yet-scored match (12:00 fallback): {pending:True,
+    ..., predictions:[{user_id, nickname, prediction}]} — no score, rendered as
+    "sonuç bekleniyor".
     """
     slots = slate_slots(tournament, slate_date)
     slot_ids = [s.id for s in slots]
-    actuals = {a.slot_id: a for a in ActualResult.objects.filter(slot_id__in=slot_ids)}
+    actuals = {
+        a.slot_id: a
+        for a in ActualResult.objects.filter(slot_id__in=slot_ids)
+        .select_related("penalty_winner")
+    }
     final_ids = final_result_slot_ids(slot_ids)
 
     score_rows = (
@@ -382,11 +389,18 @@ def build_evening_matches(tournament, slate_date) -> list:
                 "score": s.total,
                 "outcome": s.outcome,
             })
+        result_note = None
+        if actual.went_to_penalties:
+            pw = actual.penalty_winner.code if actual.penalty_winner else "?"
+            result_note = f"pen: {pw} {actual.home_penalties}-{actual.away_penalties}"
+        elif actual.went_to_extra_time:
+            result_note = "uzatma"
         matches.append({
             "pending": False,
             "home": slot.home_team_actual.name_tr,
             "away": slot.away_team_actual.name_tr,
-            "result": f"{actual.home_score}-{actual.away_score}",
+            "result": f"{actual.effective_home_score}-{actual.effective_away_score}",
+            "result_note": result_note,
             "predictions": predictions,
         })
     return matches

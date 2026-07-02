@@ -281,3 +281,39 @@ def test_evening_noon_fallback_sends_partial(slate, monkeypatch):
     pending = [m for m in matches if m["pending"]]
     assert len(pending) == 1
     assert pending[0]["result"] is None
+
+
+@pytest.mark.django_db
+def test_evening_beyond_90_result_uses_effective_score(slate):
+    """The result line shows the effective (120') score with the ET/shootout
+    note — not the raw 90' draw (R32-9 BEL-SEN read as "2-2" in the digest
+    while the site said 3-2 uzatma)."""
+    # s1: won 3-2 in extra time. s2: 1-1 draw, penalties 3-4 to the away side.
+    ActualResult.objects.create(
+        slot=slate.s1, home_score=2, away_score=2,
+        went_to_extra_time=True, home_score_aet=3, away_score_aet=2,
+    )
+    ActualResult.objects.create(
+        slot=slate.s2, home_score=1, away_score=1,
+        went_to_extra_time=True, went_to_penalties=True,
+        home_score_aet=1, away_score_aet=1,
+        home_penalties=3, away_penalties=4,
+        penalty_winner=slate.s2.away_team_actual,
+    )
+
+    by_home = {m["home"]: m for m in digest.build_evening_matches(slate.t, SLATE)}
+    et = by_home[slate.s1.home_team_actual.name_tr]
+    pen = by_home[slate.s2.home_team_actual.name_tr]
+
+    assert (et["result"], et["result_note"]) == ("3-2", "uzatma")
+    assert (pen["result"], pen["result_note"]) == (
+        "1-1", f"pen: {slate.s2.away_team_actual.code} 3-4"
+    )
+
+
+@pytest.mark.django_db
+def test_evening_regulation_result_has_no_note(slate):
+    _result(slate.s1, 2, 1)
+    _result(slate.s2, 1, 0)
+    for m in digest.build_evening_matches(slate.t, SLATE):
+        assert m["result_note"] is None

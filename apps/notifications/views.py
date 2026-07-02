@@ -119,7 +119,8 @@ def _sample_context(slug: str, request=None) -> dict:
             "date": now,
             "finished_matches": [
                 {
-                    "home": "Meksika", "away": "Kanada", "result": "2-1", "pending": False,
+                    "home": "Meksika", "away": "Kanada", "result": "2-1", "result_note": None,
+                    "pending": False,
                     "predictions": preds([
                         ("2-1", Decimal("125.00"), "exact"),
                         ("1-1", Decimal("0"), "miss"),
@@ -131,21 +132,25 @@ def _sample_context(slug: str, request=None) -> dict:
                     ]),
                 },
                 {
-                    "home": "ABD", "away": "Türkiye", "result": "0-2", "pending": False,
+                    # Knockout decided on penalties: result is the 120' draw, the
+                    # shootout rides in result_note (same as the site's cards).
+                    "home": "ABD", "away": "Türkiye", "result": "1-1",
+                    "result_note": "pen: TUR 4-3", "pending": False,
                     "predictions": preds([
-                        ("0-2", Decimal("120.00"), "exact"),
-                        ("0-2", Decimal("120.00"), "exact"),
-                        ("1-1", Decimal("0"), "miss"),
-                        ("0-1", Decimal("20.00"), "result"),
-                        ("2-2", Decimal("0"), "miss"),
-                        ("0-3", Decimal("20.00"), "result"),
-                        ("1-2", Decimal("20.00"), "result"),
+                        ("1-1", Decimal("120.00"), "exact"),
+                        ("1-1", Decimal("120.00"), "exact"),
+                        ("2-2", Decimal("20.00"), "diff"),
+                        ("0-0", Decimal("20.00"), "diff"),
+                        ("0-1", Decimal("15.00"), "penalty"),
+                        ("0-2", Decimal("0"), "miss"),
+                        ("2-1", Decimal("0"), "miss"),
                     ]),
                 },
                 {
                     # 12:00 fallback illustration: results not yet entered →
                     # rendered as "sonuç bekleniyor", picks shown without scores.
-                    "home": "İspanya", "away": "Portekiz", "result": None, "pending": True,
+                    "home": "İspanya", "away": "Portekiz", "result": None,
+                    "result_note": None, "pending": True,
                     "predictions": preds([
                         ("1-0", Decimal("0"), "miss"),
                         ("2-1", Decimal("0"), "miss"),
