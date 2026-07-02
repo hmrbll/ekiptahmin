@@ -62,6 +62,12 @@ python manage.py finalize_stale_syncs [--dry-run]
 
 # Recompute bracket team assignments from current results (idempotent).
 python manage.py resolve_bracket
+
+# Force re-pull specific slots from the API, bypassing the live window AND
+# MatchSync.finalized — the repair for rows that finalized with bad data
+# (mid-shootout captures, stale scores). Rewrites through the normal sync
+# path, so scoring recomputes via the save signal. Idempotent.
+python manage.py resync_slots R32-3 [R16-1 ...] [--dry-run]
 ```
 
 ## How scores map (`apps/liveresults/score.py`)
@@ -84,7 +90,12 @@ the provider's `winner` field.
 > Reading it straight off `fullTime` inflates both the displayed result and the
 > exact/diff/result scoring (which judge `effective_*_score`). Rows synced before
 > this was fixed are repaired one-off by `python manage.py fix_penalty_aet`
-> (idempotent; recomputes ganyan via the save signal).
+> (idempotent; recomputes ganyan via the save signal). That command only
+> recognises the pure-inflation shape (`aet − penalties` must yield a draw) —
+> a row whose penalties were later corrected by hand but whose aet stayed stale
+> slips through it. For those (and any other stuck-finalized row, e.g. a
+> shootout captured mid-round), `python manage.py resync_slots <position>`
+> re-pulls the authoritative result from the API.
 
 ## Match identity (`apps/liveresults/mapping.py`)
 
