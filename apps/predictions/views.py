@@ -157,9 +157,11 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
 
             if has_result:
                 # The engine scores one round per user. Put the earned total on
-                # that round's row; the user's other rounds carry no points (they
-                # didn't count). Fall back to the sole row when the effective
-                # round is unknown (e.g. legacy rows without it set).
+                # that round's row; the user's other rounds show an explicit 0
+                # (a non-effective round never earns — a blank there read as
+                # broken next to rows showing "0,00"). Fall back to the sole
+                # row when the effective round is unknown (e.g. legacy rows
+                # without it set).
                 for uid, preds in by_user.items():
                     for p in preds:
                         p.earned_points = None
@@ -174,6 +176,8 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
                     if eff_row is None and len(preds) == 1:
                         eff_row = preds[0]
                     if eff_row is not None:
+                        for p in preds:
+                            p.earned_points = 0
                         eff_row.earned_points = total
             else:
                 # Pre-result: each pick shows its own best case if it lands
