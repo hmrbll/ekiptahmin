@@ -74,9 +74,14 @@
                             {% for entry in m.scores %}
                             <li class="py-2 text-sm">
                                 <div class="flex items-center justify-between gap-3 mb-1">
-                                    <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="text-fg-soft hover:text-primary transition truncate min-w-0">
-                                        {{ entry.user.nickname|default:entry.user.email }}
-                                    </a>
+                                    <div class="flex items-baseline gap-1.5 min-w-0">
+                                        <a href="{% url 'leaderboard_user_detail' entry.user.id %}" class="text-fg-soft hover:text-primary transition truncate min-w-0">
+                                            {{ entry.user.nickname|default:entry.user.email }}
+                                        </a>
+                                        {% if entry.score.effective_round %}
+                                        <span class="font-mono text-xs text-fg-muted opacity-80 shrink-0" title="Bu tahminin geldiği turun ağırlık çarpanı">({{ entry.score.effective_round.weight|floatformat:2 }}x)</span>
+                                        {% endif %}
+                                    </div>
                                     <div class="flex items-center gap-2 shrink-0">
                                         <span class="text-xs px-2 py-0.5 rounded-full border {{ entry.badge_cls }}">{{ entry.label }}</span>
                                         <span class="font-mono font-semibold {% if entry.score.total > 0 %}text-primary{% else %}text-fg-muted{% endif %} w-14 text-right">

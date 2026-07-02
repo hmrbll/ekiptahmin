@@ -115,6 +115,7 @@ ruff check . && ruff format .            # lint + format
 python manage.py fd_probe --finished     # read-only API probe (no DB writes)
 python manage.py map_external_ids        # map match ids onto bracket slots
 python manage.py sync_live_results --dry-run   # one sync pass, preview only
+python manage.py resync_slots R32-3      # force re-pull a slot (bypasses finalized)
 ```
 
 ### Where do dev emails go?
