@@ -53,6 +53,80 @@ class TestPredictionsAll:
         assert "2–1" not in body
         assert "3–0" not in body
 
+    def _pre_lock_r16(self, tournament, stage_r16, team_tur, team_bra):
+        """Resolved-fixture R16 slot still hidden: a later round (future
+        deadline) can still edit the stage, exactly like prod between
+        knockout rounds."""
+        slot = BracketSlot.objects.create(
+            tournament=tournament, stage=stage_r16, position="R16-1",
+            scheduled_kickoff=timezone.now() + timedelta(days=1),
+            home_team_actual=team_tur, away_team_actual=team_bra,
+        )
+        r0 = PredictionRound.objects.create(
+            tournament=tournament, name="Pre", order=0,
+            deadline=timezone.now() - timedelta(hours=1), weight=Decimal("1.00"),
+        )
+        r0.editable_stages.set([stage_r16])
+        r1 = PredictionRound.objects.create(
+            tournament=tournament, name="R32 sonrası", order=1,
+            deadline=timezone.now() + timedelta(hours=5), weight=Decimal("0.75"),
+        )
+        r1.editable_stages.set([stage_r16])
+        return slot, r0, r1
+
+    def test_pre_lock_knockout_hint_counts_fixture_matchup_users(
+        self, client, tournament, stage_r16, team_tur, team_bra, team_arg,
+    ):
+        """The knockout pre-lock hint shows how many DISTINCT users hit the
+        real matchup — a user on the fixture in two rounds counts once, an
+        off-fixture bracket pick not at all. (The any-matchup total would
+        always read "everyone" in a knockout, which is what confused people.)
+        """
+        slot, r0, r1 = self._pre_lock_r16(tournament, stage_r16, team_tur, team_bra)
+        u1 = User.objects.create_user(email="a@x.com", username="a@x.com", nickname="A")
+        u2 = User.objects.create_user(email="b@x.com", username="b@x.com", nickname="B")
+        # u1 hit the fixture in both rounds → one distinct user.
+        SlotPrediction.objects.create(
+            user=u1, prediction_round=r0, slot=slot,
+            home_team=team_tur, away_team=team_bra, home_score=2, away_score=1,
+        )
+        SlotPrediction.objects.create(
+            user=u1, prediction_round=r1, slot=slot,
+            home_team=team_tur, away_team=team_bra, home_score=1, away_score=0,
+        )
+        # u2's bracket sent ARG here — off the real fixture.
+        SlotPrediction.objects.create(
+            user=u2, prediction_round=r0, slot=slot,
+            home_team=team_tur, away_team=team_arg, home_score=3, away_score=0,
+        )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        assert "Gerçek eşleşmeyi 1 oyuncu tutturdu" in body
+        assert "oyuncu tahmin etti —" not in body  # old any-matchup hint gone (KO)
+        match = next(
+            m for sec in r.context["sections"] for m in sec["matches"]
+            if m["slot"].position == "R16-1"
+        )
+        assert match["fixture_prediction_count"] == 1
+        assert match["prediction_count"] == 2
+        # Still pre-lock: no scores leak.
+        assert "2–1" not in body
+        assert "1–0" not in body
+        assert "3–0" not in body
+
+    def test_pre_lock_knockout_hint_when_nobody_hit_the_matchup(
+        self, client, tournament, stage_r16, team_tur, team_bra, team_arg,
+    ):
+        slot, r0, _ = self._pre_lock_r16(tournament, stage_r16, team_tur, team_bra)
+        u = User.objects.create_user(email="a@x.com", username="a@x.com", nickname="A")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=r0, slot=slot,
+            home_team=team_tur, away_team=team_arg, home_score=2, away_score=1,
+        )
+        r = client.get(reverse("predictions_all"))
+        body = r.content.decode("utf-8")
+        assert "Gerçek eşleşmeyi henüz kimse tutturamadı" in body
+
     def test_locked_match_reveals_predictions(
         self, client, tournament, stage_group, prediction_round, team_tur, team_bra,
     ):
