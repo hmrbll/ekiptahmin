@@ -200,6 +200,15 @@ python manage.py revalidate_predictions              # execute
 # Run before a deadline to know who to nudge.
 python manage.py missing_predictions
 
+# Nudge them: email everyone with NO predictions in the round (partial
+# predictors are skipped) a "complete your bracket" reminder. One reminder per
+# user per round (EmailLog dedup) so re-runs only cover users an earlier failed
+# run missed; refuses after the deadline, and while the round hasn't opened
+# (--force overrides the open check only). From a local machine use
+# scripts/send-round-reminder-prod.ps1 — see docs/email_setup.md.
+python manage.py send_round_reminder --round-id 3 --dry-run
+python manage.py send_round_reminder --round-id 3
+
 # Pre-create accounts with nicknames YOU choose + email each a one-click
 # onboarding link. The link logs them straight in (no signup form, no 15-min
 # magic-link expiry) via the invite auto-login branch in accounts.views; it's

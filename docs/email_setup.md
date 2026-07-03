@@ -119,10 +119,11 @@ locally and drop them from digest fan-out.
 
 ## Daily digest cron
 
-The only scheduled mails are the morning + evening daily digests
-(`templates/emails/daily_morning.html`, `daily_evening.html`). Round-opened /
-deadline-reminder mails were considered and **dropped** — there is no per-round
-notification cron. Preview each template at `/ops/emails/preview/` (staff-only).
+The only *recurring* scheduled mails are the morning + evening daily digests
+(`templates/emails/daily_morning.html`, `daily_evening.html`). Recurring
+round-opened / deadline-reminder crons were considered and **dropped**; what
+exists instead is a manually-triggered one-shot reminder (see "One-shot round
+reminder" below). Preview each template at `/ops/emails/preview/` (staff-only).
 
 **Built and shipped:**
 - `python manage.py send_daily_digest --mode {morning,evening}` — see the
@@ -153,6 +154,31 @@ notification cron. Preview each template at `/ops/emails/preview/` (staff-only).
 Testing knobs: `--dry-run` (render every recipient's mail, send nothing),
 `--date YYYY-MM-DD` (pin the slate), `--force` (ignore dedup + the
 results-incomplete wait).
+
+## One-shot round reminder (2026-07-04)
+
+`python manage.py send_round_reminder --round-id <pk>` emails everyone who has
+made **no** predictions in the given round (`templates/emails/round_deadline.
+{txt,html}`, `EmailLog` kind `round_reminder`). Recipient rule and guards:
+
+- Base = digest recipients (active + deliverable) **minus** anyone with at
+  least one `SlotPrediction` in the round — partial predictors are left alone.
+- Refuses when the deadline has passed (even with `--force`); refuses while the
+  round hasn't opened yet — `--force` overrides only the open check.
+- Dedup: one reminder per user per round, keyed on `EmailLog(kind=
+  round_reminder, slate_date=<deadline's Istanbul date>)`. Re-running is safe
+  and only covers users an earlier failed run missed.
+- Exit code is nonzero when nothing could be sent, so schedulers can retry.
+
+**Not wired to any cron** — it is triggered manually (Render Shell) or via a
+one-time scheduled task. For running from a local machine against production
+there is `scripts/send-round-reminder-prod.ps1`: it loads `.env`, overrides
+`DATABASE_URL` with `PROD_DATABASE_URL`, uses `config.settings.prod` (Resend
+SMTP) + `SITE_URL=https://ekiptahmin.com`, aborts loudly if `RESEND_API_KEY`
+is empty in `.env`, and appends every run to `_logs/round_reminder_<date>.log`.
+First used 2026-07-04 (Windows Task Scheduler one-shot at 12:30 TRT for the
+"R32 sonrası" round, retrying every 30 min while the round's last dependency
+result hadn't landed).
 
 ## Staff tracking page — `/ops/emails/` (Faz 1.2)
 
