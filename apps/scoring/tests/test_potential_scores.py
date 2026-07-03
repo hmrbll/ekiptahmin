@@ -1,5 +1,7 @@
-"""Pure-engine tests for `potential_max_scores` — the pre-result "best case"
-payout shown on the all-predictions page for not-yet-scored matches.
+"""Pure-engine tests for the pre-result "best case" payout shown on the
+all-predictions page for not-yet-scored matches — `potential_max_scores` (the
+legacy single-pick total) and `potential_max_scores_multi` (the per-row
+`BestCase` split: 120'-scoreline part vs penalties-included maximum).
 
 Exercises apps/scoring/ganyan.py directly (no DB): a pick's best case is the
 parimutuel payout it would earn if the match ended exactly as predicted, each
@@ -8,7 +10,12 @@ pool split among everyone whose own pick would also win it.
 
 from decimal import Decimal
 
-from apps.scoring.ganyan import Prediction, StagePools, potential_max_scores
+from apps.scoring.ganyan import (
+    Prediction,
+    StagePools,
+    potential_max_scores,
+    potential_max_scores_multi,
+)
 
 W = Decimal("1.00")
 
@@ -85,3 +92,71 @@ def test_decisive_pick_never_claims_penalty_pools():
     """A decisive scoreline implies no shootout → only the regulation pools."""
     out = potential_max_scores({1: _pred(h=2, a=1)}, _pools(), "BRA", "ARG")
     assert out[1] == Decimal("300")
+
+
+# ---------- potential_max_scores_multi — the BestCase split ----------
+
+
+def test_multi_draw_pick_splits_regulation_and_penalties():
+    """A draw-on-KO pick's headline is the regulation part; the six-pool
+    self-scenario is the penalties-included maximum."""
+    draw = _pred(h=1, a=1, penalty_winner="BRA", home_penalties=4, away_penalties=2)
+    out = potential_max_scores_multi({1: [draw]}, _pools(), "BRA", "ARG")
+    (bc,) = out[1]
+    assert bc.regulation == Decimal("300")
+    assert bc.with_penalties == Decimal("450")
+
+
+def test_multi_decisive_pick_covers_the_shootout_path():
+    """A decisive pick's true maximum must also cover the goes-to-penalties
+    scenario: it loses every regulation pool there but can take the whole
+    penalty-winner pool via its implied winner. With a winner pool larger than
+    its (shared) regulation best case, the shootout path is the bigger number."""
+    # Three users share the 2-1 scoreline → regulation best = 90×3/3 = 90.
+    # All three imply BRA, so the pens path is 360/3 = 120 > 90.
+    preds = {i: [_pred(h=2, a=1)] for i in (1, 2, 3)}
+    out = potential_max_scores_multi(
+        preds, _pools(reg=90, pen=360), "BRA", "ARG",
+    )
+    for i in (1, 2, 3):
+        (bc,) = out[i]
+        assert bc.regulation == Decimal("90")
+        assert bc.with_penalties == Decimal("120")
+
+
+def test_multi_decisive_pick_keeps_regulation_when_pens_pay_less():
+    """With the production-like small winner pool, the shootout path never
+    beats the pick's own scenario → both numbers coincide (no parenthetical)."""
+    out = potential_max_scores_multi({1: [_pred(h=2, a=1)]}, _pools(), "BRA", "ARG")
+    (bc,) = out[1]
+    assert bc.regulation == Decimal("300")
+    assert bc.with_penalties == Decimal("300")
+
+
+def test_multi_group_match_has_no_penalty_scenario():
+    """knockout=False: a group match can't go to pens, so a decisive pick's
+    two numbers always coincide — even with a huge winner pool configured."""
+    out = potential_max_scores_multi(
+        {1: [_pred(h=2, a=1)]}, _pools(reg=100, pen=1000), "BRA", "ARG",
+        knockout=False,
+    )
+    (bc,) = out[1]
+    assert bc.regulation == Decimal("300")
+    assert bc.with_penalties == Decimal("300")
+
+
+def test_multi_penalty_winner_denominator_counts_all_implied_winners():
+    """The pens-path denominator spans every pick implying that winner —
+    decisive picks and shootout-carrying draw picks alike."""
+    decisive = _pred(h=2, a=1)                     # implies BRA
+    draw_bra = _pred(h=1, a=1, penalty_winner="BRA",
+                     home_penalties=5, away_penalties=3)  # names BRA
+    out = potential_max_scores_multi(
+        {1: [decisive], 2: [draw_bra]}, _pools(reg=100, pen=900), "BRA", "ARG",
+    )
+    (bc1,) = out[1]
+    # Decisive pick: sole winner of every regulation pool under its own
+    # scenario (the draw pick shares none of them) = 300; pens path = 900/2
+    # (both users imply BRA) = 450 → the bigger wins.
+    assert bc1.regulation == Decimal("300")
+    assert bc1.with_penalties == Decimal("450")

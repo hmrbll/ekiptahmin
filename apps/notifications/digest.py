@@ -245,6 +245,7 @@ def build_morning_matches(tournament, slate_date) -> list:
             pots = potentials.get(uid, [])
             nick = _nickname(preds[0].user)
             for i, p in enumerate(preds):
+                best = pots[i] if i < len(pots) else None
                 rows.append((
                     (nick.lower(), p.prediction_round.order),
                     {
@@ -252,7 +253,14 @@ def build_morning_matches(tournament, slate_date) -> list:
                         "nickname": nick,
                         "round_weight": p.prediction_round.weight,
                         "prediction": _score_str(p),
-                        "potential": pots[i] if i < len(pots) else None,
+                        # 120'-scoreline best case + the penalties-included max
+                        # when a shootout scenario could pay more.
+                        "potential": best.regulation if best else None,
+                        "potential_with_pens": (
+                            best.with_penalties
+                            if best and best.with_penalties != best.regulation
+                            else None
+                        ),
                     },
                 ))
         rows.sort(key=lambda t: t[0])
