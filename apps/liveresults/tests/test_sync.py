@@ -111,6 +111,43 @@ def test_unchanged_result_not_rewritten(live_slot, monkeypatch):
     assert report2.written == 0 and report2.unchanged == 1
 
 
+def test_manual_result_never_overwritten(live_slot, monkeypatch):
+    """A wizard-entered (MANUAL) row is authoritative: the poller keeps
+    tracking status but must not touch the result."""
+    ActualResult.objects.create(
+        slot=live_slot, home_score=2, away_score=1,
+        source=ActualResult.SOURCE_MANUAL,
+    )
+    _patch(monkeypatch, [_match("999", "IN_PLAY", _regular(0, 0), minute=55)])
+    report = sync.sync_live_matches(live_slot.tournament)
+
+    assert report.manual_kept == 1 and report.written == 0
+    ar = ActualResult.objects.get(slot=live_slot)
+    assert (ar.home_score, ar.away_score) == (2, 1)
+    assert ar.source == ActualResult.SOURCE_MANUAL
+    # Status/minute still tracked — the live badge keeps working.
+    ms = MatchSync.objects.get(slot=live_slot)
+    assert ms.status == "IN_PLAY" and ms.minute == 55
+
+
+def test_manual_result_still_finalizes_on_finished(live_slot, monkeypatch):
+    """FINISHED still flips `finalized` on a manual-locked slot so it drops out
+    of the live window — polling stops, the manual result stands."""
+    ActualResult.objects.create(
+        slot=live_slot, home_score=2, away_score=1,
+        source=ActualResult.SOURCE_MANUAL,
+    )
+    _patch(monkeypatch, [_match("999", "FINISHED", _regular(0, 0))])
+    report = sync.sync_live_matches(live_slot.tournament)
+
+    assert report.manual_kept == 1 and report.finalized == 1
+    ar = ActualResult.objects.get(slot=live_slot)
+    assert (ar.home_score, ar.away_score) == (2, 1)
+    ms = MatchSync.objects.get(slot=live_slot)
+    assert ms.finalized is True
+    assert sync.slots_in_live_window(live_slot.tournament) == []
+
+
 def test_knockout_slot_without_teams_awaits_resolution(tournament, group_stage, monkeypatch):
     s = BracketSlot.objects.create(
         tournament=tournament, stage=group_stage, position="R32-1",

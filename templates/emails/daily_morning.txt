@@ -4,7 +4,7 @@ Selam {{ nickname }}, bugün {{ matches|length }} maç oynanacak. Tüm tahminler
 
 {% for m in matches %}
 {{ m.home }} — {{ m.away }} ({{ m.kickoff|time:"H:i" }}){% for p in m.predictions %}
-  {{ p.nickname }} ({{ p.round_weight|floatformat:2 }}x){% if p.is_self %} (sen){% endif %}: {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %}{% if p.potential is not None %} (en fazla {{ p.potential|floatformat:2 }} puan){% endif %}{% endfor %}
+  {{ p.nickname }} ({{ p.round_weight|floatformat:2 }}x){% if p.is_self %} (sen){% endif %}: {% if p.prediction %}{{ p.prediction }}{% else %}—{% endif %}{% if p.potential is not None %} (en fazla {{ p.potential|floatformat:2 }}{% if p.potential_with_pens is not None %}, pen. dahil {{ p.potential_with_pens|floatformat:2 }}{% endif %} puan){% endif %}{% endfor %}
 
 {% endfor %}
 {% if has_missing %}⚠ Eksik tahminin var. Bir sonraki round için unutma!{% endif %}

@@ -59,7 +59,9 @@ def _sample_context(slug: str, request=None) -> dict:
             # rows: (prediction, potential_max). `potential` is the best-case
             # ganyan payout if the match ends exactly as predicted — None when
             # there is no prediction (or a pick that can't score the fixture).
-            # Production sender computes it via ganyan.potential_max_scores.
+            # Production sender computes it via ganyan.potential_max_scores_multi
+            # (a BestCase split; `potential_with_pens` rides along on KO picks
+            # where a shootout scenario could pay more — omitted in this sample).
             return [
                 {"nickname": n, "prediction": v, "is_self": n == nickname,
                  "potential": pot}

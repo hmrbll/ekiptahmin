@@ -13,8 +13,12 @@ both the live window and MatchSync.finalized. Saving re-runs the scoring
 signals, so ganyan/leaderboard recompute automatically. Idempotent: an
 already-correct row is reported unchanged and not rewritten.
 
+Manually entered results (source=MANUAL) are authoritative — the wizard is the
+final word — so they are skipped unless --force is given.
+
     python manage.py resync_slots R32-3 --dry-run   # preview only
     python manage.py resync_slots R32-3 R32-2       # apply
+    python manage.py resync_slots R32-3 --force     # also overwrite MANUAL rows
 """
 
 from __future__ import annotations
@@ -45,6 +49,11 @@ class Command(BaseCommand):
         parser.add_argument(
             "--dry-run", action="store_true",
             help="Show what would change without writing.",
+        )
+        parser.add_argument(
+            "--force", action="store_true",
+            help="Also overwrite manually entered results (source=MANUAL), "
+                 "which are otherwise authoritative and skipped.",
         )
 
     def handle(self, *args, **opts):
@@ -115,6 +124,15 @@ class Command(BaseCommand):
 
             pw_team = _penalty_winner_team(slot, fields["penalty_winner_side"])
             existing = ActualResult.objects.filter(slot=slot).first()
+            if (
+                existing is not None
+                and existing.source == ActualResult.SOURCE_MANUAL
+                and not opts["force"]
+            ):
+                self.stdout.write(
+                    f"{slot.position}: manual result — skipped (--force to overwrite)."
+                )
+                continue
             changed = _result_changed(existing, fields, pw_team)
 
             scoreline = f"{fields['home_score']}-{fields['away_score']}"

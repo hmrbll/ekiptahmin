@@ -130,14 +130,14 @@ def potential_max_scores_for_slot(
 
 def potential_max_scores_for_slot_multi(
     slot: BracketSlot, predictions_by_user: dict[int, list[SlotPrediction]],
-) -> dict[int, list[Decimal]]:
+) -> dict[int, list[ganyan.BestCase]]:
     """Per-prediction best-case payout for the all-predictions card.
 
     `predictions_by_user` maps a user id to that user's picks on this slot — one
     per round, already filtered to the slot's actual fixture and ordered by
-    round. Returns ``{user_id: [Decimal aligned to each list]}`` so the caller
-    can drop one "en fazla" onto every row. Empty when the slot's teams aren't
-    both set yet.
+    round. Returns ``{user_id: [BestCase aligned to each list]}`` so the caller
+    can drop one "en fazla … (penaltı dahil …)" onto every row. Empty when the
+    slot's teams aren't both set yet.
     """
     if not (slot.home_team_actual_id and slot.away_team_actual_id):
         return {}
@@ -149,4 +149,5 @@ def potential_max_scores_for_slot_multi(
     return ganyan.potential_max_scores_multi(
         pred_objs, pools,
         slot.home_team_actual.code, slot.away_team_actual.code,
+        knockout=slot.stage.kind != "GROUP",
     )

@@ -6,7 +6,9 @@ the homepage trigger call. It:
      it returns WITHOUT calling the API — this is what keeps a forgotten open
      tab from hammering football-data outside match windows),
   2. fetches that day's matches in one request,
-  3. writes/updates ActualResult (source=API) for slots whose teams are known,
+  3. writes/updates ActualResult (source=API) for slots whose teams are known —
+     UNLESS the existing row is source=MANUAL: the result-entry wizard is
+     authoritative and the poller never overwrites a manual result,
   4. updates MatchSync (status/minute), and flags `finalized` on FINISHED so the
      match is never requested again.
 
@@ -61,6 +63,7 @@ class SyncReport:
     fetched: int = 0
     written: int = 0
     unchanged: int = 0
+    manual_kept: int = 0
     finalized: int = 0
     no_score_yet: int = 0
     awaiting_teams: int = 0
@@ -71,6 +74,7 @@ class SyncReport:
     def summary(self) -> str:
         return (
             f"fetched {self.fetched} | written {self.written} | unchanged {self.unchanged} | "
+            f"manual-kept {self.manual_kept} | "
             f"finalized {self.finalized} | no-score {self.no_score_yet} | "
             f"awaiting-teams {self.awaiting_teams} | unmatched {self.unmatched} | "
             f"errors {len(self.errors)}"
@@ -215,6 +219,10 @@ def sync_live_matches(tournament: Tournament | None = None, *, dry_run: bool = F
 
         pw_team = _penalty_winner_team(slot, fields["penalty_winner_side"])
         existing = ActualResult.objects.filter(slot=slot).first()
+        # A manually entered result is authoritative — the poller never
+        # overwrites it. Status/minute keep syncing (live badge + FINISHED
+        # stops the polling), only the result write is withheld.
+        manual_locked = existing is not None and existing.source == ActualResult.SOURCE_MANUAL
         changed = _result_changed(existing, fields, pw_team)
         is_finished = status == MatchSync.STATUS_FINISHED
 
@@ -225,10 +233,12 @@ def sync_live_matches(tournament: Tournament | None = None, *, dry_run: bool = F
         if dry_run:
             report.lines.append(
                 f"{slot.position}: {status} {scoreline}"
-                + ("" if changed else " [unchanged]")
+                + (" [manual kept]" if manual_locked else ("" if changed else " [unchanged]"))
                 + (" [→finalize]" if is_finished else "")
             )
-            if changed:
+            if manual_locked:
+                report.manual_kept += 1
+            elif changed:
                 report.written += 1
             else:
                 report.unchanged += 1
@@ -236,7 +246,10 @@ def sync_live_matches(tournament: Tournament | None = None, *, dry_run: bool = F
                 report.finalized += 1
             continue
 
-        if changed:
+        if manual_locked:
+            report.manual_kept += 1
+            report.lines.append(f"{slot.position}: {status} {scoreline} [manual kept]")
+        elif changed:
             ActualResult.objects.update_or_create(
                 slot=slot,
                 defaults={

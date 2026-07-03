@@ -550,29 +550,53 @@ def potential_max_scores(
     return out
 
 
+@dataclass(frozen=True)
+class BestCase:
+    """Pre-result best case for one pick, split by scenario.
+
+    ``regulation`` is the payout if the match ends exactly on the predicted
+    scoreline, counting the regulation (120') pools only. ``with_penalties``
+    is the best case once the shootout pools are in reach: for a draw pick
+    carrying a shootout it's the full six-pool self-scenario; for a decisive
+    pick it's the better of the regulation scenario and the goes-to-penalties
+    scenario (mutually exclusive — a level match pays only the implied-winner
+    pool to a decisive pick). Equal values mean penalties add nothing.
+    """
+    regulation: Decimal
+    with_penalties: Decimal
+
+
 def potential_max_scores_multi(
     preds_by_user: dict[int, list[Prediction]],
     pools: StagePools,
     home_team: str,
     away_team: str,
-) -> dict[int, list[Decimal]]:
+    knockout: bool = True,
+) -> dict[int, list[BestCase]]:
     """Per-prediction best case, for users who may carry one pick per round.
 
     Like `potential_max_scores`, but it keeps every round a user predicted
     instead of collapsing to one — the all-predictions card lists each pick on
-    its own row with its round weight, so each row needs its own "en fazla". A
-    pick's best case is the payout it would earn if the match ended exactly as
-    it calls it (a draw-on-KO pick carrying a shootout wins the penalty pools
-    too).
+    its own row with its round weight, so each row needs its own "en fazla" —
+    and it splits each best case into a `BestCase`: the 120'-scoreline part vs
+    the best achievable once penalty pools count. The split matters both ways:
+    a draw-on-KO pick's shootout winnings aren't a sure part of its scoreline
+    hitting, and a decisive pick can out-earn its own scenario when the match
+    goes to penalties and its implied winner advances (the shown maximum must
+    cover that path too).
 
     Co-winner denominators count distinct USERS, not predictions: a user with
     two picks that both satisfy a criterion still dilutes that pool by one — the
     live engine only ever scores one round per user, so the same user can't take
     two slices of the same pool.
 
-    Returns ``{user_id: [Decimal aligned to the input list]}``. A pick on a
-    different matchup can never score this fixture and yields ``0``; pass lists
+    Returns ``{user_id: [BestCase aligned to the input list]}``. A pick on a
+    different matchup can never score this fixture and yields zeros; pass lists
     already filtered to the real fixture for a clean one-value-per-real-pick map.
+
+    ``knockout=False`` (group match) disables the penalties scenario entirely —
+    group matches can't go to a shootout, even though the stage config carries
+    (always-burning) penalty pools.
     """
     pool_by_criterion = _pool_map(pools)
 
@@ -587,21 +611,49 @@ def potential_max_scores_multi(
             )
         )
 
-    out: dict[int, list[Decimal]] = {}
+    out: dict[int, list[BestCase]] = {}
     for uid, preds in preds_by_user.items():
-        row_scores: list[Decimal] = []
+        row_scores: list[BestCase] = []
         for pred in preds:
             if pred.home_team != home_team or pred.away_team != away_team:
-                row_scores.append(Decimal("0"))
+                row_scores.append(BestCase(Decimal("0"), Decimal("0")))
                 continue
             hypothetical = _self_result(home_team, away_team, pred)
-            total = Decimal("0")
+            regulation = Decimal("0")
+            pens_self = Decimal("0")
             for c in CRITERIA:
                 if not satisfies(pred, hypothetical, c):
                     continue
                 # winners >= 1: this pick's own user always counts.
                 winners = _user_wins(c, hypothetical)
-                total += (Decimal(pool_by_criterion[c]) / winners) * pred.round_weight
-            row_scores.append(total)
+                slice_ = (Decimal(pool_by_criterion[c]) / winners) * pred.round_weight
+                if c in REGULATION_CRITERIA:
+                    regulation += slice_
+                else:
+                    pens_self += slice_
+
+            if hypothetical.went_to_penalties:
+                # Draw pick with a shootout: its self-scenario already IS the
+                # penalties scenario.
+                with_pens = regulation + pens_self
+            else:
+                # Decisive (or shootout-less draw) pick: the alternative
+                # scenario is the match going to penalties with this pick's
+                # implied winner advancing — it loses every regulation pool
+                # (the effective score is level) but wins the winner pool.
+                winner = _predicted_winner(pred) if knockout else None
+                with_pens = regulation
+                if winner is not None:
+                    pens_hypo = Result(
+                        home_team=home_team, away_team=away_team,
+                        home_score=0, away_score=0,
+                        went_to_penalties=True, penalty_winner=winner,
+                    )
+                    winners = _user_wins("penalty_winner", pens_hypo)
+                    pw_slice = (
+                        Decimal(pool_by_criterion["penalty_winner"]) / winners
+                    ) * pred.round_weight
+                    with_pens = max(regulation, pw_slice)
+            row_scores.append(BestCase(regulation, with_pens))
         out[uid] = row_scores
     return out

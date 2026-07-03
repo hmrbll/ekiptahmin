@@ -49,12 +49,19 @@ class SlotTeamsForm(forms.ModelForm):
 
 
 class ActualResultForm(forms.ModelForm):
-    """Score + extra-time / penalty fields on the slot's ActualResult."""
+    """Score + extra-time / penalty fields on the slot's ActualResult.
+
+    Extra time and penalties are derived from the score shape, never manual
+    flags: a knockout level after 90' always went to extra time (so the 120'
+    score is required), and one still level after 120' was decided on
+    penalties (so the shootout fields are required).
+    """
 
     class Meta:
         model = ActualResult
         fields = [
             "home_score", "away_score",
+            "home_score_aet", "away_score_aet",
             "went_to_extra_time", "went_to_penalties",
             "penalty_winner", "home_penalties", "away_penalties",
         ]
@@ -69,24 +76,47 @@ class ActualResultForm(forms.ModelForm):
             )
         else:
             self.fields["penalty_winner"].queryset = Team.objects.none()
-        self.fields["penalty_winner"].required = False
-        self.fields["home_penalties"].required = False
-        self.fields["away_penalties"].required = False
+        for name in (
+            "home_score_aet", "away_score_aet",
+            "penalty_winner", "home_penalties", "away_penalties",
+        ):
+            self.fields[name].required = False
 
     def clean(self):
         cleaned = super().clean()
         home = cleaned.get("home_score")
         away = cleaned.get("away_score")
+        aet_home = cleaned.get("home_score_aet")
+        aet_away = cleaned.get("away_score_aet")
         pen_winner = cleaned.get("penalty_winner")
         h_pen = cleaned.get("home_penalties")
         a_pen = cleaned.get("away_penalties")
 
-        # Penalties are derived, not a manual flag: a knockout that ends level
-        # is decided on penalties. (English: this form renders only under /admin/.)
+        # (English: this form renders only under /admin/.)
         is_knockout = self.slot.stage.kind != "GROUP"
-        went_pen = bool(
-            is_knockout and home is not None and away is not None and home == away
-        )
+        drawn_90 = home is not None and away is not None and home == away
+
+        if not (is_knockout and drawn_90):
+            # Group match, or a knockout decided in 90' — nothing beyond
+            # regulation, stray posted fields are cleared.
+            cleaned["went_to_extra_time"] = False
+            cleaned["went_to_penalties"] = False
+            cleaned["home_score_aet"] = None
+            cleaned["away_score_aet"] = None
+            cleaned["penalty_winner"] = None
+            cleaned["home_penalties"] = None
+            cleaned["away_penalties"] = None
+            return cleaned
+
+        # Knockout level after 90' → extra time was played; the 120' score is
+        # what the resolver picks the winner from, so it's required.
+        cleaned["went_to_extra_time"] = True
+        if aet_home is None or aet_away is None:
+            raise ValidationError("Extra-time (120') score is required for a drawn knockout.")
+        if aet_home < home or aet_away < away:
+            raise ValidationError("The 120' score cannot be lower than the 90' score.")
+
+        went_pen = aet_home == aet_away
         cleaned["went_to_penalties"] = went_pen
 
         if went_pen:
@@ -97,7 +127,7 @@ class ActualResultForm(forms.ModelForm):
             if h_pen == a_pen:
                 raise ValidationError("Penalty shootout cannot end in a draw.")
         else:
-            # Decisive (or group) result — no shootout fields.
+            # Decided in extra time — no shootout fields.
             cleaned["penalty_winner"] = None
             cleaned["home_penalties"] = None
             cleaned["away_penalties"] = None

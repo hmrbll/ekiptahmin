@@ -106,6 +106,37 @@ def test_dry_run_writes_nothing(finalized_slot, monkeypatch, capsys):
 
 
 @pytest.mark.django_db
+def test_manual_row_skipped_without_force(finalized_slot, monkeypatch, capsys):
+    """A manually entered result is authoritative — resync must not touch it."""
+    ActualResult.objects.filter(slot=finalized_slot).update(
+        source=ActualResult.SOURCE_MANUAL,
+    )
+    _patch(monkeypatch, [PENALTY_PAYLOAD])
+
+    call_command("resync_slots", "R32-3")
+
+    r = ActualResult.objects.get(slot=finalized_slot)
+    assert (r.home_score_aet, r.away_score_aet) == (4, 4)  # untouched
+    assert r.source == ActualResult.SOURCE_MANUAL
+    assert "--force to overwrite" in capsys.readouterr().out
+
+
+@pytest.mark.django_db
+def test_manual_row_overwritten_with_force(finalized_slot, teams, monkeypatch):
+    """--force explicitly reclaims a manual row for the API result."""
+    ActualResult.objects.filter(slot=finalized_slot).update(
+        source=ActualResult.SOURCE_MANUAL,
+    )
+    _patch(monkeypatch, [PENALTY_PAYLOAD])
+
+    call_command("resync_slots", "R32-3", "--force")
+
+    r = ActualResult.objects.get(slot=finalized_slot)
+    assert (r.home_score_aet, r.away_score_aet) == (1, 1)
+    assert r.source == ActualResult.SOURCE_API
+
+
+@pytest.mark.django_db
 def test_unmapped_slot_errors_cleanly(tournament, ko_stage, teams, monkeypatch, capsys):
     BracketSlot.objects.create(
         tournament=tournament, stage=ko_stage, position="R32-7",

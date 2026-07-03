@@ -482,8 +482,9 @@ class ActualResult(models.Model):
         blank=True,
     )
 
-    # Who last wrote this result. Audit only — does NOT gate the live sync
-    # (the poller may overwrite a manual entry; the only stop is MatchSync.finalized).
+    # Who last wrote this result. A MANUAL row is authoritative: the wizard is
+    # the final word, so the live sync never overwrites it (and resync_slots
+    # only does with --force). API rows stay poller-owned until edited by hand.
     SOURCE_MANUAL = "MANUAL"
     SOURCE_API = "API"
     SOURCE_CHOICES = [

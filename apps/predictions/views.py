@@ -188,11 +188,17 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
             else:
                 # Pre-result: each pick shows its own best case if it lands
                 # exactly — so the rows are comparable across rounds/weights.
+                # The 120'-scoreline part is the headline; when a penalties
+                # scenario could pay more, it rides along in parentheses.
                 potentials = potential_max_scores_for_slot_multi(slot, by_user)
                 for uid, preds in by_user.items():
                     for p, val in zip(preds, potentials.get(uid, [])):
                         p.earned_points = None
-                        p.potential_points = val
+                        p.potential_points = val.regulation
+                        p.potential_with_pens = (
+                            val.with_penalties
+                            if val.with_penalties != val.regulation else None
+                        )
 
             # Weight badge per row: the multiplier of the round this pick is from.
             for p in matching:

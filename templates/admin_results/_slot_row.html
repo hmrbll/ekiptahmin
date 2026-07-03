@@ -17,7 +17,7 @@
           hx-post="{% url 'admin_results_save' slot.id %}"
           hx-target="#result-slot-row-{{ slot.id }}"
           hx-swap="outerHTML"
-          hx-trigger="keyup changed delay:500ms from:input[type=number], change from:input[type=checkbox], change from:select delay:300ms, submit"
+          hx-trigger="keyup changed delay:500ms from:input[type=number], change from:select delay:300ms, submit"
           class="space-y-3"
           data-result-form="{{ slot.id }}">
         {% csrf_token %}
@@ -70,24 +70,32 @@
             </div>
         </div>
 
-        {% if result_form.home_score.errors or result_form.away_score.errors %}
+        {% if result_form.home_score.errors or result_form.away_score.errors or result_form.home_score_aet.errors or result_form.away_score_aet.errors %}
         <div class="text-xs text-danger-300">
-            {{ result_form.home_score.errors }}{{ result_form.away_score.errors }}
+            {{ result_form.home_score.errors }}{{ result_form.away_score.errors }}{{ result_form.home_score_aet.errors }}{{ result_form.away_score_aet.errors }}
         </div>
         {% endif %}
 
-        {# Extra-time + penalty section (non-GROUP only). Penalties aren't a checkbox: a level knockout score auto-reveals the shootout fields. #}
-        {% if slot.stage.kind != "GROUP" %}
+        {# Beyond-90' section (non-GROUP only). ET and penalties aren't checkboxes: a level 90' score auto-reveals the 120' inputs, and a level 120' score reveals the shootout fields. #}
+        {% if show_aet %}
         <div class="rounded-xl border border-line bg-surface/40 p-3 space-y-3">
-            <label class="inline-flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
-                <input type="checkbox" name="{{ result_form.went_to_extra_time.html_name }}"
-                       {% if result_form.went_to_extra_time.value %}checked{% endif %}>
-                Went to extra time (90+30 min)
-            </label>
+            <div class="space-y-2">
+                <div class="text-xs text-fg-soft font-medium">Draw after 90' — extra time played</div>
+                <div class="text-xs text-fg-muted">Score after extra time (120')</div>
+                <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center max-w-xs">
+                    <input type="number" inputmode="numeric" min="0" max="20" name="{{ result_form.home_score_aet.html_name }}"
+                           value="{{ result_form.home_score_aet.value|default_if_none:'' }}"
+                           class="text-center" placeholder="0" aria-label="Home score after extra time">
+                    <span class="text-fg-muted text-sm">–</span>
+                    <input type="number" inputmode="numeric" min="0" max="20" name="{{ result_form.away_score_aet.html_name }}"
+                           value="{{ result_form.away_score_aet.value|default_if_none:'' }}"
+                           class="text-center" placeholder="0" aria-label="Away score after extra time">
+                </div>
+            </div>
 
-            {% if is_draw %}
+            {% if show_pens %}
             <div class="space-y-2 pt-1 border-t border-line">
-                <div class="text-xs text-fg-soft font-medium">Draw — decided on penalties</div>
+                <div class="text-xs text-fg-soft font-medium">Still level after 120' — decided on penalties</div>
                 <div class="text-xs text-fg-muted">Penalty winner</div>
                 <select name="{{ result_form.penalty_winner.html_name }}" class="text-sm">
                     <option value="">— select —</option>

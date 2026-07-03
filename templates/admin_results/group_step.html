@@ -17,7 +17,7 @@
 
         <ul class="space-y-3">
             {% for item in items %}
-            {% include "admin_results/_slot_row.html" with slot=item.slot actual=item.actual result_form=item.result_form teams_form=item.teams_form is_draw=item.is_draw %}
+            {% include "admin_results/_slot_row.html" with slot=item.slot actual=item.actual result_form=item.result_form teams_form=item.teams_form show_aet=item.show_aet show_pens=item.show_pens %}
             {% endfor %}
         </ul>
     </main>
