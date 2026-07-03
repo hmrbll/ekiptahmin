@@ -24,7 +24,11 @@ from apps.tournament.models import (
 )
 from apps.tournament.sections import group_matches_into_sections
 
-from .ganyan_leaderboard import describe_ties, leaderboard_for_tournament
+from .ganyan_leaderboard import (
+    describe_ties,
+    leaderboard_for_tournament,
+    leaderboard_sections_for_tournament,
+)
 from .models import GanyanScore, MatchPool
 
 
@@ -61,12 +65,7 @@ _OUTCOME_BADGE = {
 }
 
 
-def leaderboard(request: HttpRequest) -> HttpResponse:
-    tournament = Tournament.objects.filter(is_active=True).first()
-    if tournament is None:
-        return render(request, "scoring/no_tournament.html", status=200)
-
-    entries = leaderboard_for_tournament(tournament)
+def _leaderboard_rows(entries) -> list[dict]:
     rows = []
     for e in entries:
         c = e.counts
@@ -94,11 +93,37 @@ def leaderboard(request: HttpRequest) -> HttpResponse:
             "points_result": e.score_breakdown["result"],
             "points_penalty": e.score_breakdown["penalty"],
         })
+    return rows
+
+
+def leaderboard(request: HttpRequest) -> HttpResponse:
+    """Ranked board, tabbed by round: a "Genel" (overall) tab plus one tab per
+    scored round section — the same sections the all-predictions and results
+    pages tab by. Each round tab re-ranks users on that round's matches only.
+    """
+    tournament = Tournament.objects.filter(is_active=True).first()
+    if tournament is None:
+        return render(request, "scoring/no_tournament.html", status=200)
+
+    overall = leaderboard_for_tournament(tournament)
+    tabs = [{
+        "key": "overall",
+        "label": "Genel",
+        "rows": _leaderboard_rows(overall),
+        "tie_notes": describe_ties(overall),
+    }]
+    for section in leaderboard_sections_for_tournament(tournament):
+        tabs.append({
+            "key": section["key"],
+            "label": section["label"],
+            "rows": _leaderboard_rows(section["entries"]),
+            "tie_notes": describe_ties(section["entries"]),
+        })
 
     return render(request, "scoring/leaderboard.html", {
         "tournament": tournament,
-        "rows": rows,
-        "tie_notes": describe_ties(entries),
+        "tabs": tabs,
+        "default_tab_key": "overall",
     })
 
 

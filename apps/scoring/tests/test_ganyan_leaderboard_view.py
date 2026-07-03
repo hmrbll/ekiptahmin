@@ -1,4 +1,5 @@
-"""Public leaderboard view — cumulative tier counts and the Adet/Puan toggle.
+"""Public leaderboard view — cumulative tier counts, the Adet/Puan toggle
+and the round tabs.
 
 Product rules:
 - Counts are cumulative: an exact-score hit also counts as a correct goal
@@ -6,6 +7,10 @@ Product rules:
   semantics). A diff hit also counts as a correct result.
 - Every stat cell carries both faces (hit count + points earned) so the
   client-side toggle can switch without a round-trip.
+- The board is tabbed by round: "Genel" (overall, default) plus one tab per
+  scored round section — the same sections the results page tabs by. Each
+  round tab ranks users on that round's matches only; unscored rounds get
+  no tab, and the tab bar is omitted while "Genel" is the only tab.
 """
 
 from datetime import date, timedelta
@@ -61,7 +66,8 @@ class TestCumulativeCounts:
     def _row_for(self, client, nickname):
         r = client.get(reverse("leaderboard"))
         assert r.status_code == 200
-        return r.context["rows"], r.content.decode()
+        # Overall ("Genel") tab is always tabs[0].
+        return r.context["tabs"][0]["rows"], r.content.decode()
 
     def test_exact_hit_counts_in_all_three_columns(self, client, slot):
         _score(_user("Ali"), slot, GanyanScore.EXACT,
@@ -124,8 +130,91 @@ class TestAdetPuanToggle:
         _score(_user("Ali"), slot, GanyanScore.EXACT,
                score_exact="33.33", score_diff="33.33", score_result="33.33")
         r = client.get(reverse("leaderboard"))
-        row = r.context["rows"][0]
+        row = r.context["tabs"][0]["rows"][0]
         assert row["points_exact"] == Decimal("33.33")
         assert row["points_diff"] == Decimal("33.33")
         assert row["points_result"] == Decimal("33.33")
         assert row["points_penalty"] == Decimal("0")
+
+
+@pytest.mark.django_db
+class TestRoundTabs:
+    def _ko_slot(self, tournament, kind, order, position):
+        stage = Stage.objects.create(
+            tournament=tournament, kind=kind, order=order,
+            points_exact=6, points_diff=4, points_result=2,
+        )
+        return BracketSlot.objects.create(
+            tournament=tournament, stage=stage, position=position,
+            scheduled_kickoff=timezone.now() - timedelta(hours=1),
+        )
+
+    def _tabs(self, client):
+        r = client.get(reverse("leaderboard"))
+        assert r.status_code == 200
+        return r.context["tabs"], r.content.decode()
+
+    def test_overall_plus_one_tab_per_scored_section(self, client, slot, tournament):
+        r32_slot = self._ko_slot(tournament, Stage.R32, 4, "R32-1")
+        u = _user("Ali")
+        _score(u, slot, GanyanScore.EXACT, score_exact="30.00")
+        _score(u, r32_slot, GanyanScore.RESULT, score_result="10.00")
+        tabs, content = self._tabs(client)
+        assert [t["key"] for t in tabs] == ["overall", "group-md1", "ko-R32"]
+        assert [t["label"] for t in tabs] == ["Genel", "Grup İlk Maçlar", "Son 32"]
+        assert "round-tab-bar" in content
+        # Overall is the default (visible) panel.
+        assert 'data-default-key="overall"' in content
+
+    def test_round_tab_sums_only_that_rounds_matches(self, client, slot, tournament):
+        r32_slot = self._ko_slot(tournament, Stage.R32, 4, "R32-1")
+        u = _user("Ali")
+        _score(u, slot, GanyanScore.EXACT, score_exact="30.00")
+        _score(u, r32_slot, GanyanScore.RESULT, score_result="10.00")
+        tabs, _ = self._tabs(client)
+        by_key = {t["key"]: t for t in tabs}
+        assert by_key["overall"]["rows"][0]["total"] == Decimal("40.00")
+        assert by_key["group-md1"]["rows"][0]["total"] == Decimal("30.00")
+        assert by_key["ko-R32"]["rows"][0]["total"] == Decimal("10.00")
+
+    def test_round_tab_reranks_independently_of_overall(self, client, slot, tournament):
+        # Ali leads overall, Veli leads the R32 tab.
+        r32_slot = self._ko_slot(tournament, Stage.R32, 4, "R32-1")
+        ali, veli = _user("Ali"), _user("Veli")
+        _score(ali, slot, GanyanScore.EXACT, score_exact="50.00")
+        _score(ali, r32_slot, GanyanScore.RESULT, score_result="5.00")
+        _score(veli, slot, GanyanScore.RESULT, score_result="10.00")
+        _score(veli, r32_slot, GanyanScore.EXACT, score_exact="20.00")
+        tabs, _ = self._tabs(client)
+        by_key = {t["key"]: t for t in tabs}
+        assert [r["nickname"] for r in by_key["overall"]["rows"]] == ["Ali", "Veli"]
+        assert [r["nickname"] for r in by_key["ko-R32"]["rows"]] == ["Veli", "Ali"]
+
+    def test_unscored_section_gets_no_tab(self, client, slot, tournament):
+        # R32 exists but only as NO_RESULT rows → no R32 tab yet.
+        r32_slot = self._ko_slot(tournament, Stage.R32, 4, "R32-1")
+        u = _user("Ali")
+        _score(u, slot, GanyanScore.EXACT, score_exact="30.00")
+        _score(u, r32_slot, GanyanScore.NO_RESULT)
+        tabs, _ = self._tabs(client)
+        assert [t["key"] for t in tabs] == ["overall", "group-md1"]
+
+    def test_user_absent_from_round_they_have_no_scores_in(self, client, slot, tournament):
+        r32_slot = self._ko_slot(tournament, Stage.R32, 4, "R32-1")
+        ali, veli = _user("Ali"), _user("Veli")
+        _score(ali, slot, GanyanScore.EXACT, score_exact="30.00")
+        _score(ali, r32_slot, GanyanScore.RESULT, score_result="10.00")
+        _score(veli, slot, GanyanScore.RESULT, score_result="10.00")
+        tabs, _ = self._tabs(client)
+        by_key = {t["key"]: t for t in tabs}
+        assert [r["nickname"] for r in by_key["overall"]["rows"]] == ["Ali", "Veli"]
+        assert [r["nickname"] for r in by_key["ko-R32"]["rows"]] == ["Ali"]
+
+    def test_tab_bar_hidden_when_only_overall_exists(self, client, slot):
+        # An unscored section gets no tab, but its NO_RESULT rows still keep
+        # the user on the overall board (with zeros) — leaving "Genel" as the
+        # only tab, for which no tab bar should render.
+        _score(_user("Ali"), slot, GanyanScore.NO_RESULT)
+        tabs, content = self._tabs(client)
+        assert [t["key"] for t in tabs] == ["overall"]
+        assert "round-tab-bar" not in content
