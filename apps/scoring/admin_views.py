@@ -78,17 +78,28 @@ def _teams_resolved(slot: BracketSlot) -> bool:
     return bool(slot.home_team_actual_id and slot.away_team_actual_id)
 
 
-def _is_knockout_draw(slot: BracketSlot, home_score, away_score) -> bool:
-    """True when this knockout slot's entered score is level → goes to penalties.
-
-    `home_score`/`away_score` may be ints (saved) or raw POST strings.
-    """
-    if slot.stage.kind == "GROUP" or home_score is None or away_score is None:
-        return False
+def _parse_score(value) -> int | None:
+    """Saved int or raw POST string → int, else None."""
     try:
-        return int(home_score) == int(away_score)
+        return int(value)
     except (TypeError, ValueError):
-        return False
+        return None
+
+
+def _knockout_sections(slot: BracketSlot, home, away, aet_home, aet_away) -> dict:
+    """Which auto-revealed sections a knockout row needs.
+
+    A 90' draw reveals the extra-time (120') score inputs; a 120' draw on top
+    of that reveals the shootout fields. Values may be saved ints or raw POST
+    strings. Group rows never show either.
+    """
+    if slot.stage.kind == "GROUP":
+        return {"show_aet": False, "show_pens": False}
+    h, a = _parse_score(home), _parse_score(away)
+    show_aet = h is not None and a is not None and h == a
+    ah, aa = _parse_score(aet_home), _parse_score(aet_away)
+    show_pens = show_aet and ah is not None and aa is not None and ah == aa
+    return {"show_aet": show_aet, "show_pens": show_pens}
 
 
 def _build_row_context(slot: BracketSlot) -> dict:
@@ -101,14 +112,24 @@ def _build_row_context(slot: BracketSlot) -> dict:
     teams_form = None
     if slot.stage.kind != "GROUP" and not _teams_resolved(slot):
         teams_form = SlotTeamsForm(instance=slot)
-    home = actual.home_score if actual else None
-    away = actual.away_score if actual else None
+    sections = _knockout_sections(
+        slot,
+        actual.home_score if actual else None,
+        actual.away_score if actual else None,
+        actual.home_score_aet if actual else None,
+        actual.away_score_aet if actual else None,
+    )
+    # Legacy safety net: a stored row can claim ET/penalties without the score
+    # shape backing it (pre-aet rows) — still surface its sections for repair.
+    if actual is not None:
+        sections["show_aet"] = sections["show_aet"] or actual.went_to_extra_time
+        sections["show_pens"] = sections["show_pens"] or actual.went_to_penalties
     return {
         "slot": slot,
         "actual": actual,
         "result_form": result_form,
         "teams_form": teams_form,
-        "is_draw": _is_knockout_draw(slot, home, away),
+        **sections,
     }
 
 
@@ -258,6 +279,9 @@ def admin_results_save(request: HttpRequest, slot_id: int) -> HttpResponse:
         instance: ActualResult = result_form.save(commit=False)
         instance.slot = slot
         instance.entered_by = request.user
+        # The wizard is the final word on a result: stamp MANUAL (also when
+        # editing an API row) so the live poller never overwrites it again.
+        instance.source = ActualResult.SOURCE_MANUAL
         instance.save()
         saved = True
     elif teams_changed:
@@ -274,12 +298,14 @@ def admin_results_save(request: HttpRequest, slot_id: int) -> HttpResponse:
         ctx["just_saved"] = saved or teams_changed
         if not result_form.is_valid():
             ctx["result_form"] = result_form
-        # Reveal the penalty fields from the just-submitted scores, so entering
-        # a level knockout score surfaces them even when the (still-incomplete)
-        # save was rejected for missing the shootout.
-        ctx["is_draw"] = _is_knockout_draw(
-            slot, request.POST.get("home_score"), request.POST.get("away_score")
-        )
+        # Reveal the ET / penalty sections from the just-submitted scores, so a
+        # level score surfaces the next inputs even when the (still-incomplete)
+        # save was rejected for missing them.
+        ctx.update(_knockout_sections(
+            slot,
+            request.POST.get("home_score"), request.POST.get("away_score"),
+            request.POST.get("home_score_aet"), request.POST.get("away_score_aet"),
+        ))
         body = render_to_string("admin_results/_slot_row.html", ctx, request=request)
         return HttpResponse(body)
 

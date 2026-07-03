@@ -13,8 +13,12 @@ score is treated as the actual result and updated as the match goes on.
   calls football-data at most once per 45s (throttled, single-instance lock),
   and only while a match is in the live window.
 - **Auto-write.** A live score is written to `ActualResult` (`source=API`) and
-  updated every poll. Staff can still overwrite a result. Once a match is
-  `FINISHED` the slot is `finalized` and never requested again.
+  updated every poll. Once a match is `FINISHED` the slot is `finalized` and
+  never requested again.
+- **Manual entry wins.** A result saved through the staff wizard is stamped
+  `source=MANUAL` and is authoritative: the poller keeps tracking status/minute
+  (live badge, finalize) but **never overwrites a manual result**. Reclaiming a
+  manual row for the API path takes an explicit `resync_slots <pos> --force`.
 - **Homepage stays live.** The `#live-scores` module polls `/live/` every 30s
   (drives the sync); the `#home-grid` module polls `home_grid` every 30s so the
   "Son sonuçlar" column and leaderboard refresh on their own — a finished match
@@ -66,8 +70,9 @@ python manage.py resolve_bracket
 # Force re-pull specific slots from the API, bypassing the live window AND
 # MatchSync.finalized — the repair for rows that finalized with bad data
 # (mid-shootout captures, stale scores). Rewrites through the normal sync
-# path, so scoring recomputes via the save signal. Idempotent.
-python manage.py resync_slots R32-3 [R16-1 ...] [--dry-run]
+# path, so scoring recomputes via the save signal. Idempotent. Manually
+# entered rows (source=MANUAL) are authoritative and skipped without --force.
+python manage.py resync_slots R32-3 [R16-1 ...] [--dry-run] [--force]
 ```
 
 ## How scores map (`apps/liveresults/score.py`)
@@ -175,10 +180,10 @@ higher **effective** score (120' if the match went to extra time, else 90').
 
 ## Staff result-entry wizard (`/admin/results/`, `apps/scoring/admin_views.py`)
 
-A staff-only fallback for entering or correcting scores by hand — the live sync
-is the normal path, writing `ActualResult` (`source=API`) automatically on
-FINISHED. The wizard mirrors the prediction wizard's step structure and saves
-each row over HTMX.
+The authoritative path for entering or correcting scores by hand — a wizard
+save stamps `source=MANUAL`, which the live sync never overwrites (see *Manual
+entry wins* above). The wizard mirrors the prediction wizard's step structure
+and saves each row over HTMX.
 
 - **Teams are never picked when known.** A knockout row shows its teams as fixed
   labels with SVG flags, exactly like group rows — the bracket resolver fills
@@ -186,13 +191,14 @@ each row over HTMX.
   only for a knockout slot that hasn't resolved yet (e.g. its feeding round isn't
   played). Its options are `Name (CODE)` — no flag emoji, which Windows renders
   as a bare two-letter code in a `<select>`.
-- **Penalties are derived, not a checkbox.** A level knockout score *is* a
-  shootout, so entering equal scores reveals the penalty winner + score fields
-  automatically; `ActualResult.went_to_penalties` is computed from the draw
-  (`ActualResultForm.clean`), never toggled. A decisive score clears the shootout
-  fields. (The raw Django `ActualResult` admin still exposes the boolean.)
-- The "Went to extra time" flag stays a manual checkbox — see the manual-ET
-  follow-up below.
+- **Extra time and penalties are derived, never checkboxes.** A knockout level
+  after 90' always went to extra time, so equal 90' scores reveal the 120'
+  score inputs (required — the resolver picks the ET winner from them); a 120'
+  score still level reveals the penalty winner + shootout score fields. A
+  decisive 90' score clears everything beyond regulation.
+  `went_to_extra_time`/`went_to_penalties` are computed from the score shape in
+  `ActualResultForm.clean`, never toggled. (The raw Django `ActualResult` admin
+  still exposes the booleans.)
 
 ## Knockout scoring rule (120' vs 90')
 
@@ -220,7 +226,5 @@ templates. See also [scoring-ganyan.md](scoring-ganyan.md).
 
 ## Known follow-ups
 
-- **Manual ET entry** doesn't capture the 120' score yet, so a manually-entered
-  extra-time knockout result falls back to 90' for scoring/advancement. Not an
-  issue for the API path (it captures `*_score_aet`). Add the fields to the
-  staff wizard if manual ET entry is needed.
+- (none currently — manual ET entry landed with the 120' inputs in the wizard,
+  and manual results now gate the sync.)
