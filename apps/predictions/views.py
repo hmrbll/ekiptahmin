@@ -109,8 +109,9 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
         preds_by_slot.setdefault(p.slot_id, []).append(p)
         predictors_by_slot.setdefault(p.slot_id, set()).add(p.user_id)
 
-    # Distinct predictor count per slot (any matchup) — drives the pre-lock
-    # "N kişi tahmin etti" hint and the "nobody hit the matchup" note.
+    # Distinct predictor count per slot (any matchup) — drives the group-stage
+    # pre-lock "N kişi tahmin etti" hint and the "nobody hit the matchup" note.
+    # Knockout pre-lock hints show the fixture-correct count instead (below).
     prediction_counts = {sid: len(uids) for sid, uids in predictors_by_slot.items()}
 
     # Ganyan points each user earned, per (slot, user): (total, effective_round_id).
@@ -133,21 +134,26 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
 
         is_public = _slot_predictions_public(slot, stages_still_editable)
         has_result = hasattr(slot, "result")
+
+        # Only picks on the actual fixture belong on this match's card. In a
+        # knockout every user predicted their own bracket, so most picks for
+        # this slot are really for a different matchup (different teams
+        # reaching here) — listing them under the real fixture is noise and
+        # they can never score it anyway. The matchup rule mirrors the ganyan
+        # engine's `_matchup_correct` (strict home AND away), so what's shown
+        # equals what can earn points. For group matches the fixture is
+        # fixed, so this filter is a no-op. Computed pre-reveal too: the
+        # knockout pre-lock hint shows how many distinct users hit the real
+        # matchup — exactly the players the card will list at reveal.
+        matching = [
+            p for p in preds_by_slot.get(slot.id, [])
+            if p.home_team_id == slot.home_team_actual_id
+            and p.away_team_id == slot.away_team_actual_id
+        ]
+        fixture_prediction_count = len({p.user_id for p in matching})
+
         slot_preds = []
         if is_public:
-            # Only picks on the actual fixture belong on this match's card. In a
-            # knockout every user predicted their own bracket, so most picks for
-            # this slot are really for a different matchup (different teams
-            # reaching here) — listing them under the real fixture is noise and
-            # they can never score it anyway. The matchup rule mirrors the ganyan
-            # engine's `_matchup_correct` (strict home AND away), so what's shown
-            # equals what can earn points. For group matches the fixture is
-            # fixed, so this filter is a no-op.
-            matching = [
-                p for p in preds_by_slot.get(slot.id, [])
-                if p.home_team_id == slot.home_team_actual_id
-                and p.away_team_id == slot.away_team_actual_id
-            ]
             # A user may have predicted the same fixture in several rounds; group
             # their picks so points land on the right round and pools aren't
             # double-counted.
@@ -205,6 +211,7 @@ def predictions_all(request: HttpRequest) -> HttpResponse:
             "is_public": is_public,
             "predictions": slot_preds,
             "prediction_count": prediction_counts.get(slot.id, 0),
+            "fixture_prediction_count": fixture_prediction_count,
         })
 
     sections, default_section_key = group_matches_into_sections(matches)

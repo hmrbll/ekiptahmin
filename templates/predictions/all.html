@@ -113,7 +113,19 @@
                     {% endif %}
                     {% else %}
                     <div class="border-t border-line pt-3 text-xs text-fg-muted">
+                        {% comment %}
+                        Pre-lock hint. Group fixtures are fixed, so the plain
+                        predictor count is the story there. On a knockout slot
+                        that count is always "everyone" (each player filled
+                        their own bracket), so the interesting number is how
+                        many distinct players' picks are on the REAL matchup —
+                        exactly who the card will list once revealed.
+                        {% endcomment %}
+                        {% if m.slot.stage.kind == "GROUP" %}
                         {% if m.prediction_count %}{{ m.prediction_count }} oyuncu tahmin etti — gönderim süresi dolunca görünür.{% else %}Henüz kimse tahmin etmedi.{% endif %}
+                        {% else %}
+                        {% if m.fixture_prediction_count %}Gerçek eşleşmeyi {{ m.fixture_prediction_count }} oyuncu tutturdu — tahminler gönderim süresi dolunca görünür.{% elif m.prediction_count %}Gerçek eşleşmeyi henüz kimse tutturamadı — tahminler gönderim süresi dolunca görünür.{% else %}Henüz kimse tahmin etmedi.{% endif %}
+                        {% endif %}
                     </div>
                     {% endif %}
                 </li>
