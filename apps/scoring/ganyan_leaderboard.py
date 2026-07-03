@@ -20,7 +20,8 @@ from typing import Optional
 from django.contrib.auth import get_user_model
 from django.utils.formats import number_format
 
-from apps.tournament.models import PredictionRound, Tournament
+from apps.tournament.models import BracketSlot, PredictionRound, Tournament
+from apps.tournament.sections import slot_section
 
 from .models import GanyanScore
 
@@ -50,30 +51,31 @@ class GanyanLeaderboardEntry:
     nickname: str = ""
 
 
-def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboardEntry]:
-    User = get_user_model()
-
-    rounds = list(PredictionRound.objects.filter(tournament=tournament).order_by("order"))
-    weight_by_id = {r.id: r.weight for r in rounds}
-
-    user_ids = list(
+def _fetch_scores(tournament: Tournament) -> list[GanyanScore]:
+    """All score rows of the tournament, slim — one query for every caller."""
+    return list(
         GanyanScore.objects
         .filter(slot__tournament=tournament)
-        .values_list("user_id", flat=True)
-        .distinct()
+        .only(
+            "user_id", "slot_id",
+            "total", "score_exact", "score_diff", "score_result", "score_penalty",
+            "outcome", "effective_round_id", "wrong_count_contribution",
+        )
     )
-    users = {u.id: u for u in User.objects.filter(id__in=user_ids)}
 
+
+def _weight_by_round_id(tournament: Tournament) -> dict:
+    rounds = PredictionRound.objects.filter(tournament=tournament).order_by("order")
+    return {r.id: r.weight for r in rounds}
+
+
+def _ranked_entries(users: dict, scores_by_user: dict, weight_by_id: dict) -> list[GanyanLeaderboardEntry]:
+    """Build + rank entries from pre-grouped scores ({user_id: [GanyanScore]})."""
     entries: list[GanyanLeaderboardEntry] = []
     for uid, user in users.items():
-        scores = list(
-            GanyanScore.objects
-            .filter(user_id=uid, slot__tournament=tournament)
-            .only(
-                "total", "score_exact", "score_diff", "score_result", "score_penalty",
-                "outcome", "effective_round_id", "wrong_count_contribution",
-            )
-        )
+        scores = scores_by_user.get(uid)
+        if not scores:
+            continue
 
         total = sum((s.total for s in scores), Decimal("0"))
         sum_exact = sum((s.score_exact for s in scores), Decimal("0"))
@@ -138,6 +140,72 @@ def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboard
             prev_rank = idx
             prev_tb = e.tiebreakers
     return entries
+
+
+def _group_scores_by_user(scores: list[GanyanScore]) -> dict:
+    by_user: dict[int, list[GanyanScore]] = {}
+    for s in scores:
+        by_user.setdefault(s.user_id, []).append(s)
+    return by_user
+
+
+def _users_for(score_groups: dict) -> dict:
+    User = get_user_model()
+    return {u.id: u for u in User.objects.filter(id__in=score_groups.keys())}
+
+
+def leaderboard_for_tournament(tournament: Tournament) -> list[GanyanLeaderboardEntry]:
+    scores_by_user = _group_scores_by_user(_fetch_scores(tournament))
+    return _ranked_entries(
+        _users_for(scores_by_user), scores_by_user, _weight_by_round_id(tournament),
+    )
+
+
+def leaderboard_sections_for_tournament(tournament: Tournament) -> list[dict]:
+    """Per-round leaderboards for the round tabs on the puan durumu page.
+
+    Buckets score rows by the same tab sections the all-predictions and results
+    pages use (group matchdays, then knockout stages — `slot_section`), then
+    ranks each bucket with the full tiebreaker chain restricted to that
+    section's matches. Returns ordered [{"key", "label", "entries"}].
+
+    Only sections where at least one match has been scored appear — a round
+    whose rows are all NO_RESULT is not a tab yet. Users show up in a section
+    only if they have score rows there.
+    """
+    section_by_slot = {
+        slot.id: slot_section(slot)
+        for slot in BracketSlot.objects.filter(tournament=tournament).select_related("stage")
+    }
+
+    buckets: dict[str, dict] = {}
+    for s in _fetch_scores(tournament):
+        order, key, label = section_by_slot[s.slot_id]
+        bucket = buckets.setdefault(key, {
+            "order": order, "key": key, "label": label,
+            "scores": [], "started": False,
+        })
+        bucket["scores"].append(s)
+        if s.outcome != GanyanScore.NO_RESULT:
+            bucket["started"] = True
+
+    weight_by_id = _weight_by_round_id(tournament)
+    all_users = _users_for(_group_scores_by_user(
+        [s for b in buckets.values() for s in b["scores"]]
+    ))
+
+    sections = []
+    for bucket in sorted(buckets.values(), key=lambda b: b["order"]):
+        if not bucket["started"]:
+            continue
+        scores_by_user = _group_scores_by_user(bucket["scores"])
+        users = {uid: all_users[uid] for uid in scores_by_user if uid in all_users}
+        sections.append({
+            "key": bucket["key"],
+            "label": bucket["label"],
+            "entries": _ranked_entries(users, scores_by_user, weight_by_id),
+        })
+    return sections
 
 
 def _format_tiebreaker_value(value) -> str:

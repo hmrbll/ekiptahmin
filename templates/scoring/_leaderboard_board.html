@@ -1,0 +1,82 @@
+{% comment %}
+One leaderboard board (mobile pill list + desktop table + tie notes), rendered
+once per round tab. Expects `rows` and `tie_notes` — every stat cell carries
+both the Adet and Puan face; the page-level toggle script switches them.
+{% endcomment %}
+
+{# Mobile: single-line row — rank · name · 5 colour-coded stat pills · total (<md) #}
+{# Legend below the list maps each colour to its category for first-time viewers. #}
+<ul class="md:hidden space-y-2">
+    {% for row in rows %}
+    <li class="rounded-2xl border border-line bg-surface px-3 py-2.5 flex items-center gap-2">
+        <span class="font-mono text-xs text-fg-muted w-5 text-right shrink-0">{{ row.rank }}</span>
+        <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-primary hover:text-primary-hover underline decoration-primary/40 underline-offset-2 hover:decoration-primary transition truncate flex-1 min-w-0 text-sm">{{ row.nickname }}</a>
+        <div class="flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none">
+            <span class="bg-primary/15 text-primary px-1.5 py-1 rounded" aria-label="Doğru Skor"><span data-lb-val="adet">{{ row.exact }}</span><span data-lb-val="puan" class="hidden">{{ row.points_exact|floatformat:1 }}</span></span>
+            <span class="bg-success/15 text-success px-1.5 py-1 rounded" aria-label="Doğru Fark"><span data-lb-val="adet">{{ row.diff }}</span><span data-lb-val="puan" class="hidden">{{ row.points_diff|floatformat:1 }}</span></span>
+            <span class="bg-warning/15 text-warning px-1.5 py-1 rounded" aria-label="Doğru Sonuç"><span data-lb-val="adet">{{ row.result }}</span><span data-lb-val="puan" class="hidden">{{ row.points_result|floatformat:1 }}</span></span>
+            <span class="bg-accent/15 text-accent px-1.5 py-1 rounded" aria-label="Penaltı"><span data-lb-val="adet">{{ row.penalty }}</span><span data-lb-val="puan" class="hidden">{{ row.points_penalty|floatformat:1 }}</span></span>
+            <span class="bg-danger/15 text-danger px-1.5 py-1 rounded" aria-label="Yanlış">{{ row.wrong }}</span>
+        </div>
+        <span class="font-mono text-sm font-semibold text-fg shrink-0 w-12 text-right">{{ row.total|floatformat:2 }}</span>
+    </li>
+    {% endfor %}
+</ul>
+{# Mobile legend — explains the colour code. Hidden on >=md (desktop already has table headers). #}
+<div class="md:hidden mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-fg-muted">
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-primary"></span>Skor</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-success"></span>Fark</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-warning"></span>Sonuç</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-accent"></span>Pen.</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-danger"></span>Yanlış</span>
+</div>
+
+{# Desktop/tablet: full table (>=md) #}
+<div class="hidden md:block overflow-x-auto rounded-2xl border border-line bg-surface">
+    <table class="w-full text-sm">
+        <thead class="text-xs uppercase tracking-wider text-fg-muted border-b border-line">
+            <tr>
+                <th class="text-left px-4 py-3 font-medium">#</th>
+                <th class="text-left px-4 py-3 font-medium">Oyuncu</th>
+                <th class="text-right px-4 py-3 font-medium">Toplam Puan</th>
+                <th class="text-right px-4 py-3 font-medium text-primary/80">Doğru Skor</th>
+                <th class="text-right px-4 py-3 font-medium text-success/90">Doğru Fark</th>
+                <th class="text-right px-4 py-3 font-medium text-warning/90">Doğru Sonuç</th>
+                <th class="text-right px-4 py-3 font-medium text-accent/90">Penaltı</th>
+                <th class="text-right px-4 py-3 font-medium text-danger/90">Yanlış</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr class="border-b border-line last:border-b-0 hover:bg-surface transition">
+                <td class="px-4 py-3 font-mono text-fg-muted">{{ row.rank }}</td>
+                <td class="px-4 py-3">
+                    <a href="{% url 'leaderboard_user_detail' row.user_id %}" class="text-primary hover:text-primary-hover underline decoration-primary/40 underline-offset-2 hover:decoration-primary transition">{{ row.nickname }}</a>
+                </td>
+                <td class="px-4 py-3 text-right font-semibold">{{ row.total|floatformat:2 }}</td>
+                <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.exact }}</span><span data-lb-val="puan" class="hidden">{{ row.points_exact|floatformat:2 }}</span></td>
+                <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.diff }}</span><span data-lb-val="puan" class="hidden">{{ row.points_diff|floatformat:2 }}</span></td>
+                <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.result }}</span><span data-lb-val="puan" class="hidden">{{ row.points_result|floatformat:2 }}</span></td>
+                <td class="px-4 py-3 text-right text-fg-soft"><span data-lb-val="adet">{{ row.penalty }}</span><span data-lb-val="puan" class="hidden">{{ row.points_penalty|floatformat:2 }}</span></td>
+                <td class="px-4 py-3 text-right text-fg-soft">{{ row.wrong }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<p class="mt-2 text-xs text-fg-muted">
+    Tam skor tutturulan maç, doğru fark ve doğru sonuç sütunlarına da dahildir.
+    "Yanlış" her iki görünümde de maç adedidir.
+</p>
+
+{% if tie_notes %}
+<div class="mt-6 rounded-2xl border border-warning/20 bg-warning/5 p-4">
+    <div class="text-xs uppercase tracking-wider text-warning-300 mb-2">Eşitlik açıklaması</div>
+    <ul class="space-y-1 text-sm text-fg-soft">
+        {% for note in tie_notes %}
+        <li>{{ note }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}

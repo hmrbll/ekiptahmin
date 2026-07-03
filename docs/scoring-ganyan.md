@@ -146,9 +146,11 @@ The tie notes rendered under the leaderboard are always concrete: they name the 
 
 ## Leaderboard display
 
+The board is **tabbed by round**: a **"Genel"** tab (the overall standings, always the default) followed by one tab per round section — the same sections the all-predictions and results pages tab by (Grup İlk/İkinci/Üçüncü Maçlar, then Son 32 → Final; shared `_round_tabs.html` partial, `apps/tournament/sections.py` grouping). Each round tab is a full standalone board over **that round's matches only**: its own totals, stat columns, ranks (full tiebreaker chain restricted to the round) and tie notes. A round appears as a tab only once at least one of its matches is scored (`leaderboard_sections_for_tournament`); users appear in a round tab only if they have score rows there. While "Genel" is the only tab, the tab bar is omitted entirely — the page looks like the plain overall board.
+
 The stat columns (Doğru Skor / Doğru Fark / Doğru Sonuç) show **cumulative** counts: an exact-score hit also counts as a correct goal difference and a correct result, a diff hit also counts as a correct result — same semantics as the weighted tiebreaker layers. "Penaltı" stays a best-tier bucket (earned from a penalty pool while missing all regulation tiers) and "Yanlış" is the wrong-prediction count.
 
-An **Adet/Puan toggle** (client-side, persisted in localStorage) switches every stat cell between hit counts and points earned per criterion (`GanyanScore.score_exact/diff/result/penalty` sums — also cumulative by construction, since an exact hit wins all three regulation pools). "Yanlış" shows the count in both modes.
+An **Adet/Puan toggle** (client-side, persisted in localStorage) switches every stat cell — across all tabs at once — between hit counts and points earned per criterion (`GanyanScore.score_exact/diff/result/penalty` sums — also cumulative by construction, since an exact hit wins all three regulation pools). "Yanlış" shows the count in both modes.
 
 ## All-predictions page — pre-result "best case"
 
