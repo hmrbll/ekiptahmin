@@ -377,7 +377,7 @@ class TestPredictionsAll:
         self, client, tournament, stage_r16, team_tur, team_bra,
     ):
         """A draw-on-KO pick headline is its 120'-scoreline best case; the
-        six-pool total (shootout pools included) rides along in parentheses."""
+        seven-pool total (shootout pools included) rides along in parentheses."""
         past = BracketSlot.objects.create(
             tournament=tournament, stage=stage_r16, position="R16-1",
             scheduled_kickoff=timezone.now() - timedelta(hours=2),
@@ -401,11 +401,12 @@ class TestPredictionsAll:
             if m["slot"].position == "R16-1"
         )
         (row,) = match["predictions"]
-        # Regulation pools 100×3; penalty pools 25×3 on top when pens hit.
+        # Regulation pools 100×3; shootout pools 25×3 + advancer 25 on top
+        # when pens hit.
         assert row.potential_points == Decimal("300.00")
-        assert row.potential_with_pens == Decimal("375.00")
+        assert row.potential_with_pens == Decimal("400.00")
         assert "en fazla 300,00" in body
-        assert "pen. dahil 375,00" in body
+        assert "pen. dahil 400,00" in body
 
     def test_scored_multi_round_points_on_effective_round_only(
         self, client, tournament, stage_group, stage_r16, team_tur, team_bra,

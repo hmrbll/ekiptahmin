@@ -8,9 +8,10 @@ Mechanic — for one match (BracketSlot) at a time:
 1. Every user is a single entity. Multiple rounds predicting the same match
    collapse to "the user has these candidate round-predictions."
 2. Each criterion has a fixed pool. Regulation criteria (exact / diff / result)
-   score the 90-minute scoreline. Penalty criteria (penalty_winner /
-   penalty_score / penalty_diff) score the shootout, and only apply on knockout
-   matches that actually went to penalties.
+   score the 90-minute scoreline. Shootout criteria only apply on knockout
+   matches that actually went to penalties: penalty_winner / penalty_score /
+   penalty_diff are open to shootout (draw) predictions only, while advancer
+   ("turlayan") pays anyone whose pick sends the right team through.
 3. For each user we pick ONE effective round — the one that maximizes the
    user's weighted total against the NOMINAL pools (every criterion valued at
    its full size). This depends only on the user's own predictions, so it is
@@ -39,8 +40,17 @@ from typing import Optional
 
 # Regulation criteria score the 90' scoreline; penalty criteria score the
 # shootout (knockout matches that went to penalties only).
+#
+# Shootout criteria split by who can enter (2026-07-04 rule change):
+#   - penalty_winner / penalty_score / penalty_diff are open ONLY to users who
+#     predicted the shootout (a draw pick — that's the only shape that carries
+#     shootout data).
+#   - advancer ("turlayan") is open to EVERYONE on the fixture: a decisive pick
+#     implies its winner advances, a draw pick advances its chosen shootout
+#     winner. It only pays when the match actually went to penalties (a match
+#     decided in 90'/120' already rewards the winner via the result pool).
 REGULATION_CRITERIA = ("exact", "diff", "result")
-PENALTY_CRITERIA = ("penalty_winner", "penalty_score", "penalty_diff")
+PENALTY_CRITERIA = ("penalty_winner", "penalty_score", "penalty_diff", "advancer")
 CRITERIA = REGULATION_CRITERIA + PENALTY_CRITERIA
 
 # Outcome labels (mutually exclusive — best tier the user achieved). The three
@@ -64,6 +74,7 @@ class StagePools:
     pool_penalty_winner: int
     pool_penalty_score: int
     pool_penalty_diff: int
+    pool_advancer: int
 
 
 @dataclass(frozen=True)
@@ -162,11 +173,27 @@ def _predicted_winner(p: Prediction) -> Optional[str]:
 
 
 def satisfies_penalty_winner(p: Prediction, r: Result) -> bool:
-    """User correctly named the team that advanced via penalties.
+    """User predicted the shootout AND named its winner correctly.
 
-    Only meaningful when the match actually went to penalties. For non-draw
-    predictions the implied winner (via score) is checked. For draw predictions
-    the user's `penalty_winner` is checked. Open to any prediction.
+    Open only to draw predictions (the only shape that predicts penalties) —
+    a decisive pick's implied winner competes in the `advancer` pool instead.
+    """
+    if not r.went_to_penalties or r.penalty_winner is None:
+        return False
+    if not _matchup_correct(p, r):
+        return False
+    if p.home_score != p.away_score:
+        return False
+    return p.penalty_winner is not None and p.penalty_winner == r.penalty_winner
+
+
+def satisfies_advancer(p: Prediction, r: Result) -> bool:
+    """User's pick has the actually-advancing team going through ("turlayan").
+
+    Open to any prediction on the fixture: for non-draw predictions the implied
+    winner (via score) is checked, for draw predictions the chosen shootout
+    winner. Only pays when the match actually went to penalties — otherwise the
+    result pool already rewarded the winner side.
     """
     if not r.went_to_penalties or r.penalty_winner is None:
         return False
@@ -215,6 +242,8 @@ def satisfies(p: Prediction, r: Result, criterion: str) -> bool:
         return satisfies_penalty_score(p, r)
     if criterion == "penalty_diff":
         return satisfies_penalty_diff(p, r)
+    if criterion == "advancer":
+        return satisfies_advancer(p, r)
     raise ValueError(f"Unknown criterion: {criterion}")
 
 
@@ -253,6 +282,11 @@ def breakdown_key(criterion: str, p: Prediction, r: Result) -> Optional[str]:
             return "A"
         return "D"
     if criterion == "penalty_winner":
+        # Draw (shootout) predictions only — decisive picks compete in advancer.
+        if p.home_score != p.away_score:
+            return None
+        return p.penalty_winner  # None on a draw with no chosen winner
+    if criterion == "advancer":
         return _predicted_winner(p)  # team code; None on a draw with no chosen winner
     if criterion == "penalty_score":
         if not _has_pen_scores(p):
@@ -277,6 +311,7 @@ def _pool_map(pools: StagePools) -> dict[str, int]:
         "penalty_winner": pools.pool_penalty_winner,
         "penalty_score": pools.pool_penalty_score,
         "penalty_diff": pools.pool_penalty_diff,
+        "advancer": pools.pool_advancer,
     }
 
 
@@ -640,7 +675,8 @@ def potential_max_scores_multi(
                 # Decisive (or shootout-less draw) pick: the alternative
                 # scenario is the match going to penalties with this pick's
                 # implied winner advancing — it loses every regulation pool
-                # (the effective score is level) but wins the winner pool.
+                # (the effective score is level) but wins the advancer pool
+                # (the shootout-only pools are out of reach for it).
                 winner = _predicted_winner(pred) if knockout else None
                 with_pens = regulation
                 if winner is not None:
@@ -649,11 +685,11 @@ def potential_max_scores_multi(
                         home_score=0, away_score=0,
                         went_to_penalties=True, penalty_winner=winner,
                     )
-                    winners = _user_wins("penalty_winner", pens_hypo)
-                    pw_slice = (
-                        Decimal(pool_by_criterion["penalty_winner"]) / winners
+                    winners = _user_wins("advancer", pens_hypo)
+                    adv_slice = (
+                        Decimal(pool_by_criterion["advancer"]) / winners
                     ) * pred.round_weight
-                    with_pens = max(regulation, pw_slice)
+                    with_pens = max(regulation, adv_slice)
             row_scores.append(BestCase(regulation, with_pens))
         out[uid] = row_scores
     return out

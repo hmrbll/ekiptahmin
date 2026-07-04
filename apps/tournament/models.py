@@ -132,6 +132,12 @@ class Stage(models.Model):
         help_text="Ganyan pool: predicted the penalty shootout goal difference (signed home−away). "
                   "Draw predictions only. Knockout only.",
     )
+    pool_advancer = models.PositiveIntegerField(
+        default=25,
+        help_text="Ganyan pool: named the advancing team ('turlayan') on a match that went to "
+                  "penalties — implied winner for decisive predictions, chosen shootout winner "
+                  "for draw predictions. Open to everyone on the fixture. Knockout only.",
+    )
 
     class Meta:
         ordering = ("tournament", "order")

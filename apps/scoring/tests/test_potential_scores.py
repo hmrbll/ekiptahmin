@@ -20,10 +20,11 @@ from apps.scoring.ganyan import (
 W = Decimal("1.00")
 
 
-def _pools(reg=100, pen=50):
+def _pools(reg=100, pen=50, adv=50):
     return StagePools(
         pool_exact=reg, pool_diff=reg, pool_result=reg,
         pool_penalty_winner=pen, pool_penalty_score=pen, pool_penalty_diff=pen,
+        pool_advancer=adv,
     )
 
 
@@ -81,11 +82,11 @@ def test_round_weight_scales_the_best_case():
 
 
 def test_draw_on_ko_adds_penalty_pools():
-    """A draw-on-KO pick carrying a shootout wins all six pools in its best
-    case: 100×3 regulation + 50×3 penalty = 450."""
+    """A draw-on-KO pick carrying a shootout wins all seven pools in its best
+    case: 100×3 regulation + 50×3 shootout-only + 50 advancer = 500."""
     draw = _pred(h=1, a=1, penalty_winner="BRA", home_penalties=4, away_penalties=2)
     out = potential_max_scores({1: draw}, _pools(), "BRA", "ARG")
-    assert out[1] == Decimal("450")
+    assert out[1] == Decimal("500")
 
 
 def test_decisive_pick_never_claims_penalty_pools():
@@ -98,25 +99,26 @@ def test_decisive_pick_never_claims_penalty_pools():
 
 
 def test_multi_draw_pick_splits_regulation_and_penalties():
-    """A draw-on-KO pick's headline is the regulation part; the six-pool
+    """A draw-on-KO pick's headline is the regulation part; the seven-pool
     self-scenario is the penalties-included maximum."""
     draw = _pred(h=1, a=1, penalty_winner="BRA", home_penalties=4, away_penalties=2)
     out = potential_max_scores_multi({1: [draw]}, _pools(), "BRA", "ARG")
     (bc,) = out[1]
     assert bc.regulation == Decimal("300")
-    assert bc.with_penalties == Decimal("450")
+    assert bc.with_penalties == Decimal("500")
 
 
 def test_multi_decisive_pick_covers_the_shootout_path():
     """A decisive pick's true maximum must also cover the goes-to-penalties
-    scenario: it loses every regulation pool there but can take the whole
-    penalty-winner pool via its implied winner. With a winner pool larger than
-    its (shared) regulation best case, the shootout path is the bigger number."""
+    scenario: it loses every regulation pool there but can take the advancer
+    pool via its implied winner (the shootout-only pools stay out of reach).
+    With an advancer pool larger than its (shared) regulation best case, the
+    shootout path is the bigger number."""
     # Three users share the 2-1 scoreline → regulation best = 90×3/3 = 90.
     # All three imply BRA, so the pens path is 360/3 = 120 > 90.
     preds = {i: [_pred(h=2, a=1)] for i in (1, 2, 3)}
     out = potential_max_scores_multi(
-        preds, _pools(reg=90, pen=360), "BRA", "ARG",
+        preds, _pools(reg=90, adv=360), "BRA", "ARG",
     )
     for i in (1, 2, 3):
         (bc,) = out[i]
@@ -125,7 +127,7 @@ def test_multi_decisive_pick_covers_the_shootout_path():
 
 
 def test_multi_decisive_pick_keeps_regulation_when_pens_pay_less():
-    """With the production-like small winner pool, the shootout path never
+    """With the production-like small advancer pool, the shootout path never
     beats the pick's own scenario → both numbers coincide (no parenthetical)."""
     out = potential_max_scores_multi({1: [_pred(h=2, a=1)]}, _pools(), "BRA", "ARG")
     (bc,) = out[1]
@@ -135,9 +137,9 @@ def test_multi_decisive_pick_keeps_regulation_when_pens_pay_less():
 
 def test_multi_group_match_has_no_penalty_scenario():
     """knockout=False: a group match can't go to pens, so a decisive pick's
-    two numbers always coincide — even with a huge winner pool configured."""
+    two numbers always coincide — even with a huge advancer pool configured."""
     out = potential_max_scores_multi(
-        {1: [_pred(h=2, a=1)]}, _pools(reg=100, pen=1000), "BRA", "ARG",
+        {1: [_pred(h=2, a=1)]}, _pools(reg=100, pen=1000, adv=1000), "BRA", "ARG",
         knockout=False,
     )
     (bc,) = out[1]
@@ -145,18 +147,18 @@ def test_multi_group_match_has_no_penalty_scenario():
     assert bc.with_penalties == Decimal("300")
 
 
-def test_multi_penalty_winner_denominator_counts_all_implied_winners():
-    """The pens-path denominator spans every pick implying that winner —
+def test_multi_advancer_denominator_counts_all_implied_winners():
+    """The pens-path denominator spans every pick advancing that winner —
     decisive picks and shootout-carrying draw picks alike."""
     decisive = _pred(h=2, a=1)                     # implies BRA
     draw_bra = _pred(h=1, a=1, penalty_winner="BRA",
                      home_penalties=5, away_penalties=3)  # names BRA
     out = potential_max_scores_multi(
-        {1: [decisive], 2: [draw_bra]}, _pools(reg=100, pen=900), "BRA", "ARG",
+        {1: [decisive], 2: [draw_bra]}, _pools(reg=100, adv=900), "BRA", "ARG",
     )
     (bc1,) = out[1]
     # Decisive pick: sole winner of every regulation pool under its own
     # scenario (the draw pick shares none of them) = 300; pens path = 900/2
-    # (both users imply BRA) = 450 → the bigger wins.
+    # (both users advance BRA) = 450 → the bigger wins.
     assert bc1.regulation == Decimal("300")
     assert bc1.with_penalties == Decimal("450")

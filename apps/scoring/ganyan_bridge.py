@@ -53,6 +53,7 @@ def _stage_pools(slot: BracketSlot) -> ganyan.StagePools:
         pool_penalty_winner=s.pool_penalty_winner,
         pool_penalty_score=s.pool_penalty_score,
         pool_penalty_diff=s.pool_penalty_diff,
+        pool_advancer=s.pool_advancer,
     )
 
 
