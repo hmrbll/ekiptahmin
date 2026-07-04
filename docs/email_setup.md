@@ -176,6 +176,10 @@ there is `scripts/send-round-reminder-prod.ps1`: it loads `.env`, overrides
 `DATABASE_URL` with `PROD_DATABASE_URL`, uses `config.settings.prod` (Resend
 SMTP) + `SITE_URL=https://ekiptahmin.com`, aborts loudly if `RESEND_API_KEY`
 is empty in `.env`, and appends every run to `_logs/round_reminder_<date>.log`.
+It also points `SSL_CERT_FILE` at the venv's certifi bundle: the Windows cert
+store rejects smtp.resend.com's Let's Encrypt chain with "certificate has
+expired" (seen 2026-07-04, killed the 12:30 send), and
+`ssl.create_default_context()` honors `SSL_CERT_FILE` over the system store.
 First used 2026-07-04 (Windows Task Scheduler one-shot at 12:30 TRT for the
 "R32 sonrası" round, retrying every 30 min while the round's last dependency
 result hadn't landed).
