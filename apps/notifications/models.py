@@ -22,6 +22,7 @@ class EmailLog(models.Model):
     ONBOARDING = "onboarding"
     MAGIC_LINK_SIGNUP = "magic_link_signup"
     MAGIC_LINK_LOGIN = "magic_link_login"
+    ROUND_REMINDER = "round_reminder"
     KIND_CHOICES = [
         (DAILY_MORNING, "Daily — sabah"),
         (DAILY_EVENING, "Daily — akşam"),
@@ -29,6 +30,7 @@ class EmailLog(models.Model):
         (ONBOARDING, "Onboarding"),
         (MAGIC_LINK_SIGNUP, "Magic link — kayıt"),
         (MAGIC_LINK_LOGIN, "Magic link — giriş"),
+        (ROUND_REMINDER, "Tur — tahmin hatırlatma"),
     ]
 
     # Delivery outcome as seen at send time. NOTE: SENT only means the backend
