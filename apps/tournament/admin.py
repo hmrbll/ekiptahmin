@@ -11,7 +11,7 @@ class StageInline(admin.TabularInline):
     fields = (
         "order", "kind",
         "pool_exact", "pool_diff", "pool_result",
-        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
+        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff", "pool_advancer",
         "points_exact", "points_diff", "points_result", "penalty_loser_pct",
     )
     ordering = ("order",)
@@ -38,13 +38,13 @@ class StageAdmin(admin.ModelAdmin):
     list_display = (
         "tournament", "order", "kind",
         "pool_exact", "pool_diff", "pool_result",
-        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
+        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff", "pool_advancer",
         "points_exact", "points_diff", "points_result", "penalty_loser_pct",
     )
     list_filter = ("tournament", "kind")
     list_editable = (
         "pool_exact", "pool_diff", "pool_result",
-        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
+        "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff", "pool_advancer",
         "points_exact", "points_diff", "points_result", "penalty_loser_pct",
     )
     ordering = ("tournament", "order")
@@ -53,7 +53,7 @@ class StageAdmin(admin.ModelAdmin):
         ("Ganyan pools (active engine)", {
             "fields": (
                 "pool_exact", "pool_diff", "pool_result",
-                "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff",
+                "pool_penalty_winner", "pool_penalty_score", "pool_penalty_diff", "pool_advancer",
             ),
             "description": (
                 "Pool sizes split equally among users who get each criterion right. "

@@ -11,10 +11,10 @@ This is the parimutuel ganyan model from horse racing applied to football predic
 
 ## Core formula
 
-For a played match `M`, for each criterion `c ∈ {exact, diff, result, penalty_winner, penalty_score, penalty_diff}`:
+For a played match `M`, for each criterion `c ∈ {exact, diff, result, penalty_winner, penalty_score, penalty_diff, advancer}`:
 
 ```
-pool_c        = Stage(M).pool_<c>          # admin-tunable, 100 regulation / 25 penalty
+pool_c        = Stage(M).pool_<c>          # admin-tunable, 100 regulation / 25 shootout+advancer
 N             = unique users who predicted M in any round
 W_c           = unique users whose at-least-one round prediction satisfies c
 base_payout_c = pool_c / |W_c|             # if |W_c| == 0 the pool burns
@@ -100,15 +100,24 @@ If no user satisfies criterion `c`, `|W_c| = 0` and the pool burns (no one is pa
 
 ## Penalty pools (knockout only)
 
-When a KO match goes to penalties (`ActualResult.went_to_penalties = True`), three extra criteria are scored **on top of** the regulation ones (which still score the 90' scoreline). Each is its own pool, default 25, split equally among its winners — same formula and burn rule as the regulation pools.
+When a KO match goes to penalties (`ActualResult.went_to_penalties = True`), four extra criteria are scored **on top of** the regulation ones (which still score the 90'/120' scoreline). Each is its own pool, default 25, split equally among its winners — same formula and burn rule as the regulation pools.
 
 | Criterion | Wins when… | Open to |
 |-----------|------------|---------|
-| `penalty_winner` | named the team that advanced via penalties | **any** prediction — implied winner from a non-draw, or the `penalty_winner` derived from the shootout score on a draw (the user never picks it; `SlotPrediction.clean()` sets it from the never-tied shootout score) |
+| `penalty_winner` | named the shootout winner | **draw (shootout) predictions only** — a decisive pick didn't predict penalties, so this pool is closed to it; it competes in `advancer` instead |
 | `penalty_score` | predicted the exact shootout score (e.g. 4–2) | **draw predictions only** (only they carry a shootout score) |
 | `penalty_diff` | predicted the shootout goal difference, signed home−away | **draw predictions only** |
+| `advancer` | named the advancing team ("turlayan") | **any** prediction — implied winner from a non-draw scoreline, or the chosen shootout winner on a draw |
 
-All three require the predicted matchup (home/away teams) to line up with the actual one. The headline `outcome` badge collapses the three into a single `penalty` tier, shown only when the user earned from a penalty criterion but missed all three regulation tiers; `GanyanScore.score_penalty` stores the combined payout, while `MatchPool` keeps the per-criterion split for the match-detail tablosu.
+All four require the predicted matchup (home/away teams) to line up with the actual one. The headline `outcome` badge collapses the four into a single `penalty` tier, shown only when the user earned from a shootout criterion but missed all three regulation tiers; `GanyanScore.score_penalty` stores the combined payout, while `MatchPool` keeps the per-criterion split for the match-detail tablosu.
+
+> **2026-07-04 rule change.** `penalty_winner` used to be a single pool open to
+> any prediction via the implied winner. It was split in two: the shootout-only
+> `penalty_winner` pool (rewards actually predicting the shootout) and the
+> all-comers `advancer` pool (rewards sending the right team through). The
+> `advancer` pool only exists on matches that went to penalties — a match
+> decided in 90'/120' already rewards the winner side through the `result`
+> pool, which judges the 120' scoreline.
 
 This replaces the legacy `penalty_loser_pct = 0.60` mechanic with a pool-based one.
 
@@ -181,9 +190,9 @@ Each pick is its own row, tagged with a **round-weight badge** — e.g. `(0,85x)
   - `pool_exact` (default 100)
   - `pool_diff` (default 100)
   - `pool_result` (default 100)
-  - `pool_penalty_winner`, `pool_penalty_score`, `pool_penalty_diff` (default 25 each, only used on KO stages that go to penalties)
+  - `pool_penalty_winner`, `pool_penalty_score`, `pool_penalty_diff`, `pool_advancer` (default 25 each, only used on KO stages that go to penalties; `pool_advancer` added in `tournament/0013`, 2026-07-04)
   - Legacy fields (`points_exact`, `points_diff`, `points_result`, `penalty_loser_pct`) stay — used by the legacy engine.
-  - **Pool sizes are admin-owned.** `seed_wc2026` writes them only on first Stage creation (`create_defaults`); deploys never re-sync them, so a value edited in Stage admin persists. All stages currently use the uniform 100/100/100 + 25/25/25 scheme (equalized to 100/100/100 + 50/50/50 in `tournament/0009_equalize_ganyan_pools`, penalty pools then lowered 50→25 in `tournament/0012`; both only retune rows still on the old default).
+  - **Pool sizes are admin-owned.** `seed_wc2026` writes them only on first Stage creation (`create_defaults`); deploys never re-sync them, so a value edited in Stage admin persists. All stages currently use the uniform 100/100/100 + 25/25/25/25 scheme (equalized to 100/100/100 + 50/50/50 in `tournament/0009_equalize_ganyan_pools`, penalty pools then lowered 50→25 in `tournament/0012`; both only retune rows still on the old default).
 
 ### New
 
@@ -199,7 +208,7 @@ Each pick is its own row, tagged with a **round-weight badge** — e.g. `(0,85x)
 
 - **`MatchPool`** (in `apps/scoring/`)
   - `slot` (FK)
-  - `criterion` (exact / diff / result / penalty_winner / penalty_score / penalty_diff)
+  - `criterion` (exact / diff / result / penalty_winner / penalty_score / penalty_diff / advancer)
   - `pool_size` (snapshot of `Stage.pool_<criterion>` at compute time)
   - `winner_count` (|W_c|)
   - `base_payout` (`pool_size / winner_count` or null if burned)

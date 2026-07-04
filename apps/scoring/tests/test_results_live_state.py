@@ -187,8 +187,10 @@ class TestPenaltyPoolPredictionCount:
 
         # Everyone has an exact/diff/result value and an implied advancer (ZAF)…
         assert counts["exact"] == 2
-        assert counts["penalty_winner"] == 2
-        # …but nobody entered a shootout score → these are 0, not the match N.
+        assert counts["advancer"] == 2
+        # …but nobody predicted the shootout → every shootout-only pool shows 0
+        # (the penalty_winner pool is closed to decisive picks), not the match N.
+        assert counts["penalty_winner"] == 0
         assert counts["penalty_score"] == 0
         assert counts["penalty_diff"] == 0
 

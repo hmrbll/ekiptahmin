@@ -305,13 +305,17 @@ _CRITERION_LABEL_TR = {
     MatchPool.EXACT: "Tam skor",
     MatchPool.DIFF: "Doğru fark",
     MatchPool.RESULT: "Doğru sonuç",
-    MatchPool.PENALTY_WINNER: "Penaltı turlatan",
+    MatchPool.ADVANCER: "Turlayan",
+    MatchPool.PENALTY_WINNER: "Penaltı kazananı",
     MatchPool.PENALTY_SCORE: "Penaltı skoru",
     MatchPool.PENALTY_DIFF: "Penaltı farkı",
 }
 
-# Penalty criteria only render once a KO match has gone to penalties.
-_PENALTY_CRITERIA = (MatchPool.PENALTY_WINNER, MatchPool.PENALTY_SCORE, MatchPool.PENALTY_DIFF)
+# Shootout criteria only render once a KO match has gone to penalties.
+_PENALTY_CRITERIA = (
+    MatchPool.ADVANCER, MatchPool.PENALTY_WINNER,
+    MatchPool.PENALTY_SCORE, MatchPool.PENALTY_DIFF,
+)
 
 # Result direction key → TR label for the "result" criterion breakdown.
 _RESULT_KEY_TR = {"H": "Ev sahibi kazanır", "A": "Deplasman kazanır", "D": "Berabere"}
@@ -363,6 +367,7 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
     # Sort criteria in the order we display them.
     criterion_order = [
         MatchPool.EXACT, MatchPool.DIFF, MatchPool.RESULT,
+        MatchPool.ADVANCER,
         MatchPool.PENALTY_WINNER, MatchPool.PENALTY_SCORE, MatchPool.PENALTY_DIFF,
     ]
     pools_by_criterion = {p.criterion: p for p in pools}
@@ -383,9 +388,9 @@ def match_detail(request: HttpRequest, slot_id: int) -> HttpResponse:
             "rows": rows,
             # Per-criterion prediction count = the breakdown total, NOT the
             # match-level predictor_count. They match for exact/diff/result/
-            # penalty_winner (everyone has a value), but penalty_score/diff only
-            # count draw-predictors who entered a shootout score — so a decisive
-            # match shows "0 tahmin" here instead of the misleading match N.
+            # advancer (everyone has a value), but the shootout-only pools
+            # (penalty winner/score/diff) only count draw-predictors — so a
+            # decisive match shows "0 tahmin" here instead of the misleading N.
             "prediction_count": sum(r["count"] for r in rows),
             "winning_key": _winning_breakdown_key(c, slot, actual) if actual else None,
         })
@@ -449,7 +454,7 @@ def _winning_breakdown_key(criterion: str, slot: BracketSlot, actual: ActualResu
         if actual.home_score < actual.away_score:
             return "A"
         return "D"
-    if criterion == MatchPool.PENALTY_WINNER:
+    if criterion in (MatchPool.PENALTY_WINNER, MatchPool.ADVANCER):
         return actual.penalty_winner.code if actual.penalty_winner_id else ""
     if criterion == MatchPool.PENALTY_SCORE:
         if actual.home_penalties is None or actual.away_penalties is None:

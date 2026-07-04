@@ -18,6 +18,7 @@ def _pools():
     return StagePools(
         pool_exact=100, pool_diff=100, pool_result=100,
         pool_penalty_winner=50, pool_penalty_score=50, pool_penalty_diff=50,
+        pool_advancer=50,
     )
 
 

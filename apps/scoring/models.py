@@ -174,13 +174,15 @@ class MatchPool(models.Model):
     PENALTY_WINNER = "penalty_winner"
     PENALTY_SCORE = "penalty_score"
     PENALTY_DIFF = "penalty_diff"
+    ADVANCER = "advancer"
     CRITERION_CHOICES = [
         (EXACT, "Exact score"),
         (DIFF, "Goal difference"),
         (RESULT, "Outcome (1X2)"),
-        (PENALTY_WINNER, "Penalty advancer"),
+        (PENALTY_WINNER, "Penalty shootout winner (shootout predictions only)"),
         (PENALTY_SCORE, "Penalty shootout exact score"),
         (PENALTY_DIFF, "Penalty shootout difference"),
+        (ADVANCER, "Advancing team (open to all, pens matches only)"),
     ]
 
     slot = models.ForeignKey(
