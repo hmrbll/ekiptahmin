@@ -85,6 +85,13 @@ $env:SITE_URL = "https://ekiptahmin.com"
 $env:ALLOWED_HOSTS = "ekiptahmin.com"
 $env:DEBUG = "False"
 $env:DEFAULT_FROM_EMAIL = '"ekiptahmin.com" <noreply@ekiptahmin.com>'
+# The Windows cert store rejects smtp.resend.com's Let's Encrypt chain with
+# "certificate has expired" (seen 2026-07-04, killed the 12:30 send); point
+# OpenSSL at certifi's Mozilla bundle instead — create_default_context()
+# honors SSL_CERT_FILE in addition to the system store.
+$certifi = Join-Path $RepoRoot ".venv\Lib\site-packages\certifi\cacert.pem"
+if (Test-Path $certifi) { $env:SSL_CERT_FILE = $certifi }
+
 # Readable UTF-8 command output in the log (Turkish chars, emoji).
 $env:PYTHONIOENCODING = "utf-8"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
