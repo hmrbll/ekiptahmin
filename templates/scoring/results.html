@@ -101,6 +101,9 @@
                                         <span class="truncate">{{ entry.prediction.away_team.name_tr }}</span>
                                     </div>
                                 </div>
+                                {% if entry.prediction.penalty_winner %}
+                                <div class="mt-1 text-xs text-fg-muted text-center">pen: {{ entry.prediction.penalty_winner.code }} {{ entry.prediction.home_penalties }}–{{ entry.prediction.away_penalties }}</div>
+                                {% endif %}
                                 {% else %}
                                 <div class="text-xs text-fg-muted">— tahmin yok</div>
                                 {% endif %}

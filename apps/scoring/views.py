@@ -232,7 +232,7 @@ def results_list(request: HttpRequest) -> HttpResponse:
     all_preds = (
         SlotPrediction.objects
         .filter(slot_id__in=slot_ids, user_id__in={uid for uid, _ in user_slot_pairs})
-        .select_related("home_team", "away_team", "prediction_round")
+        .select_related("home_team", "away_team", "penalty_winner", "prediction_round")
         .order_by("user_id", "slot_id", "-prediction_round__order")
     )
     preds_by_user_slot: dict[tuple[int, int], list] = {}

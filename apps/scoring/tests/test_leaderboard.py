@@ -82,6 +82,22 @@ def slot1(t, group_stage, tur, bra):
 
 
 @pytest.fixture
+def ko_slot(t, pre_round, tur, bra):
+    """A knockout slot whose stage the pre_round can edit — for penalty picks."""
+    ko_stage = Stage.objects.create(
+        tournament=t, kind=Stage.R16, order=1,
+        points_exact=6, points_diff=4, points_result=2,
+        penalty_loser_pct=Decimal("0.60"),
+    )
+    pre_round.editable_stages.add(ko_stage)
+    return BracketSlot.objects.create(
+        tournament=t, stage=ko_stage, position="R16-1",
+        scheduled_kickoff=timezone.now() + timedelta(days=12),
+        home_team_actual=tur, away_team_actual=bra,
+    )
+
+
+@pytest.fixture
 def slot2(t, group_stage, tur, bra):
     return BracketSlot.objects.create(
         tournament=t, stage=group_stage, position="GroupA-M2",
@@ -267,6 +283,22 @@ class TestUserDetailView:
         assert b"GroupA-M1" in r.content
         assert "Tam skor".encode("utf-8") in r.content
 
+    def test_shows_penalty_pick_under_prediction(
+        self, client, t, pre_round, ko_slot, tur, bra,
+    ):
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=ko_slot,
+            home_team=tur, away_team=bra, home_score=2, away_score=2,
+            home_penalties=4, away_penalties=3, penalty_winner=tur,
+        )
+        ActualResult.objects.create(slot=ko_slot, home_score=1, away_score=0)
+        client.force_login(u)
+        r = client.get(reverse("leaderboard_user_detail", args=[u.id]))
+        body = r.content.decode("utf-8")
+        assert "2–2" in body
+        assert "pen: TUR 4–3" in body
+
     def test_renders_empty_state_for_user_with_no_scores(
         self, client, t,
     ):
@@ -342,6 +374,21 @@ class TestResultsView:
         # the user's prediction row).
         assert body.count("Türkiye") >= 2
         assert body.count("Brezilya") >= 2
+
+    def test_shows_penalty_pick_in_user_prediction_row(
+        self, client, t, pre_round, ko_slot, tur, bra,
+    ):
+        u = User.objects.create_user(email="me@x.com", username="me@x.com", nickname="Me")
+        SlotPrediction.objects.create(
+            user=u, prediction_round=pre_round, slot=ko_slot,
+            home_team=tur, away_team=bra, home_score=1, away_score=1,
+            home_penalties=5, away_penalties=4, penalty_winner=tur,
+        )
+        ActualResult.objects.create(slot=ko_slot, home_score=2, away_score=0)
+        client.force_login(u)
+        body = client.get(reverse("results")).content.decode("utf-8")
+        assert "1–1" in body
+        assert "pen: TUR 5–4" in body
 
     def test_excludes_slots_without_actual_result(
         self, client, t, pre_round, slot1, slot2, tur, bra,
