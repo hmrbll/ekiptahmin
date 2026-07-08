@@ -117,7 +117,13 @@ A slot is "live" for syncing from **15 min before kickoff until it's
 FINISHED ever arrives (manual entry / API gap), it also stops once we're past
 the match's expected end + 30 min — per stage, since knockouts run longer:
 `live_cap` = **140 min** after kickoff for group (≈110' play + 30' grace),
-**180 min** for knockout (extra time + penalties + grace). The same cap bounds
+**210 min** for knockout (extra time + a long shootout + grace). A **knockout**
+the provider still reports `IN_PLAY`/`PAUSED` stays in the window past its
+stage cap, up to a **300 min** hard stop (`LIVE_STATUS_HARD_CAP`): a shootout
+that outruns the cap keeps polling until FINISHED instead of freezing
+mid-shootout (the İsviçre–Kolombiya incident — see below). Group matches never
+get the extension (no ET → a live status past the cap is always a provider
+gap). The single predicate is `still_live()`, which also bounds
 the display via `live_syncs()` — the one definition of "currently live" shared
 by the homepage "CANLI" module (which renders those rows), the "Son sonuçlar"
 list (which excludes their slots), **and** the played-matches log (`/results/`)
@@ -162,6 +168,17 @@ The **`ekiptahmin-live-sync` cron** (`render.yaml`, every 5 min) closes that gap
 run safely alongside the visitor trigger, which still drives snappy in-play
 updates for active viewers. **The cron needs its own `FOOTBALL_DATA_API_KEY`** in
 the Render dashboard (`sync:false`), separate from the web service.
+
+> ⚠️ **Frozen-shootout incident (İsviçre–Kolombiya, R16 2026).** The knockout
+> cap was 180 min and the live window ignored the provider status, so the
+> window closed while the shootout was still running; `finalize_stale_syncs`
+> then sealed the frozen 120' draw as final and — `finalized` rows never being
+> re-fetched — the penalties never landed on the site. Three-part fix: the
+> knockout cap is now 210 min, a knockout still reported in play keeps polling
+> up to the 300 min hard stop, and `finalize_stale_syncs` refuses to finalize a
+> knockout result that cannot be final (level score, no shootout winner) —
+> it warns and points at `resync_slots <position>` instead. The stuck row
+> itself is repaired with `python manage.py resync_slots <position>`.
 
 ## Bracket resolver (`apps/tournament/resolver.py`)
 
