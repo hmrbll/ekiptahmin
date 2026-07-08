@@ -104,6 +104,9 @@
                                     <span class="font-mono text-fg-soft whitespace-nowrap px-1">{{ row.prediction.home_score }}–{{ row.prediction.away_score }}</span>
                                     <span class="truncate">{{ row.prediction.away_team.name_tr }}</span>
                                 </div>
+                                {% if row.prediction.penalty_winner %}
+                                <div class="text-xs text-fg-muted mt-1 text-center">pen: {{ row.prediction.penalty_winner.code }} {{ row.prediction.home_penalties }}–{{ row.prediction.away_penalties }}</div>
+                                {% endif %}
                                 {% elif row.prediction_hidden %}
                                 <div class="text-sm text-fg-muted">— tur kapanınca görünür</div>
                                 {% else %}
