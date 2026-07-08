@@ -34,6 +34,61 @@ def test_finalizes_in_play_match_past_cap_with_result(tournament, group_stage, t
 
 
 @pytest.mark.django_db
+def test_in_play_knockout_within_hard_cap_left_polling(tournament, knockout_stage, teams):
+    """A knockout past its stage cap but still IN_PLAY within the hard cap: the
+    poller can still grab the real FINISHED score, so the row must not be frozen."""
+    now = timezone.now()
+    s = _slot(tournament, knockout_stage, teams, "R16-4", now - timedelta(hours=4))
+    ms = MatchSync.objects.create(slot=s, external_id="6", status="IN_PLAY")
+    ActualResult.objects.create(slot=s, home_score=0, away_score=1, source="API")
+
+    call_command("finalize_stale_syncs")
+
+    ms.refresh_from_db()
+    assert ms.finalized is False
+    assert ms.status == "IN_PLAY"
+
+
+@pytest.mark.django_db
+def test_incomplete_knockout_result_not_finalized(tournament, knockout_stage, teams, capsys):
+    """A knockout frozen mid-live — level score, no shootout winner — must not
+    be sealed as final (finalized rows are never re-fetched; this is how the
+    İsviçre–Kolombiya penalties got lost). Flagged for resync_slots instead."""
+    now = timezone.now()
+    s = _slot(tournament, knockout_stage, teams, "R16-5", now - timedelta(hours=6))
+    ms = MatchSync.objects.create(slot=s, external_id="7", status="IN_PLAY")
+    ActualResult.objects.create(
+        slot=s, home_score=1, away_score=1, source="API",
+        went_to_extra_time=True, home_score_aet=1, away_score_aet=1,
+    )
+
+    call_command("finalize_stale_syncs")
+
+    ms.refresh_from_db()
+    assert ms.finalized is False
+    assert "resync_slots R16-5" in capsys.readouterr().out
+
+
+@pytest.mark.django_db
+def test_complete_knockout_shootout_finalizes(tournament, knockout_stage, teams):
+    """A level knockout WITH a shootout winner is a complete result → finalized."""
+    now = timezone.now()
+    s = _slot(tournament, knockout_stage, teams, "R16-6", now - timedelta(hours=6))
+    ms = MatchSync.objects.create(slot=s, external_id="8", status="IN_PLAY")
+    ActualResult.objects.create(
+        slot=s, home_score=1, away_score=1, source="API",
+        went_to_extra_time=True, home_score_aet=1, away_score_aet=1,
+        went_to_penalties=True, home_penalties=4, away_penalties=3,
+        penalty_winner=teams["TUR"],
+    )
+
+    call_command("finalize_stale_syncs")
+
+    ms.refresh_from_db()
+    assert ms.finalized is True
+
+
+@pytest.mark.django_db
 def test_finalizes_finished_status_not_yet_finalized(tournament, group_stage, teams):
     """FINISHED but finalized=False (e.g. a manual result) → finalized."""
     now = timezone.now()

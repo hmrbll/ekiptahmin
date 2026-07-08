@@ -71,13 +71,39 @@ def test_no_live_window_makes_no_api_call(tournament, group_stage, teams, monkey
 
 
 def test_match_past_live_cap_drops_out_of_window(tournament, group_stage, teams):
-    # Group cap is 140 min; a slot 2.5h past kickoff is no longer "live".
+    # Group cap is 140 min; a slot 2.5h past kickoff is no longer "live" —
+    # groups never go to ET, so a live status past the cap is a provider gap
+    # and does NOT extend the window (unlike knockouts, below).
     s = BracketSlot.objects.create(
         tournament=tournament, stage=group_stage, position="GroupA-M5",
         scheduled_kickoff=timezone.now() - timedelta(hours=2, minutes=30),
         home_team_actual=teams["TUR"], away_team_actual=teams["BRA"],
     )
     MatchSync.objects.create(slot=s, external_id="555", status="IN_PLAY")
+    assert sync.slots_in_live_window(tournament) == []
+
+
+def test_in_play_match_keeps_polling_past_stage_cap(tournament, knockout_stage, teams):
+    # The İsviçre–Kolombiya regression: a knockout shootout can outrun the
+    # stage cap (210'). While the provider still says IN_PLAY the slot must
+    # stay in the sync window, or the final penalties are never fetched.
+    s = BracketSlot.objects.create(
+        tournament=tournament, stage=knockout_stage, position="R16-5",
+        scheduled_kickoff=timezone.now() - timedelta(hours=3, minutes=45),
+        home_team_actual=teams["TUR"], away_team_actual=teams["BRA"],
+    )
+    MatchSync.objects.create(slot=s, external_id="556", status="IN_PLAY")
+    assert [x.position for x in sync.slots_in_live_window(tournament)] == ["R16-5"]
+
+
+def test_in_play_match_past_hard_cap_drops_out(tournament, knockout_stage, teams):
+    # A status stuck IN_PLAY forever (API gap) is bounded by the hard cap.
+    s = BracketSlot.objects.create(
+        tournament=tournament, stage=knockout_stage, position="R16-6",
+        scheduled_kickoff=timezone.now() - timedelta(hours=5, minutes=30),
+        home_team_actual=teams["TUR"], away_team_actual=teams["BRA"],
+    )
+    MatchSync.objects.create(slot=s, external_id="557", status="IN_PLAY")
     assert sync.slots_in_live_window(tournament) == []
 
 

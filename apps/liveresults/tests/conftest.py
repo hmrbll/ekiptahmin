@@ -24,6 +24,14 @@ def group_stage(tournament):
 
 
 @pytest.fixture
+def knockout_stage(tournament):
+    return Stage.objects.create(
+        tournament=tournament, kind=Stage.R16, order=2,
+        points_exact=6, points_diff=4, points_result=2,
+    )
+
+
+@pytest.fixture
 def teams(tournament):
     tur = Team.objects.create(tournament=tournament, code="TUR", name_tr="Türkiye", group_letter="A")
     bra = Team.objects.create(tournament=tournament, code="BRA", name_tr="Brezilya", group_letter="A")

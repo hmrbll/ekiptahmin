@@ -21,8 +21,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from apps.liveresults.models import MatchSync
-from apps.liveresults.sync import live_cap
-from apps.tournament.models import ActualResult
+from apps.liveresults.sync import still_live
+from apps.tournament.models import ActualResult, Stage
 
 
 class Command(BaseCommand):
@@ -42,7 +42,7 @@ class Command(BaseCommand):
         dry = opts["dry_run"]
         now = timezone.now()
 
-        scored_slot_ids = set(ActualResult.objects.values_list("slot_id", flat=True))
+        results_by_slot = {ar.slot_id: ar for ar in ActualResult.objects.all()}
         rows = (
             MatchSync.objects
             .filter(finalized=False)
@@ -53,13 +53,29 @@ class Command(BaseCommand):
         fixed = 0
         for ms in rows:
             # Only matches we actually have a final score for are "over".
-            if ms.slot_id not in scored_slot_ids:
+            result = results_by_slot.get(ms.slot_id)
+            if result is None:
                 continue
-            past_cap = now > ms.slot.scheduled_kickoff + live_cap(ms.slot.stage.kind)
+            past_cap = not still_live(ms.slot, ms.status, now)
             is_finished = ms.status == MatchSync.STATUS_FINISHED
-            # Never touch a match still within its live cap — it may genuinely be
-            # in play (the ActualResult is then just the live running score).
+            # Never touch a match still within its live window — it may genuinely
+            # be in play (the ActualResult is then just the live running score).
             if not (is_finished or past_cap):
+                continue
+            # A knockout can't end level without a shootout winner: this result
+            # is a live score frozen mid-match, not a final one. Finalizing
+            # would lock it in (the poller never re-fetches finalized matches),
+            # so leave it open and flag it for `resync_slots <position>`.
+            if (
+                not is_finished
+                and ms.slot.stage.kind != Stage.GROUP
+                and result.penalty_winner_id is None
+                and result.effective_home_score == result.effective_away_score
+            ):
+                self.stdout.write(self.style.WARNING(
+                    f"  ! {ms.slot.position}: level result with no shootout winner — "
+                    f"not finalizing; run `resync_slots {ms.slot.position}`."
+                ))
                 continue
 
             self.stdout.write(

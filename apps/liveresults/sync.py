@@ -25,7 +25,7 @@ from datetime import timedelta
 from django.core.cache import cache
 from django.utils import timezone
 
-from apps.tournament.models import ActualResult, BracketSlot, Tournament
+from apps.tournament.models import ActualResult, BracketSlot, Stage, Tournament
 
 from .client import FootballDataClient, FootballDataError
 from .models import MatchSync
@@ -38,13 +38,34 @@ from .score import ScoreMappingError, map_score
 # can run to extra time + penalties.
 LIVE_LEAD = timedelta(minutes=15)
 _LIVE_CAP_MINUTES = {"GROUP": 140}   # ~110' play + 30' grace
-_LIVE_CAP_DEFAULT = 180              # knockout: up to ET + penalties + grace
+_LIVE_CAP_DEFAULT = 210              # knockout: ET + a long shootout + grace
+
+# The knockout stage cap is only the fallback for a FINISHED that never
+# arrives. While the provider still says IN_PLAY/PAUSED the match IS live — a
+# long shootout can outrun the stage cap (İsviçre–Kolombiya: the window closed
+# mid-shootout, the cron froze the 120' draw as final and the penalties never
+# landed). Such a match stays in the window up to this hard stop, which in
+# turn bounds a status stuck live forever on an API gap. Group matches never
+# get the extension: with no extra time they can't legitimately outrun their
+# cap, so a live status past it is always a provider gap.
+LIVE_STATUS_HARD_CAP = timedelta(minutes=300)
 
 
 def live_cap(stage_kind: str) -> timedelta:
     """How long after kickoff a match can still count as live without a FINISHED
     signal. Knockouts get the longer cap (extra time + penalties)."""
     return timedelta(minutes=_LIVE_CAP_MINUTES.get(stage_kind, _LIVE_CAP_DEFAULT))
+
+
+def still_live(slot: BracketSlot, status: str, now) -> bool:
+    """Single definition of "inside the live window": within the per-stage cap,
+    or — for a knockout the provider still reports in play — within the longer
+    LIVE_STATUS_HARD_CAP. Shared by the sync window, the homepage live module
+    and finalize_stale_syncs so a match can't fall between them."""
+    deadline = slot.scheduled_kickoff + live_cap(slot.stage.kind)
+    if status in MatchSync.LIVE_STATUSES and slot.stage.kind != Stage.GROUP:
+        deadline = max(deadline, slot.scheduled_kickoff + LIVE_STATUS_HARD_CAP)
+    return now <= deadline
 
 # Web trigger throttle: at most one external sync per this many seconds.
 SYNC_THROTTLE_SECONDS = 45
@@ -83,28 +104,31 @@ class SyncReport:
 
 def slots_in_live_window(tournament: Tournament, now=None):
     """Mapped, not-finalized slots from 15 min before kickoff until their
-    per-stage live cap (the FINISHED flag is the usual earlier stop)."""
+    per-stage live cap (the FINISHED flag is the usual earlier stop). A match
+    still reported in play keeps polling past the cap — see still_live."""
     now = now or timezone.now()
     candidates = (
         BracketSlot.objects
         .filter(
             tournament=tournament,
             scheduled_kickoff__lte=now + LIVE_LEAD,
-            scheduled_kickoff__gte=now - timedelta(minutes=_LIVE_CAP_DEFAULT),
+            scheduled_kickoff__gte=now - LIVE_STATUS_HARD_CAP,
             live_sync__finalized=False,
         )
         .exclude(live_sync__external_id="")
         .select_related("live_sync", "home_team_actual", "away_team_actual", "stage")
         .order_by("scheduled_kickoff")
     )
-    return [s for s in candidates if now <= s.scheduled_kickoff + live_cap(s.stage.kind)]
+    return [s for s in candidates if still_live(s, s.live_sync.status, now)]
 
 
 def live_syncs(tournament: Tournament, now=None) -> list[MatchSync]:
     """MatchSync rows for matches that are *currently* live, kickoff-ordered.
 
     "Currently live" = provider status IN_PLAY/PAUSED, not finalized, AND still
-    within the per-stage `live_cap`. A match stuck IN_PLAY past its cap (FINISHED
+    within the live window (`still_live`: the per-stage cap, extended to
+    LIVE_STATUS_HARD_CAP for a knockout whose status stays in play — a running
+    shootout stays CANLI). A match stuck IN_PLAY past that limit (FINISHED
     never arrived — API gap or a manually entered result) is NOT live: it has
     dropped out of the poller's window and belongs in "recent results" instead.
 
@@ -122,7 +146,7 @@ def live_syncs(tournament: Tournament, now=None) -> list[MatchSync]:
         .select_related("slot__stage", "slot__home_team_actual", "slot__away_team_actual")
         .order_by("slot__scheduled_kickoff")
     )
-    return [ms for ms in rows if now <= ms.slot.scheduled_kickoff + live_cap(ms.slot.stage.kind)]
+    return [ms for ms in rows if still_live(ms.slot, ms.status, now)]
 
 
 def _penalty_winner_team(slot: BracketSlot, side: str | None):
@@ -161,7 +185,7 @@ def sync_live_matches(tournament: Tournament | None = None, *, dry_run: bool = F
         report.errors.append("FOOTBALL_DATA_API_KEY not set.")
         return report
 
-    date_from = (now - timedelta(minutes=_LIVE_CAP_DEFAULT)).date().isoformat()
+    date_from = (now - LIVE_STATUS_HARD_CAP).date().isoformat()
     date_to = (now + LIVE_LEAD).date().isoformat()
     try:
         matches = client.get_competition_matches(date_from=date_from, date_to=date_to)
