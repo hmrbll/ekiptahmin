@@ -269,3 +269,7 @@ python manage.py recompute_ganyan     # rebuild GanyanScore + MatchPool cache
 ```
 
 Both are idempotent; trigger after Stage pool edits in admin (signals don't fire on Stage saves).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
