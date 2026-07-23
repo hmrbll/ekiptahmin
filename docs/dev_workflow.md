@@ -122,3 +122,28 @@ What it does, in order:
 - After a pull, the local DB contains **real user emails**. Dev's email
   backend writes `.eml` files to `_dev_emails/` instead of sending, so
   nothing can reach real inboxes — don't change `EMAIL_BACKEND` in dev.
+
+## Backing up production (before teardown)
+
+[scripts/backup-prod-db.ps1](../scripts/backup-prod-db.ps1) takes a durable,
+**read-only** snapshot of production without touching the local database — use
+it before deleting the Render database or shutting the service down.
+
+```powershell
+.\scripts\backup-prod-db.ps1
+```
+
+It `pg_dump`s `PROD_DATABASE_URL` to two timestamped files under `backups/`
+(gitignored, may contain personal data):
+
+- `ekiptahmin_prod_<ts>.dump` — custom format, restore with `pg_restore`.
+- `ekiptahmin_prod_<ts>.sql` — plain SQL, human-readable and restorable even
+  without the exact prod PostgreSQL version.
+
+Unlike `pull-prod-db.ps1`, it never opens, drops, or modifies the local DB.
+Restore later into a fresh local database with:
+
+```powershell
+createdb ekiptahmin
+pg_restore --no-owner --no-privileges -d ekiptahmin "backups\ekiptahmin_prod_<ts>.dump"
+```
