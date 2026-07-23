@@ -55,3 +55,6 @@ _debug_*.py
 
 # Local analyses (local-only)
 analysis/
+
+# Database backups (local-only, may contain personal data)
+backups/
